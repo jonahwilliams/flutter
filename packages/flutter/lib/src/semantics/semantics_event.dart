@@ -133,3 +133,18 @@ class TapSemanticEvent extends SemanticsEvent {
   @override
   Map<String, dynamic> getDataMap() => const <String, dynamic>{};
 }
+
+/// An event which triggers an interruptable semantic announcement.
+///
+/// Currently on honored on Android. Triggers an interruptable announcement of
+/// an unfocused semantic object.  Typically this is used for widgets such as
+/// the [SnackBar] which appears elsewhere on the screen when the user performs
+/// an action.
+class PoliteAnnounceSemanticEvent extends SemanticsEvent {
+
+  /// Constructs an event which triggers an interruptable semantic announcement.
+  const PoliteAnnounceSemanticEvent() : super('polite');
+
+  @override
+  Map<String, dynamic> getDataMap() => const <String, dynamic>{};
+}

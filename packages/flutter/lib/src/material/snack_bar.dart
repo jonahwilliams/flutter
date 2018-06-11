@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/widgets.dart';
 
 import 'button_theme.dart';
@@ -281,4 +284,36 @@ class SnackBar extends StatelessWidget {
       animation: newAnimation,
     );
   }
+}
+
+class SnackBarSemanticUpdater extends StatefulWidget {
+  const SnackBarSemanticUpdater({Key key, @required this.child})
+    : assert(child != null);
+
+  final Widget child;
+
+  @override
+  _SnackBarSemanticUpdaterState createState() => new _SnackBarSemanticUpdaterState();
+}
+
+class _SnackBarSemanticUpdaterState extends State<SnackBarSemanticUpdater> {
+  @override
+  void initState() {
+    super.initState();
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+        SchedulerBinding.instance.addPostFrameCallback((Duration _) {
+          final RenderObject renderObject = context.findRenderObject();
+          assert(renderObject != null);
+          renderObject.sendSemanticsEvent(const PoliteAnnounceSemanticEvent());
+        });
+        break;
+      case TargetPlatform.iOS:
+      case TargetPlatform.fuchsia:
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

@@ -6,10 +6,20 @@ import 'dart:collection';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/semantics.dart';
 
 import 'box.dart';
 import 'object.dart';
 import 'table_border.dart';
+
+
+enum TableSemanticsMode {
+  transparent,
+  rows,
+  columns,
+  cells,
+}
+
 
 /// Parent data used by [RenderTable] for its children.
 class TableCellParentData extends BoxParentData {
@@ -367,6 +377,7 @@ class RenderTable extends RenderBox {
     List<Decoration> rowDecorations,
     ImageConfiguration configuration = ImageConfiguration.empty,
     Decoration defaultRowDecoration,
+    TableSemanticsMode tableSemanticsMode,
     TableCellVerticalAlignment defaultVerticalAlignment = TableCellVerticalAlignment.top,
     TextBaseline textBaseline,
     List<List<RenderBox>> children
@@ -382,6 +393,7 @@ class RenderTable extends RenderBox {
     _children = <RenderBox>[]..length = _columns * _rows;
     _columnWidths = columnWidths ?? new HashMap<int, TableColumnWidth>();
     _defaultColumnWidth = defaultColumnWidth;
+    _tableSemanticsMode = tableSemanticsMode;
     _border = border;
     this.rowDecorations = rowDecorations; // must use setter to initialize box painters array
     _configuration = configuration;
@@ -564,6 +576,17 @@ class RenderTable extends RenderBox {
     _textBaseline = value;
     markNeedsLayout();
   }
+
+  ///
+  TableSemanticsMode get tableSemanticsMode => _tableSemanticsMode;
+  TableSemanticsMode _tableSemanticsMode;
+  set tableSemanticsMode(TableSemanticsMode value) {
+    if (_tableSemanticsMode == value)
+      return;
+    _tableSemanticsMode = value;
+    markNeedsSemanticsUpdate();
+  }
+
 
   @override
   void setupParentData(RenderObject child) {
@@ -1162,6 +1185,65 @@ class RenderTable extends RenderBox {
   }
 
   @override
+  void assembleSemanticsNode(SemanticsNode node, SemanticsConfiguration config, Iterable<SemanticsNode> children_) {
+    switch (tableSemanticsMode) {
+      case TableSemanticsMode.transparent:
+      case TableSemanticsMode.cells:
+      case TableSemanticsMode.rows:
+      case TableSemanticsMode.columns:
+        break;
+    }
+    final SemanticsConfiguration configuration = new SemanticsConfiguration()
+      ..isSemanticBoundary = true
+      ..isMergingSemanticsOfDescendants = true;
+    final List<SemanticsNode> children = children_.toList().reversed.toList();
+    final List<SemanticsNode> rows = <SemanticsNode>[];
+    SemanticsNode row = new SemanticsNode();
+    List<SemanticsNode> cells = <SemanticsNode>[];
+
+    for (int i = 0; i < children.length; i += 1) {
+      final SemanticsNode node = children[i];
+      node.isMergedIntoParent = true;
+      cells.add(node);
+      if (cells.length >= 2) {
+        double left = double.infinity;
+        double top = double.infinity;
+        double right = 0.0;
+        double bottom = 0.0;
+        for (SemanticsNode node in cells) {
+          left = math.min(left, node.rect.left);
+          top = math.min(top, node.rect.top);
+          right = math.max(right, node.rect.right);
+          bottom = math.max(bottom, node.rect.bottom);
+        }
+        row.rect = new Rect.fromLTRB(left, top, right, bottom);
+        print(row.rect);
+        row.updateWith(
+            config: configuration, childrenInInversePaintOrder: cells);
+        rows.add(row);
+        row = new SemanticsNode();
+        cells = <SemanticsNode>[];
+      }
+    }
+    node.updateWith(config: config, childrenInInversePaintOrder: rows.reversed.toList());
+  }
+
+  @override
+  void describeSemanticsConfiguration(SemanticsConfiguration config) {
+    super.describeSemanticsConfiguration(config);
+    config.isSemanticBoundary = true;
+    config.isMergingSemanticsOfDescendants = false;
+    config.explicitChildNodes = true;
+    switch (tableSemanticsMode) {
+      case TableSemanticsMode.transparent:
+      case TableSemanticsMode.cells:
+      case TableSemanticsMode.rows:
+      case TableSemanticsMode.columns:
+        break;
+    }
+  }
+
+  @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     properties.add(new DiagnosticsProperty<TableBorder>('border', border, defaultValue: null));
@@ -1170,6 +1252,7 @@ class RenderTable extends RenderBox {
     properties.add(new MessageProperty('table size', '$columns\u00D7$rows'));
     properties.add(new IterableProperty<double>('column offsets', _columnLefts, ifNull: 'unknown'));
     properties.add(new IterableProperty<double>('row offsets', _rowTops, ifNull: 'unknown'));
+    properties.add(new DiagnosticsProperty<TableSemanticsMode>('tableSemanticsMode', tableSemanticsMode));
   }
 
   @override

@@ -447,6 +447,7 @@ class RecipeSheet extends StatelessWidget {
         child: new Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 40.0),
           child: new Table(
+            tableSemanticsMode: TableSemanticsMode.cells,
             columnWidths: const <int, TableColumnWidth>{
               0: const FixedColumnWidth(64.0)
             },

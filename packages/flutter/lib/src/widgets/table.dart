@@ -32,7 +32,7 @@ export 'package:flutter/rendering.dart' show
 @immutable
 class TableRow {
   /// Creates a row in a [Table].
-  const TableRow({ this.key, this.decoration, this.children });
+  const TableRow({ this.key, this.decoration, this.children, this.columnHeader = false });
 
   /// An identifier for the row.
   final LocalKey key;
@@ -43,6 +43,8 @@ class TableRow {
   /// the table, unlike decorations for individual cells, which might not fill
   /// either.
   final Decoration decoration;
+
+  final bool columnHeader;
 
   /// The widgets that comprise the cells in this row.
   ///
@@ -102,9 +104,11 @@ class Table extends RenderObjectWidget {
     this.border,
     this.defaultVerticalAlignment = TableCellVerticalAlignment.top,
     this.textBaseline,
+    this.tableSemanticsMode = TableSemanticsMode.transparent,
   }) : assert(children != null),
        assert(defaultColumnWidth != null),
        assert(defaultVerticalAlignment != null),
+       assert(tableSemanticsMode != null),
        assert(() {
          if (children.any((TableRow row) => row.children.any((Widget cell) => cell == null))) {
            throw new FlutterError(
@@ -195,6 +199,9 @@ class Table extends RenderObjectWidget {
   /// The text baseline to use when aligning rows using [TableCellVerticalAlignment.baseline].
   final TextBaseline textBaseline;
 
+  /// The configuration for combining child semantics.
+  final TableSemanticsMode tableSemanticsMode;
+
   final List<Decoration> _rowDecorations;
 
   @override
@@ -214,6 +221,7 @@ class Table extends RenderObjectWidget {
       configuration: createLocalImageConfiguration(context),
       defaultVerticalAlignment: defaultVerticalAlignment,
       textBaseline: textBaseline,
+      tableSemanticsMode: tableSemanticsMode
     );
   }
 
@@ -230,6 +238,7 @@ class Table extends RenderObjectWidget {
       ..rowDecorations = _rowDecorations
       ..configuration = createLocalImageConfiguration(context)
       ..defaultVerticalAlignment = defaultVerticalAlignment
+      ..tableSemanticsMode = tableSemanticsMode
       ..textBaseline = textBaseline;
   }
 }
@@ -375,11 +384,14 @@ class TableCell extends ParentDataWidget<Table> {
   const TableCell({
     Key key,
     this.verticalAlignment,
+    this.rowHeader = false,
     @required Widget child
   }) : super(key: key, child: child);
 
   /// How this cell is aligned vertically.
   final TableCellVerticalAlignment verticalAlignment;
+
+  final bool rowHeader;
 
   @override
   void applyParentData(RenderObject renderObject) {

@@ -18,6 +18,8 @@ export 'package:flutter/scheduler.dart' show TickerFuture, TickerCanceled;
 // Examples can assume:
 // AnimationController _controller;
 
+const Duration _kOneFrameDuration = const Duration(milliseconds: 16);
+
 /// The direction in which an animation is running.
 enum _AnimationDirection {
   /// The animation is running from beginning to end.
@@ -346,6 +348,9 @@ class AnimationController extends Animation<double>
     return _animateToInternal(lowerBound);
   }
 
+  /// Whether the animation controller should always be run for at least one frame.
+  bool minimumRequiredFrame = false;
+
   /// Drives the animation from its current value to target.
   ///
   /// Returns a [TickerFuture] that completes when the animation is complete.
@@ -365,6 +370,9 @@ class AnimationController extends Animation<double>
 
   TickerFuture _animateToInternal(double target, { Duration duration, Curve curve = Curves.linear }) {
     Duration simulationDuration = duration;
+    if (SchedulerBinding.instance.disableAnimationControllers
+        && (simulationDuration == null || simulationDuration > _kOneFrameDuration))
+        simulationDuration = _kOneFrameDuration;
     if (simulationDuration == null) {
       assert(() {
         if (this.duration == null) {

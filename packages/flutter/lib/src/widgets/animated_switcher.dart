@@ -297,6 +297,7 @@ class _AnimatedSwitcherState extends State<AnimatedSwitcher> with TickerProvider
       duration: widget.duration,
       vsync: this,
     );
+    controller.minimumRequiredFrame = true;
     if (animate) {
       if (_currentChild != null) {
         _retireCurrentChild();

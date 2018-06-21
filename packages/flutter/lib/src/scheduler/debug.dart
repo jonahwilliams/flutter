@@ -50,6 +50,12 @@ bool debugPrintEndFrameBanner = false;
 /// [debugPrintScheduleBuildForStacks].
 bool debugPrintScheduleFrameStacks = false;
 
+/// Disables most animations and repeating simulations.
+/// 
+/// Fixed duration animations are set to elapse a single frame by setting the
+/// duration to 1 millisecond.  Repeating simulations are disabled.
+bool debugDisableAnimations = false;
+
 /// Returns true if none of the scheduler library debug variables have been changed.
 ///
 /// This function is used by the test framework to ensure that debug variables
@@ -60,7 +66,8 @@ bool debugPrintScheduleFrameStacks = false;
 bool debugAssertAllSchedulerVarsUnset(String reason) {
   assert(() {
     if (debugPrintBeginFrameBanner ||
-        debugPrintEndFrameBanner) {
+        debugPrintEndFrameBanner ||
+        debugDisableAnimations) {
       throw new FlutterError(reason);
     }
     return true;

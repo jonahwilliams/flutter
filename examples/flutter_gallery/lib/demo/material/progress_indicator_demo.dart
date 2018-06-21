@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 class ProgressIndicatorDemo extends StatefulWidget {
   static const String routeName = '/material/progress-indicator';
@@ -27,12 +28,16 @@ class _ProgressIndicatorDemoState extends State<ProgressIndicatorDemo> with Sing
       parent: _controller,
       curve: const Interval(0.0, 0.9, curve: Curves.fastOutSlowIn),
       reverseCurve: Curves.fastOutSlowIn
-    )..addStatusListener((AnimationStatus status) {
-      if (status == AnimationStatus.dismissed)
-        _controller.forward();
-      else if (status == AnimationStatus.completed)
-        _controller.reverse();
-    });
+    );
+    if (!SchedulerBinding.instance.disableAnimations) {
+      _animation.addStatusListener((AnimationStatus status) {
+        if (status == AnimationStatus.dismissed)
+          if (SchedulerBinding.instance.disableAnimations)
+          _controller.forward();
+        else if (status == AnimationStatus.completed)
+          _controller.reverse();
+      });
+    }
   }
 
   @override

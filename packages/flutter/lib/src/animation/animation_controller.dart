@@ -370,9 +370,8 @@ class AnimationController extends Animation<double>
 
   TickerFuture _animateToInternal(double target, { Duration duration, Curve curve = Curves.linear }) {
     Duration simulationDuration = duration;
-    if (SchedulerBinding.instance.disableAnimationControllers
-        && (simulationDuration == null || simulationDuration > _kOneFrameDuration))
-        simulationDuration = _kOneFrameDuration;
+    if (SchedulerBinding.instance.disableAnimations && (duration == null || duration.inMilliseconds > 1))
+      simulationDuration = const Duration(milliseconds: 1);
     if (simulationDuration == null) {
       assert(() {
         if (this.duration == null) {
@@ -620,5 +619,7 @@ class _RepeatingSimulation extends Simulation {
   double dx(double timeInSeconds) => (max - min) / _periodInSeconds;
 
   @override
-  bool isDone(double timeInSeconds) => false;
+  bool isDone(double timeInSeconds) {
+    return SchedulerBinding.instance.disableAnimations;
+  }
 }

@@ -622,7 +622,11 @@ class EditableTextState extends State<EditableText> with AutomaticKeepAliveClien
   /// Whether the blinking cursor is actually visible at this precise moment
   /// (it's hidden half the time, since it blinks).
   @visibleForTesting
-  bool get cursorCurrentlyVisible => _showCursor.value;
+  bool get cursorCurrentlyVisible {
+    if (SchedulerBinding.instance.disableAnimations)
+      return true;
+    return _showCursor.value;
+  }
 
   /// The cursor blink interval (the amount of time the cursor is in the "on"
   /// state or the "off" state). A complete cursor blink period is twice this

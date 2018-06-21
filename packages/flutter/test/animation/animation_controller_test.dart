@@ -578,4 +578,25 @@ void main() {
     expect(statusLog, equals(<AnimationStatus>[ AnimationStatus.forward, AnimationStatus.completed ]));
     statusLog.clear();
   });
+
+  test('finishes in one frame when disableAnimationControllers is true', () {
+    debugDisableAnimations = true;
+    final AnimationController controller = new AnimationController(
+      duration: const Duration(seconds: 1),
+      value: 0.0,
+      lowerBound: 0.0,
+      upperBound: 1.0,
+      vsync: const TestVSync(),
+    );
+    
+    expect(controller.value, 0.0);
+    expect(controller.status, AnimationStatus.dismissed);
+
+    controller.forward();
+    tick(const Duration(milliseconds: 0));
+    tick(const Duration(milliseconds: 1));
+    expect(controller.value, 1.0);
+
+    debugDisableAnimations = false;
+  });
 }

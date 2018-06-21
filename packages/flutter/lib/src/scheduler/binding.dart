@@ -440,9 +440,18 @@ abstract class SchedulerBinding extends BindingBase with ServicesBinding {
     _removedIds.add(id);
   }
 
-  /// Whether to "skip" animations by setting their duration to [Duration.zero].
-  bool get disableAnimationControllers => _disableAnimationControllers;
-  bool _disableAnimationControllers = true;
+  /// Whether to disable repeating simulations and cap the duration of most
+  /// animations to a single frame.
+  bool get disableAnimations {
+    bool result = _disableAnimations;
+    assert(() {
+      if (debugDisableAnimations == true)
+        result = debugDisableAnimations;
+      return true;
+    }());
+    return result;
+  }
+  final bool _disableAnimations = false;
 
   /// Asserts that there are no registered transient callbacks; if
   /// there are, prints their locations and throws an exception.

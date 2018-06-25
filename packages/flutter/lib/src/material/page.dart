@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'theme.dart';
@@ -81,6 +82,7 @@ class MaterialPageRoute<T> extends PageRoute<T> {
     RouteSettings settings,
     this.maintainState = true,
     bool fullscreenDialog = false,
+    this.systemUiOverlayStyle,
   }) : assert(builder != null),
        super(settings: settings, fullscreenDialog: fullscreenDialog) {
     // ignore: prefer_asserts_in_initializer_lists , https://github.com/dart-lang/sdk/issues/31223
@@ -100,6 +102,18 @@ class MaterialPageRoute<T> extends PageRoute<T> {
 
   @override
   final bool maintainState;
+
+  /// The system ui overlay style for the entire route.
+  /// 
+  /// To configurgure the overlay style for an entire route, consider using
+  /// this instead of [SystemChrome.setSystemUIOverlayStyle].  This will
+  /// override any [AnnotatedRegion] widgets which are children of this route,
+  /// but not any direct calls to [SystemChrome].
+  /// 
+  /// See also:
+  /// 
+  ///   * [SystemUiOverlayStyle], for a description of the availible properties.
+  final SystemUiOverlayStyle systemUiOverlayStyle;
 
   /// A delegate PageRoute to which iOS themed page operations are delegated to.
   /// It's lazily created on first use.
@@ -150,13 +164,9 @@ class MaterialPageRoute<T> extends PageRoute<T> {
 
   @override
   Widget buildPage(BuildContext context, Animation<double> animation, Animation<double> secondaryAnimation) {
-    final Widget result = new Semantics(
-      scopesRoute: true,
-      explicitChildNodes: true,
-      child: builder(context),
-    );
+    final Widget child = builder(context);
     assert(() {
-      if (result == null) {
+      if (child == null) {
         throw new FlutterError(
           'The builder for route "${settings.name}" returned null.\n'
           'Route builders must never return null.'
@@ -164,6 +174,18 @@ class MaterialPageRoute<T> extends PageRoute<T> {
       }
       return true;
     }());
+    final Widget result = new Semantics(
+      scopesRoute: true,
+      explicitChildNodes: true,
+      child: builder(context),
+    );
+    if (systemUiOverlayStyle != null) {
+      return new AnnotatedRegion<SystemUiOverlayStyle>(
+        value: systemUiOverlayStyle,
+        sized: false,
+        child: result,
+      );
+    }
     return result;
   }
 

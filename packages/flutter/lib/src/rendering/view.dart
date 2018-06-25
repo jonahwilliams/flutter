@@ -225,6 +225,10 @@ class RenderView extends RenderObject with RenderObjectWithChildMixin<RenderBox>
     }
     // If there are no overlay styles in the UI don't bother updating.
     if (upperOverlayStyle != null || lowerOverlayStyle != null) {
+      if (identical(upperOverlayStyle, lowerOverlayStyle) || lowerOverlayStyle == null) {
+        SystemChrome.setSystemUIOverlayStyle(upperOverlayStyle);
+        return;
+      }
       final SystemUiOverlayStyle overlayStyle = new SystemUiOverlayStyle(
         statusBarBrightness: upperOverlayStyle?.statusBarBrightness,
         statusBarIconBrightness: upperOverlayStyle?.statusBarIconBrightness,

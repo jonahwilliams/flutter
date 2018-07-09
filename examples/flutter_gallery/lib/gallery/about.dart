@@ -43,6 +43,10 @@ void showGalleryAboutDialog(BuildContext context) {
     applicationIcon: const FlutterLogo(),
     applicationLegalese: '© 2017 The Chromium Authors',
     children: <Widget>[
+      new Semantics(
+        link: true,
+        child: const Text('https://www.google.com'),
+      ),
       new Padding(
         padding: const EdgeInsets.only(top: 24.0),
         child: new RichText(

@@ -5066,6 +5066,7 @@ class Semantics extends SingleChildRenderObjectWidget {
     bool scopesRoute,
     bool namesRoute,
     bool hidden,
+    bool link,
     String label,
     String value,
     String increasedValue,
@@ -5095,6 +5096,7 @@ class Semantics extends SingleChildRenderObjectWidget {
     container: container,
     explicitChildNodes: explicitChildNodes,
     properties: new SemanticsProperties(
+      link: link,
       enabled: enabled,
       checked: checked,
       selected: selected,
@@ -5193,6 +5195,7 @@ class Semantics extends SingleChildRenderObjectWidget {
       scopesRoute: properties.scopesRoute,
       namesRoute: properties.namesRoute,
       hidden: properties.hidden,
+      link: properties.link,
       label: properties.label,
       value: properties.value,
       increasedValue: properties.increasedValue,

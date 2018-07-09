@@ -3136,6 +3136,7 @@ class RenderSemanticsAnnotations extends RenderProxyBox {
     bool scopesRoute,
     bool namesRoute,
     bool hidden,
+    bool link,
     String label,
     String value,
     String increasedValue,
@@ -3173,6 +3174,7 @@ class RenderSemanticsAnnotations extends RenderProxyBox {
        _obscured = obscured,
        _scopesRoute = scopesRoute,
        _namesRoute = namesRoute,
+       _link = link,
        _hidden = hidden,
        _label = label,
        _value = value,
@@ -3235,6 +3237,15 @@ class RenderSemanticsAnnotations extends RenderProxyBox {
     if (_explicitChildNodes == value)
       return;
     _explicitChildNodes = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  bool _link;
+  bool get link => _link;
+  set link(bool value) {
+    if (value == _link)
+      return;
+    _link = value;
     markNeedsSemanticsUpdate();
   }
 
@@ -3807,6 +3818,8 @@ class RenderSemanticsAnnotations extends RenderProxyBox {
       config.isObscured = obscured;
     if (hidden != null)
       config.isHidden = hidden;
+    if (link != null)
+      config.isLink = link;
     if (label != null)
       config.label = label;
     if (value != null)

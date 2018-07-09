@@ -310,6 +310,7 @@ class SemanticsProperties extends DiagnosticableTree {
     this.obscured,
     this.scopesRoute,
     this.namesRoute,
+    this.link,
     this.label,
     this.value,
     this.increasedValue,
@@ -433,6 +434,8 @@ class SemanticsProperties extends DiagnosticableTree {
   /// 
   ///  * [SemanticsFlag.namesRoute] for a description of how the name is used.
   final bool namesRoute;
+
+  final bool link;
 
   /// Provides a textual description of the widget.
   ///
@@ -2586,6 +2589,11 @@ class SemanticsConfiguration {
   bool get namesRoute => _hasFlag(SemanticsFlag.namesRoute);
   set namesRoute(bool value) {
     _setFlag(SemanticsFlag.namesRoute, value);
+  }
+
+  bool get isLink => false;//_hasFlag(SemanticsFlag.isLink);
+  set isLink(bool value) {
+    //_setFlag(SemanticsFlag.isLink, value);
   }
 
   /// The reading direction for the text in [label], [value], [hint],

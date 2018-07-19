@@ -5,6 +5,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/semantics.dart';
 
 import 'box.dart';
 import 'sliver.dart';
@@ -131,6 +132,13 @@ abstract class RenderSliverFixedExtentBoxAdaptor extends RenderSliverMultiBoxAda
   @protected
   double computeMaxScrollOffset(SliverConstraints constraints, double itemExtent) {
     return childManager.childCount * itemExtent;
+  }
+
+  @override
+  void describeSemanticsConfiguration(SemanticsConfiguration config) {
+    super.describeSemanticsConfiguration(config);
+    config.totalChildren = childManager.childCount;
+    config.firstChildIndex = getMinChildIndexForScrollOffset(constraints.scrollOffset + constraints.cacheOrigin, itemExtent);
   }
 
   @override

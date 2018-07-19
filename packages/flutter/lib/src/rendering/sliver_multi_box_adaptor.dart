@@ -200,6 +200,7 @@ abstract class RenderSliverMultiBoxAdaptor extends RenderSliver
     final SliverMultiBoxAdaptorParentData childParentData = child.parentData;
     if (!childParentData._keptAlive)
       childManager.didAdoptChild(child);
+    markNeedsSemanticsUpdate();
   }
 
   bool _debugAssertChildListLocked() => childManager.debugAssertChildListLocked();
@@ -207,6 +208,7 @@ abstract class RenderSliverMultiBoxAdaptor extends RenderSliver
   @override
   void insert(RenderBox child, { RenderBox after }) {
     super.insert(child, after: after);
+    markNeedsSemanticsUpdate();
     assert(firstChild != null);
     assert(() {
       int index = indexOf(firstChild);
@@ -222,6 +224,7 @@ abstract class RenderSliverMultiBoxAdaptor extends RenderSliver
 
   @override
   void remove(RenderBox child) {
+    markNeedsSemanticsUpdate();
     final SliverMultiBoxAdaptorParentData childParentData = child.parentData;
     if (!childParentData._keptAlive) {
       super.remove(child);

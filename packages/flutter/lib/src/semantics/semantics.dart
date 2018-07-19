@@ -98,6 +98,8 @@ class SemanticsData extends Diagnosticable {
     @required this.scrollPosition,
     @required this.scrollExtentMax,
     @required this.scrollExtentMin,
+    @required this.totalChildren,
+    @required this.firstChildIndex,
     this.tags,
     this.transform,
   }) : assert(flags != null),
@@ -106,6 +108,8 @@ class SemanticsData extends Diagnosticable {
        assert(value != null),
        assert(decreasedValue != null),
        assert(increasedValue != null),
+       assert(totalChildren != null),
+       assert(firstChildIndex != null),
        assert(hint != null),
        assert(label == '' || textDirection != null, 'A SemanticsData object with label "$label" had a null textDirection.'),
        assert(value == '' || textDirection != null, 'A SemanticsData object with value "$value" had a null textDirection.'),
@@ -119,6 +123,10 @@ class SemanticsData extends Diagnosticable {
 
   /// A bit field of [SemanticsAction]s that apply to this node.
   final int actions;
+  
+  final int totalChildren;
+
+  final int firstChildIndex;
 
   /// A textual description of this node.
   ///
@@ -238,6 +246,8 @@ class SemanticsData extends Diagnosticable {
     properties.add(new DoubleProperty('scrollExtentMin', scrollExtentMin, defaultValue: null));
     properties.add(new DoubleProperty('scrollPosition', scrollPosition, defaultValue: null));
     properties.add(new DoubleProperty('scrollExtentMax', scrollExtentMax, defaultValue: null));
+    properties.add(new IntProperty('totalChildren', totalChildren, defaultValue: null));
+    properties.add(new IntProperty('scrollExtentMax', firstChildIndex, defaultValue: null));
   }
 
   @override
@@ -259,11 +269,13 @@ class SemanticsData extends Diagnosticable {
         && typedOther.scrollPosition == scrollPosition
         && typedOther.scrollExtentMax == scrollExtentMax
         && typedOther.scrollExtentMin == scrollExtentMin
-        && typedOther.transform == transform;
+        && typedOther.transform == transform
+        && typedOther.firstChildIndex == firstChildIndex
+        && typedOther.totalChildren == totalChildren;
   }
 
   @override
-  int get hashCode => ui.hashValues(flags, actions, label, value, increasedValue, decreasedValue, hint, textDirection, rect, tags, textSelection, scrollPosition, scrollExtentMax, scrollExtentMin, transform);
+  int get hashCode => ui.hashValues(flags, actions, label, value, increasedValue, decreasedValue, hint, textDirection, rect, tags, textSelection, scrollPosition, scrollExtentMax, scrollExtentMin, transform, totalChildren, firstChildIndex);
 }
 
 class _SemanticsDiagnosticableNode extends DiagnosticableNode<SemanticsNode> {
@@ -1189,6 +1201,12 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
   double get scrollPosition => _scrollPosition;
   double _scrollPosition;
 
+  int get totalChildren => _totalChildren;
+  int _totalChildren;
+
+  int get firstChildIndex => _firstChildIndex;
+  int _firstChildIndex;
+
 
   /// Indicates the maximum in-range value for [scrollPosition] if the node is
   /// scrollable.
@@ -1247,6 +1265,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
     _scrollPosition = config._scrollPosition;
     _scrollExtentMax = config._scrollExtentMax;
     _scrollExtentMin = config._scrollExtentMin;
+    _totalChildren = config._totalChildren;
+    _firstChildIndex = config._firstChildIndex;
     _mergeAllDescendantsIntoThisNode = config.isMergingSemanticsOfDescendants;
     _replaceChildren(childrenInInversePaintOrder ?? const <SemanticsNode>[]);
 
@@ -1269,6 +1289,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
   SemanticsData getSemanticsData() {
     int flags = _flags;
     int actions = _actionsAsBits;
+    int firstChildIndex = _firstChildIndex;
+    int totalChildren = _totalChildren;
     String label = _label;
     String hint = _hint;
     String value = _value;
@@ -1291,6 +1313,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
         scrollPosition ??= node._scrollPosition;
         scrollExtentMax ??= node._scrollExtentMax;
         scrollExtentMin ??= node._scrollExtentMin;
+        firstChildIndex ??= node._firstChildIndex;
+        totalChildren ??= node._totalChildren;
         if (value == '' || value == null)
           value = node._value;
         if (increasedValue == '' || increasedValue == null)
@@ -1333,6 +1357,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
       scrollPosition: scrollPosition,
       scrollExtentMax: scrollExtentMax,
       scrollExtentMin: scrollExtentMin,
+      totalChildren: totalChildren,
+      firstChildIndex: firstChildIndex,
     );
   }
 
@@ -1381,6 +1407,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
       scrollPosition: data.scrollPosition != null ? data.scrollPosition : double.nan,
       scrollExtentMax: data.scrollExtentMax != null ? data.scrollExtentMax : double.nan,
       scrollExtentMin: data.scrollExtentMin != null ? data.scrollExtentMin : double.nan,
+      totalChildCount: data.totalChildren != null ? data.totalChildren : 0,
+      firstChildIndex: data.firstChildIndex != null ? data.firstChildIndex : 0,
       transform: data.transform?.storage ?? _kIdentityTransform,
       childrenInTraversalOrder: childrenInTraversalOrder,
       childrenInHitTestOrder: childrenInHitTestOrder,
@@ -1512,6 +1540,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
     properties.add(new DoubleProperty('scrollExtentMin', scrollExtentMin, defaultValue: null));
     properties.add(new DoubleProperty('scrollPosition', scrollPosition, defaultValue: null));
     properties.add(new DoubleProperty('scrollExtentMax', scrollExtentMax, defaultValue: null));
+    properties.add(new IntProperty('firstChildIndex', firstChildIndex, defaultValue: null));
+    properties.add(new IntProperty('totalChildren', totalChildren, defaultValue: null));
   }
 
   /// Returns a string representation of this node and its descendants.
@@ -2759,6 +2789,20 @@ class SemanticsConfiguration {
     _hasBeenAnnotated = true;
   }
 
+  int get totalChildren => _totalChildren;
+  int _totalChildren = 0;
+  set totalChildren(int value) {
+    _totalChildren = value;
+    _hasBeenAnnotated = true;
+  }
+
+  int get firstChildIndex => _firstChildIndex;
+  int _firstChildIndex = 0;
+  set firstChildIndex(int value) {
+    _firstChildIndex = value;
+    _hasBeenAnnotated = true;
+  }
+
   // TAGS
 
   /// The set of tags that this configuration wants to add to all child
@@ -2845,6 +2889,8 @@ class SemanticsConfiguration {
     _scrollPosition ??= other._scrollPosition;
     _scrollExtentMax ??= other._scrollExtentMax;
     _scrollExtentMin ??= other._scrollExtentMin;
+    _firstChildIndex ??= other._firstChildIndex;
+    _totalChildren ??= other._totalChildren;
 
     textDirection ??= other.textDirection;
     _sortKey ??= other._sortKey;
@@ -2891,6 +2937,8 @@ class SemanticsConfiguration {
       .._scrollPosition = _scrollPosition
       .._scrollExtentMax = _scrollExtentMax
       .._scrollExtentMin = _scrollExtentMin
+      ..firstChildIndex = _firstChildIndex
+      ..totalChildren = _totalChildren
       .._actionsAsBits = _actionsAsBits
       .._actions.addAll(_actions);
   }

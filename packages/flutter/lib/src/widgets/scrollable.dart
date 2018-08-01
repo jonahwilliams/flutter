@@ -80,7 +80,6 @@ class Scrollable extends StatefulWidget {
     this.physics,
     @required this.viewportBuilder,
     this.estimatedScrollChildren,
-    this.estimatedChildExtent,
     this.excludeFromSemantics = false,
   }) : assert(axisDirection != null),
        assert(viewportBuilder != null),
@@ -164,9 +163,8 @@ class Scrollable extends StatefulWidget {
   ///    exclusion.
   final bool excludeFromSemantics;
 
+  /// The estimated number of children in the scrollable.
   final int estimatedScrollChildren;
-
-  final double estimatedChildExtent;
 
   /// The axis along which the scroll view scrolls.
   ///

@@ -3558,6 +3558,9 @@ class RenderSemanticsAnnotations extends RenderProxyBox {
     markNeedsSemanticsUpdate();
   }
 
+  /// The index of the first visible child if the node is a scrollable, or if
+  /// the parent node is a scrollable the index within that scrollable of the
+  /// current node.
   int get scrollIndex => _scrollIndex;
   int _scrollIndex;
   set scrollIndex(int value) {

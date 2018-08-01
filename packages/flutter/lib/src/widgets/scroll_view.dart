@@ -5,6 +5,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/rendering.dart';
+import 'package:flutter/src/widgets/automatic_keep_alive.dart';
 
 import 'basic.dart';
 import 'framework.dart';
@@ -764,18 +765,13 @@ class ListView extends BoxScrollView {
     bool addAutomaticKeepAlives = true,
     bool addRepaintBoundaries = true,
     double cacheExtent,
-    double itemExtent,
   }) : assert(itemBuilder != null),
        assert(separatorBuilder != null),
        assert(itemCount != null && itemCount >= 0),
        itemExtent = null,
-       childrenDelegate = new SliverChildBuilderDelegate(
-         (BuildContext context, int index) {
-           final int itemIndex = index ~/ 2;
-           return index.isEven
-             ? itemBuilder(context, itemIndex)
-             : separatorBuilder(context, itemIndex);
-         },
+       childrenDelegate = new _SeparatedSliverChildBuilderDelegate(
+         itemBuilder: itemBuilder,
+         separatorBuilder: separatorBuilder,
          childCount: math.max(0, itemCount * 2 - 1),
          addAutomaticKeepAlives: addAutomaticKeepAlives,
          addRepaintBoundaries: addRepaintBoundaries,
@@ -1239,5 +1235,48 @@ class GridView extends BoxScrollView {
       delegate: childrenDelegate,
       gridDelegate: gridDelegate,
     );
+  }
+}
+
+// A specialized sliver delegate which doesn't add index information to the
+// semantics of the separators.
+class _SeparatedSliverChildBuilderDelegate extends SliverChildBuilderDelegate {
+  _SeparatedSliverChildBuilderDelegate({
+    IndexedWidgetBuilder itemBuilder,
+    int childCount,
+    bool addAutomaticKeepAlives,
+    bool addRepaintBoundaries,
+    this.separatorBuilder,
+  }) : super(
+    itemBuilder,
+    childCount: childCount,
+    addAutomaticKeepAlives: addAutomaticKeepAlives,
+    addRepaintBoundaries: addRepaintBoundaries,
+  );
+
+  final IndexedWidgetBuilder separatorBuilder;
+
+  @override
+  Widget build(BuildContext context, int index) {
+    assert(builder != null);
+    if (index < 0 || (childCount != null && index >= childCount))
+      return null;
+    final int itemIndex = index ~/ 2;
+    Widget child;
+    if (index.isEven) {
+      child = builder(context, itemIndex);
+      if (child == null)
+        return null;
+      child = new Semantics(child: child, scrollIndex: index);
+    } else {
+      child = separatorBuilder(context, itemIndex);
+    }
+    if (child == null)
+      return null;
+    if (addRepaintBoundaries)
+      child = new RepaintBoundary.wrap(child, index);
+    if (addAutomaticKeepAlives)
+      child = new AutomaticKeepAlive(child: child);
+    return child;
   }
 }

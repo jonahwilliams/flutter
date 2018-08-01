@@ -228,8 +228,12 @@ class SemanticsData extends Diagnosticable {
   /// if this node represents a text field.
   final TextSelection textSelection;
 
+  /// The index of the first visible child if the node is a scrollable, or if
+  /// the parent node is a scrollable the index within that scrollable of the
+  /// current node.
   final int scrollIndex;
 
+  /// The total number of children in a scrollable node.
   final int scrollChildren;
 
   /// Indicates the current scrolling position in logical pixels if the node is
@@ -683,6 +687,9 @@ class SemanticsProperties extends DiagnosticableTree {
   /// on iOS and TalkBack on Android).
   final SemanticsSortKey sortKey;
 
+  /// The index of the first visible child if the node is a scrollable, or if
+  /// the parent node is a scrollable the index within that scrollable of the
+  /// current node.
   final int scrollIndex;
 
   /// The handler for [SemanticsAction.tap].
@@ -1377,9 +1384,13 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
   TextSelection get textSelection => _textSelection;
   TextSelection _textSelection;
 
+  /// The index of the first visible child if the node is a scrollable, or if
+  /// the parent node is a scrollable the index within that scrollable of the
+  /// current node.
   int get scrollIndex => _scrollIndex;
   int _scrollIndex;
 
+  /// The total number of children in a scrollable node.
   int get scrollChildren => _scrollChildren;
   int _scrollChildren;
 
@@ -3036,8 +3047,9 @@ class SemanticsConfiguration {
     _hasBeenAnnotated = true;
   }
 
-  /// Indicates the index of the first visible child if the node is a
-  /// scrollable.
+  /// The index of the first visible child if the node is a scrollable, or if
+  /// the parent node is a scrollable the index within that scrollable of the
+  /// current node.
   int get scrollIndex => _scrollIndex;
   int _scrollIndex;
   set scrollIndex(int value) {
@@ -3046,7 +3058,7 @@ class SemanticsConfiguration {
     _hasBeenAnnotated = true;
   }
 
-  /// Indicates the total number of children if the node is a scrollable.
+  /// The total number of children in a scrollable node.
   int get scrollChildren => _scrollChildren;
   int _scrollChildren;
   set scrollChildren(int value) {

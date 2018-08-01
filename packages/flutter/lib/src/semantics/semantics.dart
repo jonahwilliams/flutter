@@ -165,6 +165,8 @@ class SemanticsData extends Diagnosticable {
     @required this.textDirection,
     @required this.rect,
     @required this.textSelection,
+    @required this.scrollIndex,
+    @required this.scrollChildren,
     @required this.scrollPosition,
     @required this.scrollExtentMax,
     @required this.scrollExtentMin,
@@ -225,6 +227,10 @@ class SemanticsData extends Diagnosticable {
   /// The currently selected text (or the position of the cursor) within [value]
   /// if this node represents a text field.
   final TextSelection textSelection;
+
+  final int scrollIndex;
+
+  final int scrollChildren;
 
   /// Indicates the current scrolling position in logical pixels if the node is
   /// scrollable.
@@ -319,6 +325,8 @@ class SemanticsData extends Diagnosticable {
     properties.add(new EnumProperty<TextDirection>('textDirection', textDirection, defaultValue: null));
     if (textSelection?.isValid == true)
       properties.add(new MessageProperty('textSelection', '[${textSelection.start}, ${textSelection.end}]'));
+    properties.add(new IntProperty('scrollindex', scrollIndex, defaultValue: null));
+    properties.add(new IntProperty('scrollChildren', scrollChildren, defaultValue: null));
     properties.add(new DoubleProperty('scrollExtentMin', scrollExtentMin, defaultValue: null));
     properties.add(new DoubleProperty('scrollPosition', scrollPosition, defaultValue: null));
     properties.add(new DoubleProperty('scrollExtentMax', scrollExtentMax, defaultValue: null));
@@ -340,6 +348,8 @@ class SemanticsData extends Diagnosticable {
         && typedOther.rect == rect
         && setEquals(typedOther.tags, tags)
         && typedOther.textSelection == textSelection
+        && typedOther.scrollIndex == scrollIndex
+        && typedOther.scrollChildren == scrollChildren
         && typedOther.scrollPosition == scrollPosition
         && typedOther.scrollExtentMax == scrollExtentMax
         && typedOther.scrollExtentMin == scrollExtentMin
@@ -361,6 +371,8 @@ class SemanticsData extends Diagnosticable {
       rect,
       tags,
       textSelection,
+      scrollIndex,
+      scrollChildren,
       scrollPosition,
       scrollExtentMax,
       scrollExtentMin,
@@ -437,6 +449,7 @@ class SemanticsProperties extends DiagnosticableTree {
     this.decreasedValue,
     this.hint,
     this.textDirection,
+    this.scrollIndex,
     this.sortKey,
     this.onTap,
     this.onLongPress,
@@ -669,6 +682,8 @@ class SemanticsProperties extends DiagnosticableTree {
   /// traversed by the accessibility services on the platform (e.g. VoiceOver
   /// on iOS and TalkBack on Android).
   final SemanticsSortKey sortKey;
+
+  final int scrollIndex;
 
   /// The handler for [SemanticsAction.tap].
   ///
@@ -1360,6 +1375,12 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
   TextSelection get textSelection => _textSelection;
   TextSelection _textSelection;
 
+  int get scrollIndex => _scrollIndex;
+  int _scrollIndex;
+
+  int get scrollChildren => _scrollChildren;
+  int _scrollChildren;
+
   /// Indicates the current scrolling position in logical pixels if the node is
   /// scrollable.
   ///
@@ -1429,6 +1450,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
     _customSemanticsActions = new Map<CustomSemanticsAction, VoidCallback>.from(config._customSemanticsActions);
     _actionsAsBits = config._actionsAsBits;
     _textSelection = config._textSelection;
+    _scrollIndex = config._scrollIndex;
+    _scrollChildren = config._scrollChildren;
     _scrollPosition = config._scrollPosition;
     _scrollExtentMax = config._scrollExtentMax;
     _scrollExtentMin = config._scrollExtentMin;
@@ -1462,6 +1485,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
     TextDirection textDirection = _textDirection;
     Set<SemanticsTag> mergedTags = tags == null ? null : new Set<SemanticsTag>.from(tags);
     TextSelection textSelection = _textSelection;
+    int scrollIndex = _scrollIndex;
+    int scrollChildren = _scrollChildren;
     double scrollPosition = _scrollPosition;
     double scrollExtentMax = _scrollExtentMax;
     double scrollExtentMin = _scrollExtentMin;
@@ -1476,6 +1501,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
         actions |= node._actionsAsBits;
         textDirection ??= node._textDirection;
         textSelection ??= node._textSelection;
+        scrollIndex ??= node._scrollIndex;
+        scrollChildren ??= node._scrollChildren;
         scrollPosition ??= node._scrollPosition;
         scrollExtentMax ??= node._scrollExtentMax;
         scrollExtentMin ??= node._scrollExtentMin;
@@ -1522,6 +1549,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
       transform: transform,
       tags: mergedTags,
       textSelection: textSelection,
+      scrollIndex: scrollIndex,
+      scrollChildren: scrollChildren,
       scrollPosition: scrollPosition,
       scrollExtentMax: scrollExtentMax,
       scrollExtentMin: scrollExtentMin,
@@ -1580,6 +1609,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
       textDirection: data.textDirection,
       textSelectionBase: data.textSelection != null ? data.textSelection.baseOffset : -1,
       textSelectionExtent: data.textSelection != null ? data.textSelection.extentOffset : -1,
+      scrollIndex: data.scrollIndex != null ? data.scrollIndex : 0,
+      scrollChildren: data.scrollChildren != null ? data.scrollChildren : 0,
       scrollPosition: data.scrollPosition != null ? data.scrollPosition : double.nan,
       scrollExtentMax: data.scrollExtentMax != null ? data.scrollExtentMax : double.nan,
       scrollExtentMin: data.scrollExtentMin != null ? data.scrollExtentMin : double.nan,
@@ -1716,6 +1747,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
     properties.add(new DiagnosticsProperty<SemanticsSortKey>('sortKey', sortKey, defaultValue: null));
     if (_textSelection?.isValid == true)
       properties.add(new MessageProperty('text selection', '[${_textSelection.start}, ${_textSelection.end}]'));
+    properties.add(new IntProperty('scrollIndex', scrollIndex, defaultValue: null));
+    properties.add(new IntProperty('scrollChildren', scrollChildren, defaultValue: null));
     properties.add(new DoubleProperty('scrollExtentMin', scrollExtentMin, defaultValue: null));
     properties.add(new DoubleProperty('scrollPosition', scrollPosition, defaultValue: null));
     properties.add(new DoubleProperty('scrollExtentMax', scrollExtentMax, defaultValue: null));
@@ -3001,6 +3034,25 @@ class SemanticsConfiguration {
     _hasBeenAnnotated = true;
   }
 
+  /// Indicates the index of the first visible child if the node is a
+  /// scrollable.
+  int get scrollIndex => _scrollIndex;
+  int _scrollIndex;
+  set scrollIndex(int value) {
+    assert(value != null);
+    _scrollIndex = value;
+    _hasBeenAnnotated = true;
+  }
+
+  /// Indicates the total number of children if the node is a scrollable.
+  int get scrollChildren => _scrollChildren;
+  int _scrollChildren;
+  set scrollChildren(int value) {
+    assert(value != null);
+    _scrollChildren = value;
+    _hasBeenAnnotated = true;
+  }
+
   /// Indicates the current scrolling position in logical pixels if the node is
   /// scrollable.
   ///
@@ -3135,6 +3187,8 @@ class SemanticsConfiguration {
     _actionsAsBits |= other._actionsAsBits;
     _flags |= other._flags;
     _textSelection ??= other._textSelection;
+    _scrollIndex ??= other._scrollIndex;
+    _scrollChildren ??= other._scrollChildren;
     _scrollPosition ??= other._scrollPosition;
     _scrollExtentMax ??= other._scrollExtentMax;
     _scrollExtentMin ??= other._scrollExtentMin;
@@ -3181,6 +3235,8 @@ class SemanticsConfiguration {
       .._flags = _flags
       .._tagsForChildren = _tagsForChildren
       .._textSelection = _textSelection
+      .._scrollIndex = _scrollIndex
+      .._scrollChildren = _scrollChildren
       .._scrollPosition = _scrollPosition
       .._scrollExtentMax = _scrollExtentMax
       .._scrollExtentMin = _scrollExtentMin

@@ -79,6 +79,15 @@ abstract class ScrollMetrics {
   /// The direction in which the scroll view scrolls.
   AxisDirection get axisDirection;
 
+  /// The index of the first child visible in the scrollable.
+  int get estimatedScrollIndex => 0;
+
+  /// The estimated number of children in the scrollable.
+  int get estimatedScrollChildren => 0;
+
+  /// The estimated extent of a child within the scrollable.
+  double get estimatedChildExtent => double.infinity;
+
   /// The axis in which the scroll view scrolls.
   Axis get axis => axisDirectionToAxis(axisDirection);
 

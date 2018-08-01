@@ -78,6 +78,8 @@ class Scrollable extends StatefulWidget {
     this.controller,
     this.physics,
     @required this.viewportBuilder,
+    this.estimatedScrollChildren,
+    this.estimatedChildExtent,
     this.excludeFromSemantics = false,
   }) : assert(axisDirection != null),
        assert(viewportBuilder != null),
@@ -160,6 +162,10 @@ class Scrollable extends StatefulWidget {
   ///  * [GestureDetector.excludeFromSemantics], which is used to accomplish the
   ///    exclusion.
   final bool excludeFromSemantics;
+
+  final int estimatedScrollChildren;
+
+  final double estimatedChildExtent;
 
   /// The axis along which the scroll view scrolls.
   ///
@@ -282,6 +288,9 @@ class ScrollableState extends State<Scrollable> with TickerProviderStateMixin
 
     _position = controller?.createScrollPosition(_physics, this, oldPosition)
       ?? new ScrollPositionWithSingleContext(physics: _physics, context: this, oldPosition: oldPosition);
+    _position
+      ..estimatedChildExtent = widget.estimatedChildExtent
+      ..estimatedScrollChildren = widget.estimatedScrollChildren;
     assert(position != null);
     controller?.attach(position);
   }
@@ -580,9 +589,11 @@ class _RenderExcludableScrollSemantics extends RenderProxyBox {
     config.isSemanticBoundary = true;
     if (position.haveDimensions) {
       config
-          ..scrollPosition = _position.pixels
-          ..scrollExtentMax = _position.maxScrollExtent
-          ..scrollExtentMin = _position.minScrollExtent;
+          ..scrollIndex = _position.estimatedScrollIndex ?? 0
+          ..scrollChildren = position.estimatedScrollChildren ?? 0
+          ..scrollPosition = position.pixels
+          ..scrollExtentMax = position.maxScrollExtent
+          ..scrollExtentMin = position.minScrollExtent;
     }
   }
 

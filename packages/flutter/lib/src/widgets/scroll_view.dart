@@ -59,6 +59,8 @@ abstract class ScrollView extends StatelessWidget {
     ScrollPhysics physics,
     this.shrinkWrap = false,
     this.cacheExtent,
+    this.estimatedChildExtent,
+    this.estimatedScrollChildren,
   }) : assert(reverse != null),
        assert(shrinkWrap != null),
        assert(!(controller != null && primary == true),
@@ -171,6 +173,10 @@ abstract class ScrollView extends StatelessWidget {
   /// {@macro flutter.rendering.viewport.cacheExtent}
   final double cacheExtent;
 
+  final double estimatedChildExtent;
+
+  final int estimatedScrollChildren;
+
   /// Returns the [AxisDirection] in which the scroll view scrolls.
   ///
   /// Combines the [scrollDirection] with the [reverse] boolean to obtain the
@@ -236,6 +242,8 @@ abstract class ScrollView extends StatelessWidget {
       viewportBuilder: (BuildContext context, ViewportOffset offset) {
         return buildViewport(context, offset, axisDirection, slivers);
       },
+      estimatedChildExtent: estimatedChildExtent,
+      estimatedScrollChildren: estimatedScrollChildren,
     );
     return primary && scrollController != null
       ? new PrimaryScrollController.none(child: scrollable)
@@ -382,6 +390,8 @@ abstract class BoxScrollView extends ScrollView {
     bool shrinkWrap = false,
     this.padding,
     double cacheExtent,
+    double estimatedChildExtent,
+    int estimatedScrollChildren,
   }) : super(
     key: key,
     scrollDirection: scrollDirection,
@@ -391,6 +401,8 @@ abstract class BoxScrollView extends ScrollView {
     physics: physics,
     shrinkWrap: shrinkWrap,
     cacheExtent: cacheExtent,
+    estimatedChildExtent: estimatedChildExtent,
+    estimatedScrollChildren: estimatedScrollChildren,
   );
 
   /// The amount of space by which to inset the children.
@@ -630,6 +642,8 @@ class ListView extends BoxScrollView {
     shrinkWrap: shrinkWrap,
     padding: padding,
     cacheExtent: cacheExtent,
+    estimatedChildExtent: itemExtent,
+    estimatedScrollChildren: children.length,
   );
 
   /// Creates a scrollable, linear array of widgets that are created on demand.
@@ -685,7 +699,9 @@ class ListView extends BoxScrollView {
     physics: physics,
     shrinkWrap: shrinkWrap,
     padding: padding,
-    cacheExtent: cacheExtent
+    cacheExtent: cacheExtent,
+    estimatedChildExtent: itemExtent,
+    estimatedScrollChildren: itemCount,
   );
 
   /// Creates a fixed-length scrollable linear array of list "items" separated
@@ -747,6 +763,7 @@ class ListView extends BoxScrollView {
     bool addAutomaticKeepAlives = true,
     bool addRepaintBoundaries = true,
     double cacheExtent,
+    double itemExtent,
   }) : assert(itemBuilder != null),
        assert(separatorBuilder != null),
        assert(itemCount != null && itemCount >= 0),
@@ -770,7 +787,8 @@ class ListView extends BoxScrollView {
     physics: physics,
     shrinkWrap: shrinkWrap,
     padding: padding,
-    cacheExtent: cacheExtent
+    estimatedChildExtent: itemExtent,
+    estimatedScrollChildren: itemCount,
   );
 
   /// Creates a scrollable, linear array of widgets with a custom child model.
@@ -789,6 +807,7 @@ class ListView extends BoxScrollView {
     this.itemExtent,
     @required this.childrenDelegate,
     double cacheExtent,
+    int estimatedScrollChildren,
   }) : assert(childrenDelegate != null),
        super(
          key: key,
@@ -800,6 +819,8 @@ class ListView extends BoxScrollView {
          shrinkWrap: shrinkWrap,
          padding: padding,
         cacheExtent: cacheExtent,
+        estimatedChildExtent: itemExtent,
+        estimatedScrollChildren: estimatedScrollChildren,
        );
 
   /// If non-null, forces the children to have the given extent in the scroll

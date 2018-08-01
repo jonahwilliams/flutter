@@ -59,7 +59,6 @@ abstract class ScrollView extends StatelessWidget {
     ScrollPhysics physics,
     this.shrinkWrap = false,
     this.cacheExtent,
-    this.estimatedChildExtent,
     this.estimatedScrollChildren,
   }) : assert(reverse != null),
        assert(shrinkWrap != null),
@@ -173,8 +172,8 @@ abstract class ScrollView extends StatelessWidget {
   /// {@macro flutter.rendering.viewport.cacheExtent}
   final double cacheExtent;
 
-  final double estimatedChildExtent;
-
+  /// The number of children this scroll view will have, or an estimate if the
+  /// total is unknown or unbounded.
   final int estimatedScrollChildren;
 
   /// Returns the [AxisDirection] in which the scroll view scrolls.
@@ -242,7 +241,6 @@ abstract class ScrollView extends StatelessWidget {
       viewportBuilder: (BuildContext context, ViewportOffset offset) {
         return buildViewport(context, offset, axisDirection, slivers);
       },
-      estimatedChildExtent: estimatedChildExtent,
       estimatedScrollChildren: estimatedScrollChildren,
     );
     return primary && scrollController != null
@@ -390,7 +388,6 @@ abstract class BoxScrollView extends ScrollView {
     bool shrinkWrap = false,
     this.padding,
     double cacheExtent,
-    double estimatedChildExtent,
     int estimatedScrollChildren,
   }) : super(
     key: key,
@@ -401,7 +398,6 @@ abstract class BoxScrollView extends ScrollView {
     physics: physics,
     shrinkWrap: shrinkWrap,
     cacheExtent: cacheExtent,
-    estimatedChildExtent: estimatedChildExtent,
     estimatedScrollChildren: estimatedScrollChildren,
   );
 
@@ -546,6 +542,13 @@ abstract class BoxScrollView extends ScrollView {
 /// [SliverGrid] or [SliverAppBar], can be put in the [CustomScrollView.slivers]
 /// list.
 ///
+/// ## Accessibility
+///
+/// To make a [ListView] accessible, the `itemCount` argument should always be
+/// provided to the [new ListView.builder], [new ListView.separated] and
+/// [new ListView.custom] constructors. This value is used by accessibility
+/// services to inform users of their position within the list.
+///
 /// ### Sample code
 ///
 /// Here are two brief snippets showing a [ListView] and its equivalent using
@@ -642,7 +645,6 @@ class ListView extends BoxScrollView {
     shrinkWrap: shrinkWrap,
     padding: padding,
     cacheExtent: cacheExtent,
-    estimatedChildExtent: itemExtent,
     estimatedScrollChildren: children.length,
   );
 
@@ -700,7 +702,6 @@ class ListView extends BoxScrollView {
     shrinkWrap: shrinkWrap,
     padding: padding,
     cacheExtent: cacheExtent,
-    estimatedChildExtent: itemExtent,
     estimatedScrollChildren: itemCount,
   );
 
@@ -787,7 +788,6 @@ class ListView extends BoxScrollView {
     physics: physics,
     shrinkWrap: shrinkWrap,
     padding: padding,
-    estimatedChildExtent: itemExtent,
     estimatedScrollChildren: itemCount,
   );
 
@@ -807,7 +807,7 @@ class ListView extends BoxScrollView {
     this.itemExtent,
     @required this.childrenDelegate,
     double cacheExtent,
-    int estimatedScrollChildren,
+    int itemCount,
   }) : assert(childrenDelegate != null),
        super(
          key: key,
@@ -819,8 +819,7 @@ class ListView extends BoxScrollView {
          shrinkWrap: shrinkWrap,
          padding: padding,
         cacheExtent: cacheExtent,
-        estimatedChildExtent: itemExtent,
-        estimatedScrollChildren: estimatedScrollChildren,
+        estimatedScrollChildren: itemCount,
        );
 
   /// If non-null, forces the children to have the given extent in the scroll

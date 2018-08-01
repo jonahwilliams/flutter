@@ -197,6 +197,7 @@ class SliverChildBuilderDelegate extends SliverChildDelegate {
     Widget child = builder(context, index);
     if (child == null)
       return null;
+    child = new Semantics(child: child, scrollIndex: index);
     if (addRepaintBoundaries)
       child = new RepaintBoundary.wrap(child, index);
     if (addAutomaticKeepAlives)
@@ -289,6 +290,7 @@ class SliverChildListDelegate extends SliverChildDelegate {
       return null;
     Widget child = children[index];
     assert(child != null);
+    child = new Semantics(child: child, scrollIndex: index);
     if (addRepaintBoundaries)
       child = new RepaintBoundary.wrap(child, index);
     if (addAutomaticKeepAlives)

@@ -109,25 +109,12 @@ abstract class ScrollPosition extends ViewportOffset with ScrollMetrics {
   final String debugLabel;
 
   @override
-  int get estimatedScrollIndex {
-    if (pixels == null || estimatedChildExtent == double.infinity || estimatedChildExtent == null)
-      return 0;
-    return pixels ~/ estimatedChildExtent;
-  }
-
-  @override
   double get minScrollExtent => _minScrollExtent;
   double _minScrollExtent;
 
   @override
   double get maxScrollExtent => _maxScrollExtent;
   double _maxScrollExtent;
-
-  @override
-  double estimatedChildExtent = double.infinity;
-
-  @override
-  int estimatedScrollChildren = 0;
 
   @override
   double get pixels => _pixels;
@@ -179,8 +166,6 @@ abstract class ScrollPosition extends ViewportOffset with ScrollMetrics {
     assert(_pixels == null);
     _minScrollExtent = other.minScrollExtent;
     _maxScrollExtent = other.maxScrollExtent;
-    estimatedScrollChildren = other.estimatedScrollChildren;
-    estimatedChildExtent = other.estimatedChildExtent;
     _pixels = other._pixels;
     _viewportDimension = other.viewportDimension;
 

@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
@@ -288,9 +289,6 @@ class ScrollableState extends State<Scrollable> with TickerProviderStateMixin
 
     _position = controller?.createScrollPosition(_physics, this, oldPosition)
       ?? new ScrollPositionWithSingleContext(physics: _physics, context: this, oldPosition: oldPosition);
-    _position
-      ..estimatedChildExtent = widget.estimatedChildExtent
-      ..estimatedScrollChildren = widget.estimatedScrollChildren;
     assert(position != null);
     controller?.attach(position);
   }
@@ -517,6 +515,7 @@ class ScrollableState extends State<Scrollable> with TickerProviderStateMixin
         key: _excludableScrollSemanticsKey,
         child: result,
         position: position,
+        estimatedScrollChildren: widget.estimatedScrollChildren,
       );
     }
 
@@ -548,17 +547,27 @@ class _ExcludableScrollSemantics extends SingleChildRenderObjectWidget {
   const _ExcludableScrollSemantics({
     Key key,
     @required this.position,
-    Widget child
+    Widget child,
+    this.estimatedScrollChildren,
   }) : assert(position != null), super(key: key, child: child);
 
   final ScrollPosition position;
 
+  final int estimatedScrollChildren;
+
   @override
-  _RenderExcludableScrollSemantics createRenderObject(BuildContext context) => new _RenderExcludableScrollSemantics(position: position);
+  _RenderExcludableScrollSemantics createRenderObject(BuildContext context) {
+    return new _RenderExcludableScrollSemantics(
+      position: position,
+      estimatedScrollChildren: estimatedScrollChildren,
+    );
+  }
 
   @override
   void updateRenderObject(BuildContext context, _RenderExcludableScrollSemantics renderObject) {
-    renderObject.position = position;
+    renderObject
+      ..estimatedScrollChildren = estimatedScrollChildren
+      ..position = position;
   }
 }
 
@@ -566,7 +575,11 @@ class _RenderExcludableScrollSemantics extends RenderProxyBox {
   _RenderExcludableScrollSemantics({
     @required ScrollPosition position,
     RenderBox child,
-  }) : _position = position, assert(position != null), super(child) {
+    int estimatedScrollChildren,
+  }) : _position = position,
+       _estimatedScrollChildren = estimatedScrollChildren,
+       assert(position != null),
+       super(child) {
     position.addListener(markNeedsSemanticsUpdate);
   }
 
@@ -583,21 +596,32 @@ class _RenderExcludableScrollSemantics extends RenderProxyBox {
     markNeedsSemanticsUpdate();
   }
 
+  /// An estimate for the total number of children in the scrollable.
+  int get estimatedScrollChildren => _estimatedScrollChildren;
+  int _estimatedScrollChildren;
+  set estimatedScrollChildren(int value) {
+    if (value == estimatedScrollChildren)
+      return;
+    _estimatedScrollChildren = value;
+    markNeedsSemanticsUpdate();
+  }
+
   @override
   void describeSemanticsConfiguration(SemanticsConfiguration config) {
     super.describeSemanticsConfiguration(config);
     config.isSemanticBoundary = true;
     if (position.haveDimensions) {
       config
-          ..scrollIndex = _position.estimatedScrollIndex ?? 0
-          ..scrollChildren = position.estimatedScrollChildren ?? 0
-          ..scrollPosition = position.pixels
-          ..scrollExtentMax = position.maxScrollExtent
-          ..scrollExtentMin = position.minScrollExtent;
+        ..scrollIndex = _estimatedScrollIndex ?? 0
+        ..scrollChildren = estimatedScrollChildren ?? 0
+        ..scrollPosition = position.pixels
+        ..scrollExtentMax = position.maxScrollExtent
+        ..scrollExtentMin = position.minScrollExtent;
     }
   }
 
   SemanticsNode _innerNode;
+  int _estimatedScrollIndex;
 
   @override
   void assembleSemanticsNode(SemanticsNode node, SemanticsConfiguration config, Iterable<SemanticsNode> children) {
@@ -613,12 +637,18 @@ class _RenderExcludableScrollSemantics extends RenderProxyBox {
 
     final List<SemanticsNode> excluded = <SemanticsNode>[_innerNode];
     final List<SemanticsNode> included = <SemanticsNode>[];
+    _estimatedScrollIndex = null;
     for (SemanticsNode child in children) {
       assert(child.isTagged(RenderViewport.useTwoPaneSemantics));
       if (child.isTagged(RenderViewport.excludeFromScrolling))
         excluded.add(child);
-      else
+      else {
+        // find the first non-hidden child tagged with a scroll index.
+        // use this to determine the first visible child.
+        if (_estimatedScrollIndex == null && !child.hasFlag(SemanticsFlag.isHidden))
+          _estimatedScrollIndex = child.scrollIndex;
         included.add(child);
+      }
     }
     node.updateWith(config: null, childrenInInversePaintOrder: excluded);
     _innerNode.updateWith(config: config, childrenInInversePaintOrder: included);

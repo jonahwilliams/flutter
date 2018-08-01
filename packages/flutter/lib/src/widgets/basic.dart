@@ -5251,6 +5251,7 @@ class Semantics extends SingleChildRenderObjectWidget {
       decreasedValue: properties.decreasedValue,
       hint: properties.hint,
       textDirection: _getTextDirection(context),
+      scrollIndex: properties.scrollIndex,
       sortKey: properties.sortKey,
       onTap: properties.onTap,
       onLongPress: properties.onLongPress,
@@ -5312,6 +5313,7 @@ class Semantics extends SingleChildRenderObjectWidget {
       ..hint = properties.hint
       ..namesRoute = properties.namesRoute
       ..textDirection = _getTextDirection(context)
+      ..scrollIndex = properties.scrollIndex
       ..sortKey = properties.sortKey
       ..onTap = properties.onTap
       ..onLongPress = properties.onLongPress

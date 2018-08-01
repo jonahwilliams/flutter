@@ -3189,6 +3189,7 @@ class RenderSemanticsAnnotations extends RenderProxyBox {
     String decreasedValue,
     String hint,
     TextDirection textDirection,
+    int scrollIndex,
     SemanticsSortKey sortKey,
     VoidCallback onTap,
     VoidCallback onDismiss,
@@ -3234,6 +3235,7 @@ class RenderSemanticsAnnotations extends RenderProxyBox {
        _decreasedValue = decreasedValue,
        _hint = hint,
        _textDirection = textDirection,
+       _scrollIndex = scrollIndex,
        _sortKey = sortKey,
        _onTap = onTap,
        _onLongPress = onLongPress,
@@ -3553,6 +3555,15 @@ class RenderSemanticsAnnotations extends RenderProxyBox {
     if (sortKey == value)
       return;
     _sortKey = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  int get scrollIndex => _scrollIndex;
+  int _scrollIndex;
+  set scrollIndex(int value) {
+    if (scrollIndex == value)
+      return;
+    _scrollIndex = value;
     markNeedsSemanticsUpdate();
   }
 
@@ -3980,6 +3991,8 @@ class RenderSemanticsAnnotations extends RenderProxyBox {
       config.textDirection = textDirection;
     if (sortKey != null)
       config.sortKey = sortKey;
+    if (scrollIndex != null)
+      config.scrollIndex = scrollIndex;
     // Registering _perform* as action handlers instead of the user provided
     // ones to ensure that changing a user provided handler from a non-null to
     // another non-null value doesn't require a semantics update.

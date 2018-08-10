@@ -181,6 +181,8 @@
 				TargetAttributes = {
 					97C146ED1CF9000F007C117D = {
 						CreatedOnToolsVersion = 7.3.1;
+						DevelopmentTeam = EQHXZ8M8AV;
+						ProvisioningStyle = Manual;
 					};
 				};
 			};
@@ -425,6 +427,9 @@
 			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = EQHXZ8M8AV;
 				ENABLE_BITCODE = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -438,6 +443,8 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.flutter.examples.gallery;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE = "f4bdd13e-fd4f-4896-b601-914f2954bd59";
+				PROVISIONING_PROFILE_SPECIFIER = "Google Development";
 			};
 			name = Debug;
 		};
@@ -446,6 +453,9 @@
 			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Manual;
+				DEVELOPMENT_TEAM = EQHXZ8M8AV;
 				ENABLE_BITCODE = NO;
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -459,6 +469,8 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = io.flutter.examples.gallery;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				PROVISIONING_PROFILE = "f4bdd13e-fd4f-4896-b601-914f2954bd59";
+				PROVISIONING_PROFILE_SPECIFIER = "Google Development";
 			};
 			name = Release;
 		};

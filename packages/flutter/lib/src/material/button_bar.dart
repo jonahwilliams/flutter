@@ -8,6 +8,8 @@ import 'button_theme.dart';
 import 'dialog.dart';
 import 'flat_button.dart';
 import 'raised_button.dart';
+import 'theme.dart';
+import 'theme_data.dart';
 
 /// A horizontal arrangement of buttons.
 ///
@@ -49,9 +51,19 @@ class ButtonBar extends StatelessWidget {
   Widget build(BuildContext context) {
     // We divide by 4.0 because we want half of the average of the left and right padding.
     final double paddingUnit = ButtonTheme.of(context).padding.horizontal / 4.0;
+    final MaterialTapTargetSize materialTapTargetSize = Theme.of(context).materialTapTargetSize;
+    double verticalPadding;
+    switch (materialTapTargetSize) {
+      case MaterialTapTargetSize.padded:
+        verticalPadding = paddingUnit / 2;
+        break;
+      case MaterialTapTargetSize.shrinkWrap:
+        verticalPadding = 2.0 * paddingUnit;
+        break;
+    }
     return new Padding(
       padding: new EdgeInsets.symmetric(
-        vertical: 2.0 * paddingUnit,
+        vertical: verticalPadding,
         horizontal: paddingUnit
       ),
       child: new Row(

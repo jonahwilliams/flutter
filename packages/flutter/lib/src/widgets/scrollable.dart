@@ -616,6 +616,7 @@ class _RenderExcludableScrollSemantics extends RenderProxyBox {
 
   @override
   void assembleSemanticsNode(SemanticsNode node, SemanticsConfiguration config, Iterable<SemanticsNode> children) {
+    print(children);
     if (children.isEmpty || !children.first.isTagged(RenderViewport.useTwoPaneSemantics)) {
       super.assembleSemanticsNode(node, config, children);
       return;

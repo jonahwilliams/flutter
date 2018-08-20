@@ -5519,6 +5519,61 @@ class ExcludeSemantics extends SingleChildRenderObjectWidget {
   }
 }
 
+class ScrollNodeSemantics extends SingleChildRenderObjectWidget {
+  const ScrollNodeSemantics({
+    Key key,
+    Widget child,
+    @required this.childCount,
+  }) : assert(childCount != null),
+       super(key: key, child: child);
+
+  final int childCount;
+
+  @override
+  RenderScrollNodeSemantics createRenderObject(BuildContext context) {
+    return new RenderScrollNodeSemantics(childCount);
+  }
+
+  @override
+  void updateRenderObject(BuildContext context, covariant RenderScrollNodeSemantics renderObject) {
+    renderObject.childCount = childCount;
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(new DiagnosticsProperty<int>('childCount', childCount));
+  }
+}
+
+class ScrollChildSemantics extends SingleChildRenderObjectWidget {
+  const ScrollChildSemantics({
+    Key key,
+    Widget child,
+    @required this.index,
+  }) : assert(index != null),
+       assert(index >= 0),
+       super(key: key, child: child);
+
+  final int index;
+
+  @override
+  RenderScrollChildSemantics createRenderObject(BuildContext context) {
+    return new RenderScrollChildSemantics(index);
+  }
+
+  @override
+  void updateRenderObject(BuildContext context, covariant RenderScrollChildSemantics renderObject) {
+    renderObject.index = index;
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(new DiagnosticsProperty<int>('index', index));
+  }
+}
+
 /// A widget that builds its child.
 ///
 /// Useful for attaching a key to an existing widget.

@@ -178,9 +178,15 @@ abstract class RenderViewportBase<ParentDataClass extends ContainerParentDataMix
 
   @override
   void visitChildrenForSemantics(RenderObjectVisitor visitor) {
-    childrenInPaintOrder
-        .where((RenderSliver sliver) => sliver.geometry.visible || sliver.geometry.cacheExtent > 0.0)
-        .forEach(visitor);
+    for (RenderSliver sliver in childrenInPaintOrder) {
+      if (sliver.geometry.visible || sliver.geometry.cacheExtent > 0.0)
+        visitor(sliver);
+      else {
+        sliver.visitChildrenForSemantics((RenderObject child) {
+          print('hidden child: $child');
+        });
+      }
+    }
   }
 
   /// The direction in which the [SliverConstraints.scrollOffset] increases.

@@ -191,6 +191,8 @@ class SemanticsData extends Diagnosticable {
     @required this.scrollPosition,
     @required this.scrollExtentMax,
     @required this.scrollExtentMin,
+    @required this.estimatedChildCount,
+    @required this.indexInParent,
     this.tags,
     this.transform,
     this.customSemanticsActionIds,
@@ -248,6 +250,10 @@ class SemanticsData extends Diagnosticable {
   /// The currently selected text (or the position of the cursor) within [value]
   /// if this node represents a text field.
   final TextSelection textSelection;
+
+  final int indexInParent;
+
+  final int estimatedChildCount;
 
   /// Indicates the current scrolling position in logical pixels if the node is
   /// scrollable.
@@ -346,6 +352,8 @@ class SemanticsData extends Diagnosticable {
     properties.add(new DoubleProperty('scrollExtentMin', scrollExtentMin, defaultValue: null));
     properties.add(new DoubleProperty('scrollPosition', scrollPosition, defaultValue: null));
     properties.add(new DoubleProperty('scrollExtentMax', scrollExtentMax, defaultValue: null));
+    properties.add(new IntProperty('estimatedChildCount', estimatedChildCount, defaultValue: null));
+    properties.add(new IntProperty('indexInParent', indexInParent, defaultValue: null));
   }
 
   @override
@@ -367,6 +375,8 @@ class SemanticsData extends Diagnosticable {
         && typedOther.scrollPosition == scrollPosition
         && typedOther.scrollExtentMax == scrollExtentMax
         && typedOther.scrollExtentMin == scrollExtentMin
+        && typedOther.indexInParent == indexInParent
+        && typedOther.estimatedChildCount == estimatedChildCount
         && typedOther.transform == transform
         && _sortedListsEqual(typedOther.customSemanticsActionIds, customSemanticsActionIds);
   }
@@ -389,6 +399,8 @@ class SemanticsData extends Diagnosticable {
       scrollExtentMax,
       scrollExtentMin,
       transform,
+      indexInParent,
+      estimatedChildCount,
       ui.hashList(customSemanticsActionIds),
     );
   }
@@ -1137,6 +1149,12 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
   /// currently shown on screen.
   bool get isInvisible => !isMergedIntoParent && rect.isEmpty;
 
+  int get childEstimate => _childEstimate;
+  int _childEstimate;
+
+  int get indexInParent => _indexInParent;
+  int _indexInParent;
+
   // MERGING
 
   /// Whether this node merges its semantic information into an ancestor node.
@@ -1394,6 +1412,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
         _scrollExtentMax != config._scrollExtentMax ||
         _scrollExtentMin != config._scrollExtentMin ||
         _actionsAsBits != config._actionsAsBits ||
+        _childEstimate != config.estimatedChildCount ||
+        _indexInParent != config.indexInParent ||
         _mergeAllDescendantsIntoThisNode != config.isMergingSemanticsOfDescendants;
   }
 
@@ -1553,6 +1573,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
     _scrollExtentMax = config._scrollExtentMax;
     _scrollExtentMin = config._scrollExtentMin;
     _mergeAllDescendantsIntoThisNode = config.isMergingSemanticsOfDescendants;
+    _indexInParent = config.indexInParent;
+    _childEstimate = config.estimatedChildCount;
     _replaceChildren(childrenInInversePaintOrder ?? const <SemanticsNode>[]);
 
     assert(
@@ -1585,6 +1607,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
     double scrollPosition = _scrollPosition;
     double scrollExtentMax = _scrollExtentMax;
     double scrollExtentMin = _scrollExtentMin;
+    int estimatedChildCount = _childEstimate;
+    int indexInParent = _indexInParent;
     final Set<int> customSemanticsActionIds = new Set<int>();
     for (CustomSemanticsAction action in _customSemanticsActions.keys)
       customSemanticsActionIds.add(CustomSemanticsAction.getIdentifier(action));
@@ -1615,6 +1639,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
         scrollPosition ??= node._scrollPosition;
         scrollExtentMax ??= node._scrollExtentMax;
         scrollExtentMin ??= node._scrollExtentMin;
+        estimatedChildCount ??= node._childEstimate;
+        indexInParent ??= node._indexInParent;
         if (value == '' || value == null)
           value = node._value;
         if (increasedValue == '' || increasedValue == null)
@@ -1677,6 +1703,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
       scrollPosition: scrollPosition,
       scrollExtentMax: scrollExtentMax,
       scrollExtentMin: scrollExtentMin,
+      indexInParent: indexInParent,
+      estimatedChildCount: estimatedChildCount,
       customSemanticsActionIds: customSemanticsActionIds.toList()..sort(),
     );
   }
@@ -1871,6 +1899,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
     properties.add(new DoubleProperty('scrollExtentMin', scrollExtentMin, defaultValue: null));
     properties.add(new DoubleProperty('scrollPosition', scrollPosition, defaultValue: null));
     properties.add(new DoubleProperty('scrollExtentMax', scrollExtentMax, defaultValue: null));
+    properties.add(new IntProperty('childCount', childEstimate, defaultValue: null));
+    properties.add(new IntProperty('indexInParent', indexInParent, defaultValue: null));
   }
 
   /// Returns a string representation of this node and its descendants.
@@ -2446,6 +2476,20 @@ class SemanticsConfiguration {
   /// Paint order as established by [visitChildrenForSemantics] is used to
   /// determine if a node is previous to this one.
   bool isBlockingSemanticsOfPreviouslyPaintedNodes = false;
+
+  int get estimatedChildCount => _estimatedChildCount;
+  int _estimatedChildCount;
+  set estimatedChildCount(int value) {
+    _estimatedChildCount = value;
+    _hasBeenAnnotated = true;
+  }
+
+  int get indexInParent => _indexInParent;
+  int _indexInParent;
+  set indexInParent(int value) {
+    _indexInParent = value;
+    _hasBeenAnnotated = true;
+  }
 
   // SEMANTIC ANNOTATIONS
   // These will end up on [SemanticNode]s generated from
@@ -3328,6 +3372,10 @@ class SemanticsConfiguration {
       return false;
     if (_value != null && _value.isNotEmpty && other._value != null && other._value.isNotEmpty)
       return false;
+    if (estimatedChildCount != null && other.estimatedChildCount == null)
+      return false;
+    if (indexInParent != null && other.indexInParent == null)
+      return false;
     return true;
   }
 
@@ -3354,6 +3402,8 @@ class SemanticsConfiguration {
     _scrollExtentMax ??= other._scrollExtentMax;
     _scrollExtentMin ??= other._scrollExtentMin;
     _hintOverrides ??= other._hintOverrides;
+    estimatedChildCount ??= other.estimatedChildCount;
+    indexInParent ??= other.indexInParent;
 
     textDirection ??= other.textDirection;
     _sortKey ??= other._sortKey;
@@ -3402,6 +3452,8 @@ class SemanticsConfiguration {
       .._scrollExtentMax = _scrollExtentMax
       .._scrollExtentMin = _scrollExtentMin
       .._actionsAsBits = _actionsAsBits
+      ..estimatedChildCount = estimatedChildCount
+      ..indexInParent = indexInParent
       .._actions.addAll(_actions)
       .._customSemanticsActions.addAll(_customSemanticsActions);
   }

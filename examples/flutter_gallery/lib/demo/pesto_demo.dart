@@ -94,6 +94,7 @@ class _RecipeGridPageState extends State<RecipeGridPage> {
           slivers: <Widget>[
             _buildAppBar(context, statusBarHeight),
             _buildBody(context, statusBarHeight),
+            _buildBody2(context, statusBarHeight),
           ],
         ),
       ),
@@ -158,6 +159,35 @@ class _RecipeGridPageState extends State<RecipeGridPage> {
             return new RecipeCard(
               recipe: recipe,
               onTap: () { showRecipePage(context, recipe); },
+            );
+          },
+          childCount: widget.recipes.length,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody2(BuildContext context, double statusBarHeight) {
+    final EdgeInsets mediaPadding = MediaQuery.of(context).padding;
+    final EdgeInsets padding = new EdgeInsets.only(
+        top: 8.0,
+        left: 8.0 + mediaPadding.left,
+        right: 8.0 + mediaPadding.right,
+        bottom: 8.0
+    );
+    return new SliverPadding(
+      padding: padding,
+      sliver: new SliverGrid(
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: _kRecipePageMaxWidth,
+          crossAxisSpacing: 8.0,
+          mainAxisSpacing: 8.0,
+        ),
+        delegate: new SliverChildBuilderDelegate(
+              (BuildContext context, int index) {
+            final Recipe recipe = widget.recipes[index];
+            return new Card(
+              child: new Text(recipe.author),
             );
           },
           childCount: widget.recipes.length,

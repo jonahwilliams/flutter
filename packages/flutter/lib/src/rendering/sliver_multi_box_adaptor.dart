@@ -4,6 +4,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/semantics.dart';
 import 'package:vector_math/vector_math_64.dart';
 
 import 'binding.dart';
@@ -532,6 +533,14 @@ abstract class RenderSliverMultiBoxAdaptor extends RenderSliver
 
       child = childAfter(child);
     }
+  }
+
+  @override
+  void describeSemanticsConfiguration(SemanticsConfiguration config) {
+    super.describeSemanticsConfiguration(config);
+    config.isSemanticBoundary = true;
+    config.explicitChildNodes = true;
+    config.estimatedChildCount = childManager.childCount;
   }
 
   @override

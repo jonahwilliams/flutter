@@ -4332,6 +4332,57 @@ class RenderExcludeSemantics extends RenderProxyBox {
   }
 }
 
+class RenderScrollNodeSemantics extends RenderProxyBox {
+  RenderScrollNodeSemantics(int childCount, [RenderBox child])
+    : assert(childCount != null),
+      _childCount = childCount,
+      super(child);
+
+  int get childCount => _childCount;
+  int _childCount;
+  set childCount(int value) {
+    if (value == childCount)
+      return;
+    _childCount = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  @override
+  void describeSemanticsConfiguration(SemanticsConfiguration config) {
+    super.describeSemanticsConfiguration(config);
+    if (childCount > 0) {
+      config.isSemanticBoundary = true;
+      config.explicitChildNodes = true;
+      config.estimatedChildCount = childCount;
+    }
+  }
+}
+
+class RenderScrollChildSemantics extends RenderProxyBox {
+  RenderScrollChildSemantics(int index, [RenderBox child])
+    : assert(index != null),
+      assert(index >= 0),
+      _index = index,
+      super(child);
+
+  int get index => _index;
+  int _index;
+  set index(int value) {
+    if (value == index)
+      return;
+    _index = value;
+    markNeedsSemanticsUpdate();
+  }
+
+
+  @override
+  void describeSemanticsConfiguration(SemanticsConfiguration config) {
+    super.describeSemanticsConfiguration(config);
+    config.isSemanticBoundary = true;
+    config.indexInParent = index;
+  }
+}
+
 /// Provides an anchor for a [RenderFollowerLayer].
 ///
 /// See also:

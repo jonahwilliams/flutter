@@ -1155,6 +1155,12 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
   int get indexInParent => _indexInParent;
   int _indexInParent;
 
+  int get trailingChildren => _trailingChildren;
+  int _trailingChildren;
+
+  int get leadingChildren => _leadingChildren;
+  int _leadingChildren;
+
   // MERGING
 
   /// Whether this node merges its semantic information into an ancestor node.
@@ -1575,6 +1581,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
     _mergeAllDescendantsIntoThisNode = config.isMergingSemanticsOfDescendants;
     _indexInParent = config.indexInParent;
     _childEstimate = config.estimatedChildCount;
+    _leadingChildren = config.leadingChildCount;
+    _trailingChildren = config.trailingChildCount;
     _replaceChildren(childrenInInversePaintOrder ?? const <SemanticsNode>[]);
 
     assert(
@@ -1901,6 +1909,8 @@ class SemanticsNode extends AbstractNode with DiagnosticableTreeMixin {
     properties.add(new DoubleProperty('scrollExtentMax', scrollExtentMax, defaultValue: null));
     properties.add(new IntProperty('childCount', childEstimate, defaultValue: null));
     properties.add(new IntProperty('indexInParent', indexInParent, defaultValue: null));
+    properties.add(new IntProperty('leadingChildCount', leadingChildren, defaultValue: null));
+    properties.add(new IntProperty('trailingChildCount', trailingChildren, defaultValue: null));
   }
 
   /// Returns a string representation of this node and its descendants.
@@ -2476,6 +2486,20 @@ class SemanticsConfiguration {
   /// Paint order as established by [visitChildrenForSemantics] is used to
   /// determine if a node is previous to this one.
   bool isBlockingSemanticsOfPreviouslyPaintedNodes = false;
+
+  int get leadingChildCount => _leadingChildCount;
+  int _leadingChildCount;
+  set leadingChildCount(int value) {
+    _leadingChildCount = value;
+    _hasBeenAnnotated = true;
+  }
+
+  int get trailingChildCount => _trailingChildCount;
+  int _trailingChildCount;
+  set trailingChildCount(int value) {
+    _trailingChildCount = value;
+    _hasBeenAnnotated = true;
+  }
 
   int get estimatedChildCount => _estimatedChildCount;
   int _estimatedChildCount;
@@ -3371,10 +3395,6 @@ class SemanticsConfiguration {
     if ((_flags & other._flags) != 0)
       return false;
     if (_value != null && _value.isNotEmpty && other._value != null && other._value.isNotEmpty)
-      return false;
-    if (estimatedChildCount != null && other.estimatedChildCount == null)
-      return false;
-    if (indexInParent != null && other.indexInParent == null)
       return false;
     return true;
   }

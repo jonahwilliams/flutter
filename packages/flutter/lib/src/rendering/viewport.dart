@@ -14,6 +14,7 @@ import 'binding.dart';
 import 'box.dart';
 import 'object.dart';
 import 'sliver.dart';
+import 'sliver_multi_box_adaptor.dart';
 import 'viewport_offset.dart';
 
 /// An interface for render objects that are bigger on the inside.
@@ -172,22 +173,76 @@ abstract class RenderViewportBase<ParentDataClass extends ContainerParentDataMix
   @override
   void describeSemanticsConfiguration(SemanticsConfiguration config) {
     super.describeSemanticsConfiguration(config);
-
     config.addTagForChildren(RenderViewport.useTwoPaneSemantics);
+    config.leadingChildCount = _leadingChildCount;
+    config.trailingChildCount = _trailingChildCount;
   }
+
+  int _leadingChildCount = 0;
+  int _trailingChildCount = 0;
 
   @override
   void visitChildrenForSemantics(RenderObjectVisitor visitor) {
+    _leadingChildCount = 0;
+    _trailingChildCount = 0;
+    // track whether we are visiting invisible children before or after visible
+    // elements.
+    bool isLeading = false;
     for (RenderSliver sliver in childrenInPaintOrder) {
-      if (sliver.geometry.visible || sliver.geometry.cacheExtent > 0.0)
+      if (sliver.geometry.visible || sliver.geometry.cacheExtent > 0.0) {
+        isLeading = true;
         visitor(sliver);
-      else {
-        sliver.visitChildrenForSemantics((RenderObject child) {
-          print('hidden child: $child');
-        });
+      } else {
+        final SemanticsConfiguration config = _firstSemantics(sliver);
+        if (isLeading)
+          _leadingChildCount = config.estimatedChildCount ?? 0;
+        else
+          _trailingChildCount = config.estimatedChildCount ?? 0;
       }
     }
   }
+
+//  @override
+//  void assembleSemanticsNode(SemanticsNode node, SemanticsConfiguration config, Iterable<SemanticsNode> children) {
+//    final List<SemanticsNode> newChildren = <SemanticsNode>[];
+//    final SemanticsConfiguration leading = new SemanticsConfiguration();
+//    final SemanticsConfiguration trailing = new SemanticsConfiguration();
+//    leading.estimatedChildCount = _leadingChildCount;
+//    trailing.estimatedChildCount = _trailingChildCount;
+//    _leadingNode = new SemanticsNode();
+//    _trailingNode = new SemanticsNode();
+//    _leadingNode.updateWith(config: leading);
+//    _trailingNode.updateWith(config: trailing);
+//    _leadingNode.rect = new Rect.fromLTRB(0.0, 0.0, 1.0, 1.0);
+//    _trailingNode.rect = new Rect.fromLTRB(0.0, 0.0, 1.0, 1.0);
+//    newChildren
+//      ..add(_leadingNode)
+//      ..add(_trailingNode)
+//      ..addAll(children);
+//    node.updateWith(config: config, childrenInInversePaintOrder: newChildren);
+//  }
+//
+//  @override
+//  void clearSemantics() {
+//    _leadingNode = null;
+//    _trailingNode = null;
+//    super.clearSemantics();
+//  }
+
+  SemanticsConfiguration _firstSemantics(RenderObject object) {
+    SemanticsConfiguration result;
+    void visitor(RenderObject child) {
+      if (child is RenderSliverMultiBoxAdaptor && result == null) {
+        result = new SemanticsConfiguration();
+        child.describeSemanticsConfiguration(result);
+        return;
+      }
+      child.visitChildren(visitor);
+    }
+    object.visitChildren(visitor);
+    return result;
+  }
+
 
   /// The direction in which the [SliverConstraints.scrollOffset] increases.
   ///

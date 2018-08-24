@@ -190,7 +190,7 @@ class _RecipeGridPageState extends State<RecipeGridPage> {
               child: new Text(recipe.author),
             );
           },
-          childCount: widget.recipes.length,
+          childCount: widget.recipes.length ~/ 2,
         ),
       ),
     );

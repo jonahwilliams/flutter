@@ -6,6 +6,7 @@ import 'dart:collection';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -18,6 +19,10 @@ import 'text_selection.dart';
 import 'theme.dart';
 
 export 'package:flutter/services.dart' show TextInputType, TextInputAction, TextCapitalization;
+
+/// A formatter which produces a semantic label from the `currentLines` and
+/// `maxLines` of a text field.
+typedef String MaxLengthSemanticFormatter(int currentLines, int maxLines);
 
 /// A material design text field.
 ///
@@ -120,6 +125,7 @@ class TextField extends StatefulWidget {
     this.cursorColor,
     this.keyboardAppearance,
     this.scrollPadding = const EdgeInsets.all(20.0),
+    this.maxLengthSemanticFormatter,
   }) : assert(textAlign != null),
        assert(autofocus != null),
        assert(obscureText != null),
@@ -342,6 +348,9 @@ class TextField extends StatefulWidget {
   /// Defaults to EdgeInserts.all(20.0).
   final EdgeInsets scrollPadding;
 
+  /// A formatter used to produce the semantic label for the length counter.
+  final MaxLengthSemanticFormatter maxLengthSemanticFormatter;
+
   @override
   _TextFieldState createState() => new _TextFieldState();
 
@@ -388,7 +397,11 @@ class _TextFieldState extends State<TextField> with AutomaticKeepAliveClientMixi
     if (!needsCounter)
       return effectiveDecoration;
 
-    final String counterText = '${_effectiveController.value.text.runes.length}/${widget.maxLength}';
+    final int currentLength = _effectiveController.value.text.runes.length;
+    final String counterText = '$currentLength/${widget.maxLength}';
+    final String counterSemanticLabel = widget.maxLengthSemanticFormatter == null
+        ? counterText
+        : widget.maxLengthSemanticFormatter(currentLength, widget.maxLength);
     if (_effectiveController.value.text.runes.length > widget.maxLength) {
       final ThemeData themeData = Theme.of(context);
       return effectiveDecoration.copyWith(
@@ -396,9 +409,13 @@ class _TextFieldState extends State<TextField> with AutomaticKeepAliveClientMixi
         counterStyle: effectiveDecoration.errorStyle
           ?? themeData.textTheme.caption.copyWith(color: themeData.errorColor),
         counterText: counterText,
+        counterSemanticLabel: counterSemanticLabel,
       );
     }
-    return effectiveDecoration.copyWith(counterText: counterText);
+    return effectiveDecoration.copyWith(
+      counterText: counterText,
+      counterSemanticLabel: counterSemanticLabel,
+    );
   }
 
   @override
@@ -572,8 +589,17 @@ class _TextFieldState extends State<TextField> with AutomaticKeepAliveClientMixi
     );
 
     if (widget.decoration != null) {
+      final Listenable listenable = new Listenable.merge(<Listenable>[ focusNode, controller ]);
+      listenable.addListener(() {
+        if (focusNode.hasFocus) {
+          SchedulerBinding.instance.addPostFrameCallback((Duration _) {
+            final RenderObject renderObject = context.findRenderObject();
+            renderObject?.sendSemanticsEvent(const UpdateLiveRegionEvent());
+          });
+        }
+      });
       child = new AnimatedBuilder(
-        animation: new Listenable.merge(<Listenable>[ focusNode, controller ]),
+        animation: listenable,
         builder: (BuildContext context, Widget child) {
           return new InputDecorator(
             decoration: _getEffectiveDecoration(),

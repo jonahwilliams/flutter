@@ -3242,6 +3242,8 @@ class RenderSemanticsAnnotations extends RenderProxyBox {
     bool hidden,
     bool image,
     bool liveRegion,
+    bool textFieldHint,
+    bool textFieldError,
     String label,
     String value,
     String increasedValue,
@@ -3287,6 +3289,8 @@ class RenderSemanticsAnnotations extends RenderProxyBox {
        _scopesRoute = scopesRoute,
        _namesRoute = namesRoute,
        _liveRegion = liveRegion,
+       _textFieldHint = textFieldHint,
+       _textFieldError = textFieldError,
        _hidden = hidden,
        _image = image,
        _onDismiss = onDismiss,
@@ -3529,6 +3533,28 @@ class RenderSemanticsAnnotations extends RenderProxyBox {
     if (_toggled == value)
       return;
     _toggled = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  /// If non-null, sets the [SemanticsNode.isTextFieldHintMessage] semantic to
+  /// the given value.
+  bool get textFieldHint => _textFieldHint;
+  bool _textFieldHint;
+  set textFieldHint(bool value) {
+    if (value == textFieldHint)
+      return;
+    textFieldHint = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  /// if non-null, sets the [SemanticsNode.isTextFieldErrorMessage] semantic to
+  /// the given value.
+  bool get textFieldError => _textFieldError;
+  bool _textFieldError;
+  set textFieldError(bool value) {
+    if (value == textFieldError)
+      return;
+    _textFieldError = value;
     markNeedsSemanticsUpdate();
   }
 
@@ -4061,6 +4087,10 @@ class RenderSemanticsAnnotations extends RenderProxyBox {
       config.isHeader = header;
     if (textField != null)
       config.isTextField = textField;
+    if (textFieldHint != null)
+      config.isTextFieldHint = textFieldHint;
+    if (textFieldError != null)
+      config.isTextFieldError = textFieldError;
     if (focused != null)
       config.isFocused = focused;
     if (inMutuallyExclusiveGroup != null)

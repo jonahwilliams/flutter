@@ -322,11 +322,14 @@ class _HelperErrorState extends State<_HelperError> with SingleTickerProviderSta
     assert(widget.helperText != null);
     return new Opacity(
       opacity: 1.0 - _controller.value,
-      child: new Text(
-        widget.helperText,
-        style: widget.helperStyle,
-        textAlign: widget.textAlign,
-        overflow: TextOverflow.ellipsis,
+      child: new Semantics(
+        container: true,
+        child: new Text(
+          widget.helperText,
+          style: widget.helperStyle,
+          textAlign: widget.textAlign,
+          overflow: TextOverflow.ellipsis,
+        ),
       ),
     );
   }
@@ -340,12 +343,16 @@ class _HelperErrorState extends State<_HelperError> with SingleTickerProviderSta
           begin: const Offset(0.0, -0.25),
           end: const Offset(0.0, 0.0),
         ).evaluate(_controller.view),
-        child: new Text(
-          widget.errorText,
-          style: widget.errorStyle,
-          textAlign: widget.textAlign,
-          overflow: TextOverflow.ellipsis,
-          maxLines: widget.errorMaxLines,
+        child: new Semantics(
+          textFieldError: true,
+          container: true,
+          child: new Text(
+            widget.errorText,
+            style: widget.errorStyle,
+            textAlign: widget.textAlign,
+            overflow: TextOverflow.ellipsis,
+            maxLines: widget.errorMaxLines,
+          ),
         ),
       ),
     );
@@ -726,29 +733,26 @@ class _RenderDecoration extends RenderBox {
   void visitChildrenForSemantics(RenderObjectVisitor visitor) {
     if (icon != null)
       visitor(icon);
-    if (prefix != null)
-      visitor(prefix);
-    if (prefixIcon != null)
-      visitor(prefixIcon);
-    if (isFocused && hint != null) {
-      // Bypass opacity to always read hint when focused. This prevents the
-      // label from changing when text is entered.
-      final RenderProxyBox typedHint = hint;
-      visitor(typedHint.child);
-    } else if (!isFocused && label != null)
-      visitor(label);
     if (input != null)
       visitor(input);
+    if (prefixIcon != null)
+      visitor(prefixIcon);
     if (suffixIcon != null)
       visitor(suffixIcon);
+    if (prefix != null)
+      visitor(prefix);
     if (suffix != null)
       visitor(suffix);
-    if (container != null)
-      visitor(container);
+    if (label != null)
+      visitor(label);
+    if (hint != null)
+      visitor(hint);
     if (helperError != null)
       visitor(helperError);
     if (counter != null)
       visitor(counter);
+    if (container != null)
+      visitor(container);
   }
 
   @override
@@ -1397,7 +1401,9 @@ class _AffixText extends StatelessWidget {
         duration: _kTransitionDuration,
         curve: _kTransitionCurve,
         opacity: labelIsFloating ? 1.0 : 0.0,
-        child: child ?? new Text(text, style: style,),
+        child: new ExcludeSemantics(
+          child: child ?? new Text(text, style: style,),
+        ),
       ),
     );
   }
@@ -1696,11 +1702,16 @@ class _InputDecoratorState extends State<InputDecorator> with TickerProviderStat
       opacity: (isEmpty && !_hasInlineLabel) ? 1.0 : 0.0,
       duration: _kTransitionDuration,
       curve: _kTransitionCurve,
-      child: new Text(
-        decoration.hintText,
-        style: hintStyle,
-        overflow: TextOverflow.ellipsis,
-        textAlign: textAlign,
+      alwaysIncludeSemantics: true,
+      child: new Semantics(
+        textFieldHint: true,
+        container: true,
+        child: new Text(
+          decoration.hintText,
+          style: hintStyle,
+          overflow: TextOverflow.ellipsis,
+          textAlign: textAlign,
+        ),
       ),
     );
 
@@ -1772,33 +1783,39 @@ class _InputDecoratorState extends State<InputDecorator> with TickerProviderStat
       );
 
     final Widget prefixIcon = decoration.prefixIcon == null ? null :
-      new Center(
-        widthFactor: 1.0,
-        heightFactor: 1.0,
-        child: new ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 48.0, minHeight: 48.0),
-          child: IconTheme.merge(
-            data: new IconThemeData(
-              color: iconColor,
-              size: iconSize,
+      new Semantics(
+        container: true,
+        child: new Center(
+          widthFactor: 1.0,
+          heightFactor: 1.0,
+          child: new ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 48.0, minHeight: 48.0),
+            child: IconTheme.merge(
+              data: new IconThemeData(
+                color: iconColor,
+                size: iconSize,
+              ),
+              child: decoration.prefixIcon,
             ),
-            child: decoration.prefixIcon,
           ),
         ),
       );
 
     final Widget suffixIcon = decoration.suffixIcon == null ? null :
-      new Center(
-        widthFactor: 1.0,
-        heightFactor: 1.0,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minWidth: 48.0, minHeight: 48.0),
-          child: IconTheme.merge(
-            data: new IconThemeData(
-              color: iconColor,
-              size: iconSize,
+      new Semantics(
+        container: true,
+        child: new Center(
+          widthFactor: 1.0,
+          heightFactor: 1.0,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 48.0, minHeight: 48.0),
+            child: IconTheme.merge(
+              data: new IconThemeData(
+                color: iconColor,
+                size: iconSize,
+              ),
+              child: decoration.suffixIcon,
             ),
-            child: decoration.suffixIcon,
           ),
         ),
       );
@@ -1813,10 +1830,14 @@ class _InputDecoratorState extends State<InputDecorator> with TickerProviderStat
     );
 
     final Widget counter = decoration.counterText == null ? null :
-      new Text(
-        decoration.counterText,
-        style: _getHelperStyle(themeData).merge(decoration.counterStyle),
-        overflow: TextOverflow.ellipsis,
+      new Semantics(
+        container: true,
+        child: new Text(
+          decoration.counterText,
+          style: _getHelperStyle(themeData).merge(decoration.counterStyle),
+          overflow: TextOverflow.ellipsis,
+          semanticsLabel: decoration.counterSemanticLabel,
+        ),
       );
 
     // The _Decoration widget and _RenderDecoration assume that contentPadding
@@ -1940,6 +1961,7 @@ class InputDecoration {
     this.enabledBorder,
     this.border,
     this.enabled = true,
+    this.counterSemanticLabel,
   }) : assert(enabled != null),
        assert(!(prefix != null && prefixText != null), 'Declaring both prefix and prefixText is not allowed'),
        assert(!(suffix != null && suffixText != null), 'Declaring both suffix and suffixText is not allowed'),
@@ -1983,6 +2005,7 @@ class InputDecoration {
        focusedBorder = null,
        focusedErrorBorder = null,
        disabledBorder = null,
+       counterSemanticLabel = null,
        enabledBorder = null;
 
   /// An icon to show before the input field and outside of the decoration's
@@ -2380,6 +2403,9 @@ class InputDecoration {
   /// This property is true by default.
   final bool enabled;
 
+  /// The semantic label used in place of the [counterText].
+  final String counterSemanticLabel;
+
   /// Creates a copy of this input decoration with the given fields replaced
   /// by the new values.
   ///
@@ -2416,6 +2442,7 @@ class InputDecoration {
     InputBorder enabledBorder,
     InputBorder border,
     bool enabled,
+    String counterSemanticLabel,
   }) {
     return new InputDecoration(
       icon: icon ?? this.icon,
@@ -2449,6 +2476,7 @@ class InputDecoration {
       enabledBorder: enabledBorder ?? this.enabledBorder,
       border: border ?? this.border,
       enabled: enabled ?? this.enabled,
+      counterSemanticLabel: counterSemanticLabel ?? this.counterSemanticLabel,
     );
   }
 
@@ -2518,7 +2546,8 @@ class InputDecoration {
         && typedOther.disabledBorder == disabledBorder
         && typedOther.enabledBorder == enabledBorder
         && typedOther.border == border
-        && typedOther.enabled == enabled;
+        && typedOther.enabled == enabled
+        && typedOther.counterSemanticLabel == counterSemanticLabel;
   }
 
   @override
@@ -2565,6 +2594,7 @@ class InputDecoration {
         enabledBorder,
         border,
         enabled,
+        counterSemanticLabel,
       ),
     );
   }
@@ -2630,6 +2660,8 @@ class InputDecoration {
       description.add('border: $border');
     if (!enabled)
       description.add('enabled: false');
+    if (counterSemanticLabel != null)
+      description.add('counterSemanticLabel: $counterSemanticLabel');
     return 'InputDecoration(${description.join(', ')})';
   }
 }

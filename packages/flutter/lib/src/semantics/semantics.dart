@@ -513,6 +513,8 @@ class SemanticsProperties extends DiagnosticableTree {
     this.namesRoute,
     this.image,
     this.liveRegion,
+    this.textFieldError,
+    this.textFieldHint,
     this.label,
     this.value,
     this.increasedValue,
@@ -680,6 +682,44 @@ class SemanticsProperties extends DiagnosticableTree {
   ///   * [SemanticsConfiguration.liveRegion], for a full description of a live region.
   ///   * [UpdateLiveRegionEvent], to trigger a polite announcement of a live region.
   final bool liveRegion;
+
+  /// If non-null, whether the node should be considered a hint label for a
+  /// parent text field node.
+  ///
+  /// A semantic node with this flag set to true is ignored for semantics, with
+  /// the exception of the behavior described below.
+  ///
+  /// On Android, this field is used to provide additional information to text
+  /// fields separately from the primary label. If a text field has a direct
+  /// child with this flag and a non-null, non-empty label then the label will
+  /// be used to describe the "hint" (not related to the semantic hint field)
+  /// of the text field.
+  ///
+  /// On iOS this field is currently unused.
+  ///
+  /// See also:
+  ///
+  ///   * [SemanticsFlag.isTextFieldHint], the semantics flag this setting controls.
+  final bool textFieldHint;
+
+  /// If non-null, whether the node should be considered an error label for a
+  /// parent text field node.
+  ///
+  /// A semantic node with this flag set to true is ignored for semantics, with
+  /// the exception of the behavior described below.
+  ///
+  /// On Android, this field is used to provide additional information to text
+  /// fields separately from the primary label. If a text field has a direct
+  /// child with this flag and a non-null, non-empty label then the text field
+  /// is considered to be in an invalid state; The label should provide an
+  /// explanation of this.
+  ///
+  /// On iOS this field is currently unused.
+  ///
+  /// See also:
+  ///
+  ///   * [SemanticsFlag.isTextFieldError], the semantics flag this setting controls.
+  final bool textFieldError;
 
   /// Provides a textual description of the widget.
   ///
@@ -3182,6 +3222,50 @@ class SemanticsConfiguration {
   bool get isTextField => _hasFlag(SemanticsFlag.isTextField);
   set isTextField(bool value) {
     _setFlag(SemanticsFlag.isTextField, value);
+  }
+
+  /// If non-null, whether the node should be considered a hint label for a
+  /// parent text field node.
+  ///
+  /// A semantic node with this flag set to true is ignored for semantics, with
+  /// the exception of the behavior described below.
+  ///
+  /// On Android, this field is used to provide additional information to text
+  /// fields separately from the primary label. If a text field has a direct
+  /// child with this flag and a non-null, non-empty label then the label will
+  /// be used to describe the "hint" (not related to the semantic hint field)
+  /// of the text field.
+  ///
+  /// On iOS this field is currently unused.
+  ///
+  /// See also:
+  ///
+  ///   * [SemanticsFlag.isTextFieldHint], the semantics flag this setting controls.
+  bool get isTextFieldHint => _hasFlag(SemanticsFlag.textFieldHintMessage);
+  set isTextFieldHint(bool value) {
+    _setFlag(SemanticsFlag.textFieldHintMessage, value);
+  }
+
+  /// If non-null, whether the node should be considered an error label for a
+  /// parent text field node.
+  ///
+  /// A semantic node with this flag set to true is ignored for semantics, with
+  /// the exception of the behavior described below.
+  ///
+  /// On Android, this field is used to provide additional information to text
+  /// fields separately from the primary label. If a text field has a direct
+  /// child with this flag and a non-null, non-empty label then the text field
+  /// is considered to be in an invalid state; The label should provide an
+  /// explanation of this.
+  ///
+  /// On iOS this field is currently unused.
+  ///
+  /// See also:
+  ///
+  ///   * [SemanticsFlag.isTextFieldError], the semantics flag this setting controls.
+  bool get isTextFieldError => _hasFlag(SemanticsFlag.textFieldErrorMessage);
+  set isTextFieldError(bool value) {
+    _setFlag(SemanticsFlag.textFieldErrorMessage, value);
   }
 
   /// Whether the [value] should be obscured.

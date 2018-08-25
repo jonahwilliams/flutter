@@ -58,6 +58,9 @@ class _PasswordFieldState extends State<PasswordField> {
       onSaved: widget.onSaved,
       validator: widget.validator,
       onFieldSubmitted: widget.onFieldSubmitted,
+      maxLengthSemanticFormatter: (int current, int total) {
+        return '$current out of $total total characters';
+      },
       decoration: new InputDecoration(
         border: const UnderlineInputBorder(),
         filled: true,
@@ -267,6 +270,9 @@ class TextFormFieldDemoState extends State<TextFormFieldDemo> {
                   maxLength: 8,
                   obscureText: true,
                   validator: _validatePassword,
+                  maxLengthSemanticFormatter: (int current, int total) {
+                    return '$current out of $total total characters';
+                  },
                 ),
                 const SizedBox(height: 24.0),
                 new Center(

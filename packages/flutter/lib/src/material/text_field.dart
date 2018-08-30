@@ -7,6 +7,7 @@ import 'dart:collection';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
 import 'debug.dart';
@@ -581,8 +582,17 @@ class _TextFieldState extends State<TextField> with AutomaticKeepAliveClientMixi
     );
 
     if (widget.decoration != null) {
+      final Listenable listenable = new Listenable.merge(<Listenable>[ focusNode, controller ]);
+      listenable.addListener(() {
+        if (focusNode.hasFocus) {
+          SchedulerBinding.instance.addPostFrameCallback((_) {
+            final RenderObject renderObject = context.findRenderObject();
+            renderObject?.sendSemanticsEvent(const UpdateLiveRegionEvent());
+          });
+        }
+      });
       child = new AnimatedBuilder(
-        animation: new Listenable.merge(<Listenable>[ focusNode, controller ]),
+        animation: listenable,
         builder: (BuildContext context, Widget child) {
           return new InputDecorator(
             decoration: _getEffectiveDecoration(),

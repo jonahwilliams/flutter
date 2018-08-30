@@ -513,6 +513,8 @@ class SemanticsProperties extends DiagnosticableTree {
     this.namesRoute,
     this.image,
     this.liveRegion,
+    this.textFieldError,
+    this.textFieldHint,
     this.label,
     this.value,
     this.increasedValue,
@@ -680,6 +682,9 @@ class SemanticsProperties extends DiagnosticableTree {
   ///   * [SemanticsConfiguration.liveRegion], for a full description of a live region.
   ///   * [UpdateLiveRegionEvent], to trigger a polite announcement of a live region.
   final bool liveRegion;
+
+  final bool textFieldError;
+  final bool textFieldHint;
 
   /// Provides a textual description of the widget.
   ///
@@ -3066,6 +3071,16 @@ class SemanticsConfiguration {
   bool get liveRegion => _hasFlag(SemanticsFlag.isLiveRegion);
   set liveRegion(bool value) {
     _setFlag(SemanticsFlag.isLiveRegion, value);
+  }
+
+  bool get textFieldHint => _hasFlag(SemanticsFlag.isTextFieldHint);
+  set textFieldHint(bool value) {
+    _setFlag(SemanticsFlag.isTextFieldHint, value);
+  }
+
+  bool get textFieldError => _hasFlag(SemanticsFlag.isTextFieldError);
+  set textFieldError(bool value) {
+    _setFlag(SemanticsFlag.isTextFieldError, value);
   }
 
   /// The reading direction for the text in [label], [value], [hint],

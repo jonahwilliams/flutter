@@ -5156,6 +5156,8 @@ class Semantics extends SingleChildRenderObjectWidget {
     bool hidden,
     bool image,
     bool liveRegion,
+    bool textFieldError,
+    bool textFieldHint,
     String label,
     String value,
     String increasedValue,
@@ -5205,6 +5207,8 @@ class Semantics extends SingleChildRenderObjectWidget {
       hidden: hidden,
       image: image,
       liveRegion: liveRegion,
+      textFieldError: textFieldError,
+      textFieldHint: textFieldHint,
       label: label,
       value: value,
       increasedValue: increasedValue,
@@ -5314,6 +5318,8 @@ class Semantics extends SingleChildRenderObjectWidget {
       hidden: properties.hidden,
       image: properties.image,
       label: properties.label,
+      textFieldError: properties.textFieldError,
+      textFieldHint: properties.textFieldHint,
       value: properties.value,
       increasedValue: properties.increasedValue,
       decreasedValue: properties.decreasedValue,
@@ -5376,6 +5382,8 @@ class Semantics extends SingleChildRenderObjectWidget {
       ..hidden = properties.hidden
       ..image = properties.image
       ..liveRegion = properties.liveRegion
+      ..textFieldError = properties.textFieldError
+      ..textFieldHint = properties.textFieldHint
       ..label = properties.label
       ..value = properties.value
       ..increasedValue = properties.increasedValue

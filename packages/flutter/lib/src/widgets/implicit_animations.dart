@@ -1009,6 +1009,7 @@ class AnimatedOpacity extends ImplicitlyAnimatedWidget {
     @required this.opacity,
     Curve curve = Curves.linear,
     @required Duration duration,
+    this.alwaysIncludeSemantics = false,
   }) : assert(opacity != null && opacity >= 0.0 && opacity <= 1.0),
        super(key: key, curve: curve, duration: duration);
 
@@ -1024,6 +1025,8 @@ class AnimatedOpacity extends ImplicitlyAnimatedWidget {
   ///
   /// The opacity must not be null.
   final double opacity;
+
+  final bool alwaysIncludeSemantics;
 
   @override
   _AnimatedOpacityState createState() => new _AnimatedOpacityState();
@@ -1053,6 +1056,7 @@ class _AnimatedOpacityState extends ImplicitlyAnimatedWidgetState<AnimatedOpacit
   Widget build(BuildContext context) {
     return new FadeTransition(
       opacity: _opacityAnimation,
+      alwaysIncludeSemantics: widget.alwaysIncludeSemantics,
       child: widget.child
     );
   }

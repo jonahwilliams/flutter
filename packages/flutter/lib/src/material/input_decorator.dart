@@ -320,32 +320,41 @@ class _HelperErrorState extends State<_HelperError> with SingleTickerProviderSta
 
   Widget _buildHelper() {
     assert(widget.helperText != null);
-    return new Opacity(
-      opacity: 1.0 - _controller.value,
-      child: new Text(
-        widget.helperText,
-        style: widget.helperStyle,
-        textAlign: widget.textAlign,
-        overflow: TextOverflow.ellipsis,
+    return new Semantics(
+      container: true,
+      child: new Opacity(
+        opacity: 1.0 - _controller.value,
+        alwaysIncludeSemantics: true,
+        child: new Text(
+          widget.helperText,
+          style: widget.helperStyle,
+          textAlign: widget.textAlign,
+          overflow: TextOverflow.ellipsis,
+        ),
       ),
     );
   }
 
   Widget _buildError() {
     assert(widget.errorText != null);
-    return new Opacity(
-      opacity: _controller.value,
-      child: new FractionalTranslation(
-        translation: new Tween<Offset>(
-          begin: const Offset(0.0, -0.25),
-          end: const Offset(0.0, 0.0),
-        ).evaluate(_controller.view),
-        child: new Text(
-          widget.errorText,
-          style: widget.errorStyle,
-          textAlign: widget.textAlign,
-          overflow: TextOverflow.ellipsis,
-          maxLines: widget.errorMaxLines,
+    return new Semantics(
+      container: true,
+      textFieldError: true,
+      child: new Opacity(
+        opacity: _controller.value,
+        alwaysIncludeSemantics: true,
+        child: new FractionalTranslation(
+          translation: new Tween<Offset>(
+            begin: const Offset(0.0, -0.25),
+            end: const Offset(0.0, 0.0),
+          ).evaluate(_controller.view),
+          child: new Text(
+            widget.errorText,
+            style: widget.errorStyle,
+            textAlign: widget.textAlign,
+            overflow: TextOverflow.ellipsis,
+            maxLines: widget.errorMaxLines,
+          ),
         ),
       ),
     );
@@ -720,35 +729,6 @@ class _RenderDecoration extends RenderBox {
   @override
   void visitChildren(RenderObjectVisitor visitor) {
     _children.forEach(visitor);
-  }
-
-  @override
-  void visitChildrenForSemantics(RenderObjectVisitor visitor) {
-    if (icon != null)
-      visitor(icon);
-    if (prefix != null)
-      visitor(prefix);
-    if (prefixIcon != null)
-      visitor(prefixIcon);
-    if (isFocused && hint != null) {
-      // Bypass opacity to always read hint when focused. This prevents the
-      // label from changing when text is entered.
-      final RenderProxyBox typedHint = hint;
-      visitor(typedHint.child);
-    } else if (!isFocused && label != null)
-      visitor(label);
-    if (input != null)
-      visitor(input);
-    if (suffixIcon != null)
-      visitor(suffixIcon);
-    if (suffix != null)
-      visitor(suffix);
-    if (container != null)
-      visitor(container);
-    if (helperError != null)
-      visitor(helperError);
-    if (counter != null)
-      visitor(counter);
   }
 
   @override
@@ -1692,15 +1672,20 @@ class _InputDecoratorState extends State<InputDecorator> with TickerProviderStat
     final TextBaseline textBaseline = inlineStyle.textBaseline;
 
     final TextStyle hintStyle = inlineStyle.merge(decoration.hintStyle);
-    final Widget hint = decoration.hintText == null ? null : new AnimatedOpacity(
-      opacity: (isEmpty && !_hasInlineLabel) ? 1.0 : 0.0,
-      duration: _kTransitionDuration,
-      curve: _kTransitionCurve,
-      child: new Text(
-        decoration.hintText,
-        style: hintStyle,
-        overflow: TextOverflow.ellipsis,
-        textAlign: textAlign,
+    final Widget hint = decoration.hintText == null ? null : new Semantics(
+      container: true,
+      textFieldHint: true,
+      child: new AnimatedOpacity(
+        opacity: (isEmpty && !_hasInlineLabel) ? 1.0 : 0.0,
+        duration: _kTransitionDuration,
+        curve: _kTransitionCurve,
+        alwaysIncludeSemantics: true,
+        child: new Text(
+          decoration.hintText,
+          style: hintStyle,
+          overflow: TextOverflow.ellipsis,
+          textAlign: textAlign,
+        ),
       ),
     );
 

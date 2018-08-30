@@ -3242,6 +3242,8 @@ class RenderSemanticsAnnotations extends RenderProxyBox {
     bool hidden,
     bool image,
     bool liveRegion,
+    bool textFieldError,
+    bool textFieldHint,
     String label,
     String value,
     String increasedValue,
@@ -3289,6 +3291,8 @@ class RenderSemanticsAnnotations extends RenderProxyBox {
        _liveRegion = liveRegion,
        _hidden = hidden,
        _image = image,
+       _textFieldError = textFieldError,
+       _textFieldHint = textFieldHint,
        _onDismiss = onDismiss,
        _label = label,
        _value = value,
@@ -3529,6 +3533,24 @@ class RenderSemanticsAnnotations extends RenderProxyBox {
     if (_toggled == value)
       return;
     _toggled = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  bool get textFieldError => _textFieldError;
+  bool _textFieldError;
+  set textFieldError(bool value) {
+    if (value == textFieldError)
+      return;
+    _textFieldError = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  bool get textFieldHint => _textFieldHint;
+  bool _textFieldHint;
+  set textFieldHint(bool value) {
+    if (value == textFieldHint)
+      return;
+    _textFieldHint = value;
     markNeedsSemanticsUpdate();
   }
 
@@ -4071,6 +4093,10 @@ class RenderSemanticsAnnotations extends RenderProxyBox {
       config.isHidden = hidden;
     if (image != null)
       config.isImage = image;
+    if (textFieldHint != null)
+      config.textFieldHint = textFieldHint;
+    if (textFieldError != null)
+      config.textFieldError = textFieldError;
     if (label != null)
       config.label = label;
     if (value != null)

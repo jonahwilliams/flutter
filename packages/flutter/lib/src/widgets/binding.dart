@@ -476,6 +476,25 @@ abstract class WidgetsBinding extends BindingBase with SchedulerBinding, Gesture
     super.handleAppLifecycleStateChanged(state);
     for (WidgetsBindingObserver observer in _observers)
       observer.didChangeAppLifecycleState(state);
+    _updateFocus(state);
+  }
+
+  FocusNode _lastNode;
+  void _updateFocus(AppLifecycleState state) {
+    focusManager;
+    switch (state) {
+      case AppLifecycleState.inactive:
+        _lastNode = focusManager.rootScope.popFocus();
+        break;
+      case AppLifecycleState.paused:
+      case AppLifecycleState.suspending:
+        break;
+      case AppLifecycleState.resumed:
+        if (_lastNode != null) {
+          focusManager.rootScope.pushFocus(_lastNode);
+          _lastNode = null;
+        }
+    }
   }
 
   /// Called when the operating system notifies the application of a memory

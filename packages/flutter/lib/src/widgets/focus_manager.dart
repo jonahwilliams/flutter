@@ -253,6 +253,18 @@ class FocusScopeNode extends Object with DiagnosticableTreeMixin {
     _setFocus(node);
   }
 
+  FocusNode popFocus() {
+    final FocusNode result = _focus;
+    _focus.unfocus();
+    result._hasKeyboardToken = false;
+    return result;
+  }
+
+  FocusNode pushFocus(FocusNode node) {
+    node._hasKeyboardToken = true;
+    _setFocus(node);
+  }
+
   /// If this scope lacks a focus, request that the given node becomes the
   /// focus.
   ///

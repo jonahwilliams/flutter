@@ -108,7 +108,13 @@ Future<Null> run(List<String> args) async {
 
     CoverageCollector collector;
     if (argResults['coverage']) {
-      collector = CoverageCollector();
+      // targets which do not conform to standard Dart directroy structure will
+      // not be able to correctly produce coverage.
+      // https://github.com/flutter/flutter/issues/20551
+      if (!await testDirectory.parent.childDirectory('lib').exists())
+        printStatus('Non-standard directory structure: coverage collection cancelled');
+      else
+        collector = CoverageCollector();
     }
 
 

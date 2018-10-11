@@ -79,8 +79,9 @@ Future<Null> saveDurationsHistogram(List<Map<String, dynamic>> events, String ou
   }
 
   // Verify that the durations data is valid.
-  if (durations.keys.isEmpty)
+  if (durations.keys.isEmpty) {
     throw 'no "Start Transition" timeline events found';
+  }
   final Map<String, int> unexpectedValueCounts = <String, int>{};
   durations.forEach((String routeName, List<int> values) {
     if (values.length != 2) {
@@ -157,7 +158,6 @@ Future<Null> runDemos(List<String> demos, FlutterDriver driver) async {
 
     for (int i = 0; i < 2; i += 1) {
       await driver.tap(demoItem); // Launch the demo
-
       if (kUnsynchronizedDemos.contains(demo)) {
         await driver.runUnsynchronized<void>(() async {
           await driver.tap(find.pageBack());
@@ -166,7 +166,6 @@ Future<Null> runDemos(List<String> demos, FlutterDriver driver) async {
         await driver.tap(find.pageBack());
       }
     }
-
     print('< Success');
   }
 
@@ -187,16 +186,13 @@ void main() {
       final List<IsolateRef> refs = await connection.getMainIsolatesByPattern(isolatePattern);
       final IsolateRef ref = refs.first;
       // Occasionally this will crash if this delay isn't here.
-      await new Future<Null>.delayed(const Duration(milliseconds: 500));
+      await Future<void>.delayed(const Duration(milliseconds: 500));
       driver = await FlutterDriver.connect(
         dartVmServiceUrl: ref.dartVm.uri.toString(),
         isolateNumber: ref.number,
         printCommunication: true,
         logCommunicationToFile: false);
       _allDemos = kProfiledDemos + kUnsynchronizedDemos;
-      if (_allDemos.isEmpty) {
-        throw 'no demo names found';
-      }
     });
 
     tearDownAll(() async {
@@ -210,7 +206,7 @@ void main() {
     });
 
     test('all demos', () async {
-      Collect timeline data for just a limited set of demos to avoid OOMs.
+      // Collect timeline data for just a limited set of demos to avoid OOMs.
       final Timeline timeline = await driver.traceAction(
         () async {
           await runDemos(kProfiledDemos, driver);
@@ -221,9 +217,9 @@ void main() {
         ],
       );
 
-      Save the duration (in microseconds) of the first timeline Frame event
-      that follows a 'Start Transition' event. The Gallery app adds a
-      'Start Transition' event when a demo is launched (see GalleryItem).
+      // Save the duration (in microseconds) of the first timeline Frame event
+      // that follows a 'Start Transition' event. The Gallery app adds a
+      // 'Start Transition' event when a demo is launched (see GalleryItem).
       final TimelineSummary summary = TimelineSummary.summarize(timeline);
       await summary.writeSummaryToFile('transitions', pretty: true);
       final String histogramPath = path.join(testOutputsDirectory, 'transition_durations.timeline.json');

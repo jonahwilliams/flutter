@@ -584,7 +584,10 @@ class _WidgetsAppState extends State<WidgetsApp> implements WidgetsBindingObserv
   void didChangeAppLifecycleState(AppLifecycleState state) { }
 
   @override
-  void didHaveMemoryPressure() { }
+  void didHaveMemoryPressure() {
+    // Panic and flush image informaton.
+    imageCache.clear();
+  }
 
 
   // NAVIGATOR

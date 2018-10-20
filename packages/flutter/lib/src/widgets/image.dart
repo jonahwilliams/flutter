@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/semantics.dart';
 
 import 'basic.dart';
+import 'binding.dart';
 import 'framework.dart';
 import 'localizations.dart';
 import 'media_query.dart';
@@ -548,11 +549,17 @@ class Image extends StatefulWidget {
   }
 }
 
-class _ImageState extends State<Image> {
+class _ImageState extends State<Image> with WidgetsBindingObserver {
   ImageStream _imageStream;
   ImageInfo _imageInfo;
   bool _isListeningToStream = false;
   bool _invertColors;
+
+  @override
+  void initState() {
+    WidgetsBinding.instance.addObserver(this);
+    super.initState();
+  }
 
   @override
   void didChangeDependencies() {
@@ -579,6 +586,15 @@ class _ImageState extends State<Image> {
   void reassemble() {
     _resolveImage(); // in case the image cache was flushed
     super.reassemble();
+  }
+
+  @override
+  void didHaveMemoryPressure() {
+    // Panic and flush image informaton.
+    setState(() {
+      _stopListeningToStream();
+      _imageInfo = null;
+    });
   }
 
   void _resolveImage() {
@@ -633,6 +649,7 @@ class _ImageState extends State<Image> {
   void dispose() {
     assert(_imageStream != null);
     _stopListeningToStream();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 

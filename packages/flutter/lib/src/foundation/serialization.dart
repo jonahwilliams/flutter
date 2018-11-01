@@ -4,8 +4,6 @@
 
 import 'dart:typed_data';
 
-import 'package:typed_data/typed_buffers.dart' show Uint8Buffer;
-
 /// Write-only buffer for incrementally building a [ByteData] instance.
 ///
 /// A WriteBuffer instance can be used only once. Attempts to reuse will result
@@ -15,12 +13,12 @@ import 'package:typed_data/typed_buffers.dart' show Uint8Buffer;
 class WriteBuffer {
   /// Creates an interface for incrementally building a [ByteData] instance.
   WriteBuffer() {
-    _buffer = Uint8Buffer();
+    _buffer = <int>[];
     _eightBytes = ByteData(8);
     _eightBytesAsList = _eightBytes.buffer.asUint8List();
   }
 
-  Uint8Buffer _buffer;
+  List<int> _buffer;
   ByteData _eightBytes;
   Uint8List _eightBytesAsList;
 
@@ -32,25 +30,39 @@ class WriteBuffer {
   /// Write a Uint16 into the buffer.
   void putUint16(int value) {
     _eightBytes.setUint16(0, value, Endian.host);
-    _buffer.addAll(_eightBytesAsList, 0, 2);
+    _buffer.add(_eightBytes.getUint8(0));
+    _buffer.add(_eightBytes.getUint8(1));
   }
 
   /// Write a Uint32 into the buffer.
   void putUint32(int value) {
     _eightBytes.setUint32(0, value, Endian.host);
-    _buffer.addAll(_eightBytesAsList, 0, 4);
+    _buffer.add(_eightBytes.getUint8(0));
+    _buffer.add(_eightBytes.getUint8(1));
+    _buffer.add(_eightBytes.getUint8(2));
+    _buffer.add(_eightBytes.getUint8(3));
   }
 
   /// Write an Int32 into the buffer.
   void putInt32(int value) {
     _eightBytes.setInt32(0, value, Endian.host);
-    _buffer.addAll(_eightBytesAsList, 0, 4);
+    _buffer.add(_eightBytes.getUint8(0));
+    _buffer.add(_eightBytes.getUint8(1));
+    _buffer.add(_eightBytes.getUint8(2));
+    _buffer.add(_eightBytes.getUint8(3));
   }
 
   /// Write an Int64 into the buffer.
   void putInt64(int value) {
     _eightBytes.setInt64(0, value, Endian.host);
-    _buffer.addAll(_eightBytesAsList, 0, 8);
+    _buffer.add(_eightBytes.getUint8(0));
+    _buffer.add(_eightBytes.getUint8(1));
+    _buffer.add(_eightBytes.getUint8(2));
+    _buffer.add(_eightBytes.getUint8(3));
+    _buffer.add(_eightBytes.getUint8(4));
+    _buffer.add(_eightBytes.getUint8(5));
+    _buffer.add(_eightBytes.getUint8(6));
+    _buffer.add(_eightBytes.getUint8(7));
   }
 
   /// Write an Float64 into the buffer.
@@ -93,7 +105,7 @@ class WriteBuffer {
 
   /// Finalize and return the written [ByteData].
   ByteData done() {
-    final ByteData result = _buffer.buffer.asByteData(0, _buffer.lengthInBytes);
+    final ByteData result = Uint8List.fromList(_buffer).buffer.asByteData();
     _buffer = null;
     return result;
   }

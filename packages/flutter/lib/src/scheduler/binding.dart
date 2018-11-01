@@ -8,7 +8,6 @@ import 'dart:developer';
 import 'dart:ui' as ui show window;
 import 'dart:ui' show AppLifecycleState;
 
-import 'package:collection/collection.dart' show PriorityQueue, HeapPriorityQueue;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -277,7 +276,7 @@ mixin SchedulerBinding on BindingBase, ServicesBinding {
   static int _taskSorter (_TaskEntry<dynamic> e1, _TaskEntry<dynamic> e2) {
     return -e1.priority.compareTo(e2.priority);
   }
-  final PriorityQueue<_TaskEntry<dynamic>> _taskQueue = HeapPriorityQueue<_TaskEntry<dynamic>>(_taskSorter);
+  final _HeapPriorityQueue<_TaskEntry<dynamic>> _taskQueue = _HeapPriorityQueue<_TaskEntry<dynamic>>(_taskSorter);
 
   /// Schedules the given `task` with the given `priority` and returns a
   /// [Future] that completes to the `task`'s eventual return value.
@@ -1017,4 +1016,156 @@ bool defaultSchedulingStrategy({ int priority, SchedulerBinding scheduler }) {
   if (scheduler.transientCallbackCount > 0)
     return priority >= Priority.animation.value;
   return true;
+}
+
+// Heap based priority queue.
+//
+// The elements are kept in a heap structure,
+// where the element with the highest priority is immediately accessible,
+// and modifying a single element takes
+// logarithmic time in the number of elements on average.
+//
+// * The [add] and [removeFirst] operations take amortized logarithmic time,
+//   O(log(n)), but may occasionally take linear time when growing the capacity
+//   of the heap.
+// * The [first] getter takes constant time, O(1).
+class _HeapPriorityQueue<E> {
+  // Create a new priority queue.
+  //
+  // The [comparison] is a [Comparator] used to compare the priority of
+  // elements. An element that compares as less than another element has
+  // a higher priority.
+  _HeapPriorityQueue(this.comparison);
+
+  // Initial capacity of a queue when created, or when added to after a
+  // [clear].
+  //
+  // Number can be any positive value. Picking a size that gives a whole
+  // number of "tree levels" in the heap is only done for aesthetic reasons.
+  static const int _initialCapacity = 7;
+
+  // The comparison being used to compare the priority of elements.
+  final Comparator<E> comparison;
+
+  // List implementation of a heap.
+  List<E> _queue = List<E>(_initialCapacity);
+
+  // Number of elements in queue.
+  //
+  // The heap is implemented in the first [_length] entries of [_queue].
+  int _length = 0;
+
+  // Add element to the queue.
+  //
+  // Grows the capacity if the backing list is full.
+  void add(E element) {
+    if (_length == _queue.length) {
+      _grow();
+    }
+    _bubbleUp(element, _length++);
+  }
+
+  E get first {
+    if (_length == 0) {
+      throw StateError('No such element');
+    }
+    return _queue[0];
+  }
+
+  bool get isEmpty => _length == 0;
+
+  bool get isNotEmpty => _length != 0;
+
+  E removeFirst() {
+    if (_length == 0) {
+      throw StateError('No such element');
+    }
+    final E result = _queue[0];
+    final E last = _removeLast();
+    if (_length > 0) {
+      _bubbleDown(last, 0);
+    }
+    return result;
+  }
+
+  E _removeLast() {
+    final int newLength = _length - 1;
+    final E last = _queue[newLength];
+    _queue[newLength] = null;
+    _length = newLength;
+    return last;
+  }
+
+  /// Place [element] in heap at [index] or above.
+  ///
+  /// Put element into the empty cell at `index`.
+  /// While the `element` has higher priority than the
+  /// parent, swap it with the parent.
+  void _bubbleUp(E element, int index) {
+    while (index > 0) {
+      final int parentIndex = (index - 1) ~/ 2;
+      final E parent = _queue[parentIndex];
+      if (comparison(element, parent) > 0) {
+        break;
+      }
+      _queue[index] = parent;
+      index = parentIndex;
+    }
+    _queue[index] = element;
+  }
+
+  /// Place [element] in heap at [index] or above.
+  ///
+  /// Put element into the empty cell at `index`.
+  /// While the `element` has lower priority than either child,
+  /// swap it with the highest priority child.
+  void _bubbleDown(E element, int index) {
+    int rightChildIndex = index * 2 + 2;
+    while (rightChildIndex < _length) {
+      final int leftChildIndex = rightChildIndex - 1;
+      final E leftChild = _queue[leftChildIndex];
+      final E rightChild = _queue[rightChildIndex];
+      int comp = comparison(leftChild, rightChild);
+      int minChildIndex;
+      E minChild;
+      if (comp < 0) {
+        minChild = leftChild;
+        minChildIndex = leftChildIndex;
+      } else {
+        minChild = rightChild;
+        minChildIndex = rightChildIndex;
+      }
+      comp = comparison(element, minChild);
+      if (comp <= 0) {
+        _queue[index] = element;
+        return;
+      }
+      _queue[index] = minChild;
+      index = minChildIndex;
+      rightChildIndex = index * 2 + 2;
+    }
+    final int leftChildIndex = rightChildIndex - 1;
+    if (leftChildIndex < _length) {
+      final E child = _queue[leftChildIndex];
+      final int comp = comparison(element, child);
+      if (comp > 0) {
+        _queue[index] = child;
+        index = leftChildIndex;
+      }
+    }
+    _queue[index] = element;
+  }
+
+  /// Grows the capacity of the list holding the heap.
+  ///
+  /// Called when the list is full.
+  void _grow() {
+    int newCapacity = _queue.length * 2 + 1;
+    if (newCapacity < _initialCapacity) {
+      newCapacity = _initialCapacity;
+    }
+    final List<E> newQueue = List<E>(newCapacity);
+    newQueue.setRange(0, _length, _queue);
+    _queue = newQueue;
+  }
 }

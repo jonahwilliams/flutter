@@ -5,7 +5,6 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:collection/collection.dart';
 import 'package:file/file.dart';
 import 'package:file/local.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -83,7 +82,7 @@ class FlutterGoldenFileComparator implements GoldenFileComparator {
     }
     final List<int> goldenBytes = await goldenFile.readAsBytes();
     // TODO(tvolkert): Improve the intelligence of this comparison.
-    return const ListEquality<int>().equals(goldenBytes, imageBytes);
+    return _listEquals(goldenBytes, imageBytes);
   }
 
   @override
@@ -95,5 +94,21 @@ class FlutterGoldenFileComparator implements GoldenFileComparator {
 
   File _getGoldenFile(Uri uri) {
     return fs.directory(basedir).childFile(fs.file(uri).path);
+  }
+
+  bool _listEquals(List<int> list1, List<int> list2) {
+    if (identical(list1, list2)) {
+      return true;
+    }
+    final int length = list1.length;
+    if (length != list2.length) {
+      return false;
+    }
+    for (int i = 0; i < length; i++) {
+      if (list1[i] != list2[i]) {
+        return false;
+      }
+    }
+    return true;
   }
 }

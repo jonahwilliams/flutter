@@ -154,9 +154,9 @@ class KernelCompiler {
     if (outputFilePath != null) {
       command.addAll(<String>['--output-dill', outputFilePath]);
     }
-    if (depFilePath != null && (fileSystemRoots == null || fileSystemRoots.isEmpty)) {
-      command.addAll(<String>['--depfile', depFilePath]);
-    }
+    //if (depFilePath != null && (fileSystemRoots == null || fileSystemRoots.isEmpty)) {
+   //   command.addAll(<String>['--depfile', '../../../../gen/vendor/google/app/photo_frame/photo_frame_kernel.dil.d']); // FIXME
+   // }
     if (fileSystemRoots != null) {
       for (String root in fileSystemRoots) {
         command.addAll(<String>['--filesystem-root', root]);
@@ -343,7 +343,7 @@ class ResidentCompiler {
       artifacts.getArtifactPath(Artifact.engineDartBinary),
       frontendServer,
       '--sdk-root',
-      _sdkRoot,
+      '/usr/local/google/home/jonahwilliams/fuchsia/out/x64/flutter_runner_patched_sdk',//_sdkRoot,
       '--incremental',
       '--strong',
       '--target=flutter',
@@ -351,15 +351,15 @@ class ResidentCompiler {
     if (outputPath != null) {
       command.addAll(<String>['--output-dill', outputPath]);
     }
-    if (packagesFilePath != null) {
-      command.addAll(<String>['--packages', packagesFilePath]);
-    }
+    // if (packagesFilePath != null) {
+      command.addAll(<String>['--packages', '/usr/local/google/home/jonahwilliams/fuchsia/out/x64/dartlang/gen/vendor/google/app/photo_frame/photo_frame_dart_library.packages']);
+    // /}
     if (_trackWidgetCreation) {
       command.add('--track-widget-creation');
     }
-    if (_packagesPath != null) {
-      command.addAll(<String>['--packages', _packagesPath]);
-    }
+    // if (_packagesPath != null) {
+    //   command.addAll(<String>['--packages', _packagesPath]);
+    // }
     if (_fileSystemRoots != null) {
       for (String root in _fileSystemRoots) {
         command.addAll(<String>['--filesystem-root', root]);

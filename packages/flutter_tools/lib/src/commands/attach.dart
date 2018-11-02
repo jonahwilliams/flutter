@@ -48,6 +48,9 @@ class AttachCommand extends FlutterCommand {
     usesTargetOption();
     usesFilesystemOptions(hide: !verboseHelp);
     argParser
+      ..addOption('sdk-root')
+      ..addOption('depfile')
+      ..addOption('manifest')
       ..addOption(
         'debug-port',
         help: 'Local port where the observatory is listening.',

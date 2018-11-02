@@ -122,6 +122,7 @@ class VMService {
 
     if (reloadSources != null) {
       _peer.registerMethod('reloadSources', (rpc.Parameters params) async {
+        printTrace(params.asMap.toString());
         final String isolateId = params['isolateId'].value;
         final bool force = params.asMap['force'] ?? false;
         final bool pause = params.asMap['pause'] ?? false;

@@ -224,7 +224,7 @@ class KernelCompiler {
     Uri mainUri;
     if (packagesPath != null) {
       command.addAll(<String>['--packages', packagesPath]);
-      mainUri = _PackageUriMapper.findUri(mainPath, '/usr/local/google/home/jonahwilliams/fuchsia/out/x64/dartlang/gen/topaz/bin/wifi_settings/wifi_settings_dart_library.packages');
+      mainUri = _PackageUriMapper.findUri(mainPath, packagesPath);
     }
     if (outputFilePath != null) {
       command.addAll(<String>['--output-dill', outputFilePath]);
@@ -387,6 +387,7 @@ class ResidentCompiler {
     if (request.packagesFilePath != null) {
       packageUriMapper = _PackageUriMapper(request.mainPath, request.packagesFilePath);
     }
+
     if (_server == null) {
       return _compile(
           _mapFilename(request.mainPath, packageUriMapper),
@@ -399,13 +400,10 @@ class ResidentCompiler {
     final String mainUri = request.mainPath != null
         ? _mapFilename(request.mainPath, packageUriMapper) + ' '
         : '';
-    printTrace('recompile $mainUri$inputKey');
     _server.stdin.writeln('recompile $mainUri$inputKey');
     for (String fileUri in request.invalidatedFiles) {
-       printTrace(_mapFileUri(fileUri, packageUriMapper));
       _server.stdin.writeln(_mapFileUri(fileUri, packageUriMapper));
     }
-    printTrace(inputKey);
     _server.stdin.writeln(inputKey);
 
     return _stdoutHandler.compilerOutput.future;
@@ -437,7 +435,7 @@ class ResidentCompiler {
       artifacts.getArtifactPath(Artifact.engineDartBinary),
       frontendServer,
       '--sdk-root',
-      '/usr/local/google/home/jonahwilliams/fuchsia/out/x64/flutter_runner_patched_sdk',//_sdkRoot,
+      _sdkRoot,
       '--incremental',
       '--strong',
       '--target=$_targetModel',
@@ -569,7 +567,7 @@ class ResidentCompiler {
       final Uri packageUri = packageUriMapper.map(filename);
       if (packageUri != null) {
         return packageUri.toString();
-    }
+      }
     }
 
     if (_fileSystemRoots != null) {

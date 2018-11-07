@@ -51,9 +51,6 @@ class AttachCommand extends FlutterCommand {
     usesFilesystemOptions(hide: !verboseHelp);
     usesFuchsiaOptions(hide: !verboseHelp);
     argParser
-      ..addOption('sdk-root')
-      ..addOption('depfile')
-      ..addOption('manifest')
       ..addOption(
         'debug-port',
         help: 'Local port where the observatory is listening.',
@@ -171,7 +168,6 @@ class AttachCommand extends FlutterCommand {
       final int localPort = await device.portForwarder.forward(devicePort);
       observatoryUri = Uri.parse('http://$ipv4Loopback:$localPort/');
     }
-    printTrace(globalResults['packages']);
     try {
       final FlutterDevice flutterDevice = FlutterDevice(
         device,

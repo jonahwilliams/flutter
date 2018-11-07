@@ -226,11 +226,11 @@ class KernelCompiler {
       command.addAll(<String>['--packages', packagesPath]);
       mainUri = _PackageUriMapper.findUri(mainPath, packagesPath);
     }
-     if (depFilePath != null && (fileSystemRoots == null || fileSystemRoots.isEmpty)) {
-      command.addAll(<String>['--depfile', depFilePath]);
-    }
     if (outputFilePath != null) {
       command.addAll(<String>['--output-dill', outputFilePath]);
+    }
+    if (depFilePath != null && (fileSystemRoots == null || fileSystemRoots.isEmpty)) {
+      command.addAll(<String>['--depfile', depFilePath]);
     }
     if (fileSystemRoots != null) {
       for (String root in fileSystemRoots) {

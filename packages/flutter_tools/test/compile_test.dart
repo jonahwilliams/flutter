@@ -11,6 +11,7 @@ import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/base/platform.dart';
 import 'package:flutter_tools/src/base/terminal.dart';
 import 'package:flutter_tools/src/compile.dart';
+import 'package:flutter_tools/src/dart/package_map.dart';
 import 'package:mockito/mockito.dart';
 import 'package:process/process.dart';
 
@@ -251,6 +252,79 @@ void main() {
       OutputPreferences: () => OutputPreferences(showColor: false),
       Logger: () => BufferLogger(),
       Platform: _kNoColorTerminalPlatform,
+    });
+  });
+
+  group('fuchsia compile', () {
+    ProcessManager mockProcessManager;
+    ResidentCompiler generator;
+    MockProcess mockFrontendServer;
+    MockStdIn mockFrontendServerStdIn;
+    StreamController<List<int>> mockStdout;
+    StreamController<List<int>> mockStderr;
+    Completer<int> exitCode;
+
+    const String fuchsiaRoot = 'path/to/fuchsia';
+
+    setUp(() {
+      generator = ResidentCompiler(
+        'sdkroot',
+        fileSystemRoots: const <String>[fuchsiaRoot],
+        fileSystemScheme: 'fuchsia-source',
+        packagesPath: '$fuchsiaRoot/out/foo/foo_library.packages',
+        targetModel: TargetModel.flutterRunner,
+      );
+      mockProcessManager = MockProcessManager();
+      mockFrontendServer = MockProcess();
+      mockFrontendServerStdIn = MockStdIn();
+      mockStdout = StreamController<List<int>>();
+      mockStderr = StreamController<List<int>>();
+      exitCode = Completer<int>();
+
+      when(mockFrontendServer.stdin).thenReturn(mockFrontendServerStdIn);
+      when(mockFrontendServer.stdout).thenAnswer((Invocation _) => mockStdout.stream);
+      when(mockFrontendServer.stderr).thenAnswer((Invocation _) => mockStderr.stream);
+      when(mockProcessManager.canRun(any)).thenReturn(true);
+      when(mockProcessManager.start(any)).thenAnswer(
+              (Invocation invocation) =>
+          Future<Process>.value(mockFrontendServer)
+      );
+      when(mockFrontendServer.exitCode).thenAnswer((Invocation _) => exitCode.future);
+    });
+
+    tearDown(() {
+      verifyNever(mockFrontendServer.exitCode);
+    });
+
+    testUsingContext('produces correct Uri', () async {
+      final BufferLogger logger = context[Logger];
+      final StreamController<List<int>> streamController = StreamController<List<int>>();
+      when(mockFrontendServer.stdout)
+          .thenAnswer((Invocation invocation) => streamController.stream);
+      streamController.add(utf8.encode('result abc\nline0\nline1\nabc /path/to/main.dart.dill 0\n'));
+      await generator.recompile(
+        'path/to/fuchsia/foo/lib/main.dart',
+        null, /* invalidatedFiles */
+        outputPath: '/build/',
+        packagesFilePath: '$fuchsiaRoot/out/foo/foo_library.packages',
+      );
+      expect(mockFrontendServerStdIn.getAndClear(), 'compile fuchsia-source:///foo/lib/main.dart\n');
+
+      await _recompile(streamController, generator, mockFrontendServerStdIn,
+        'result abc\nline1\nline2\nabc /path/to/main.dart.dill 0\n');
+
+      verifyNoMoreInteractions(mockFrontendServerStdIn);
+      expect(mockFrontendServerStdIn.getAndClear(), isEmpty);
+      expect(logger.errorText, equals(
+        '\nCompiler message:\nline0\nline1\n'
+        '\nCompiler message:\nline1\nline2\n'
+      ));
+    }, overrides: <Type, Generator>{
+      ProcessManager: () => mockProcessManager,
+      OutputPreferences: () => OutputPreferences(showColor: false),
+      Logger: () => BufferLogger(),
+      Platform: _kNoColorTerminalPlatform,
+      PackageMapConfig: () => PackageMapConfig(enabled: false),
     });
   });
 

@@ -22,6 +22,7 @@ import 'base/platform.dart';
 import 'base/utils.dart';
 import 'cache.dart';
 import 'compile.dart';
+import 'dart/package_map.dart';
 import 'devfs.dart';
 import 'device.dart';
 import 'doctor.dart';
@@ -78,6 +79,7 @@ Future<T> runInContext<T>(
       KernelCompiler: () => const KernelCompiler(),
       Logger: () => platform.isWindows ? WindowsStdoutLogger() : StdoutLogger(),
       OperatingSystemUtils: () => OperatingSystemUtils(),
+      PackageMapConfig: () => PackageMapConfig(),
       PlistBuddy: () => const PlistBuddy(),
       SimControl: () => SimControl(),
       Stdio: () => const Stdio(),

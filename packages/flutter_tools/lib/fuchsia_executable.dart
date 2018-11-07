@@ -15,6 +15,7 @@ import 'src/base/file_system.dart';
 import 'src/commands/attach.dart';
 import 'src/commands/devices.dart';
 import 'src/commands/shell_completion.dart';
+import 'src/dart/package_map.dart';
 import 'src/fuchsia/fuchsia_sdk.dart';
 import 'src/runner/flutter_command.dart';
 
@@ -64,11 +65,12 @@ Future<void> main(List<String> args) async {
      muteCommandLogging: help,
      verboseHelp: verboseHelp,
      overrides: <Type, Generator>{
-      FuchsiaArtifacts: () => FuchsiaArtifacts(sshConfig: sshConfig),
       Artifacts: () => OverrideArtifacts(
         parent: CachedArtifacts(),
         frontendServer: frontendServer,
         engineDartBinary: dartSdk,
-      )
+      ),
+      FuchsiaArtifacts: () => FuchsiaArtifacts(sshConfig: sshConfig),
+      PackageMapConfig: () => PackageMapConfig(enabled: false),
      });
 }

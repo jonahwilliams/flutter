@@ -4,10 +4,24 @@
 
 import 'package:package_config/packages_file.dart' as packages_file;
 
+import '../base/context.dart';
 import '../base/file_system.dart';
 import '../base/platform.dart';
 
 const String kPackagesFileName = '.packages';
+
+PackageMapConfig get packageMapConfig => context[PackageMapConfig];
+
+/// Additional configuration for the [PackageMap].
+class PackageMapConfig {
+  /// Creates a new [PackageMapConfig].
+  PackageMapConfig({this.enabled = true});
+
+  /// Whether to enable package mapping.
+  ///
+  /// Defaults to true.
+  final bool enabled;
+}
 
 Map<String, Uri> _parse(String packagesPath) {
   final List<int> source = fs.file(packagesPath).readAsBytesSync();

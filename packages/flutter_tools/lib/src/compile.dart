@@ -238,14 +238,14 @@ class KernelCompiler {
     if (fileSystemScheme != null) {
       command.addAll(<String>['--filesystem-scheme', fileSystemScheme]);
     }
-
-    if (extraFrontEndOptions != null)
+    if (extraFrontEndOptions != null) {
       command.addAll(extraFrontEndOptions);
+    }
 
     Uri mainUri;
     if (packagesPath != null) {
       command.addAll(<String>['--packages', packagesPath]);
-      mainUri = _PackageUriMapper.findUri(mainPath, packagesPath);
+      mainUri = packageMapConfig.enabled ? _PackageUriMapper.findUri(mainPath, packagesPath) : mainPath;
     }
     command.add(mainUri?.toString() ?? mainPath);
 
@@ -260,7 +260,7 @@ class KernelCompiler {
 
     server.stderr
       .transform<String>(utf8.decoder)
-      .listen((String message) { printError(message); });
+      .listen(printError);
     server.stdout
       .transform<String>(utf8.decoder)
       .transform<String>(const LineSplitter())
@@ -391,10 +391,9 @@ class ResidentCompiler {
     // First time recompile is called we actually have to compile the app from
     // scratch ignoring list of invalidated files.
     _PackageUriMapper packageUriMapper;
-    if (request.packagesFilePath != null) {
+    if (request.packagesFilePath != null && packageMapConfig.enabled) {
       packageUriMapper = _PackageUriMapper(request.mainPath, request.packagesFilePath);
     }
-
     if (_server == null) {
       return _compile(
           _mapFilename(request.mainPath, packageUriMapper),
@@ -571,7 +570,7 @@ class ResidentCompiler {
   }
 
   String _doMapFilename(String filename, _PackageUriMapper packageUriMapper) {
-    if (packageUriMapper != null) {
+    if (packageUriMapper != null && packageMapConfig.enabled) {
       final Uri packageUri = packageUriMapper.map(filename);
       if (packageUri != null)
         return packageUri.toString();
@@ -580,9 +579,7 @@ class ResidentCompiler {
     if (_fileSystemRoots != null) {
       for (String root in _fileSystemRoots) {
         if (filename.startsWith(root)) {
-          return Uri(
-              scheme: _fileSystemScheme, path: filename.substring(root.length))
-              .toString();
+          return Uri.parse('$_fileSystemScheme://${filename.substring(root.length)}').toString();
         }
       }
     }

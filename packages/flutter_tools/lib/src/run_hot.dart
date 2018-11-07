@@ -188,7 +188,7 @@ class HotRunner extends ResidentRunner {
       return 3;
     }
     final Stopwatch initialUpdateDevFSsTimer = Stopwatch()..start();
-    final bool devfsResult = await _updateDevFS(fullRestart: false);
+    final bool devfsResult = await _updateDevFS(fullRestart: true);
     _addBenchmarkData('hotReloadInitialDevFSSyncMilliseconds',
         initialUpdateDevFSsTimer.elapsed.inMilliseconds);
     if (!devfsResult)

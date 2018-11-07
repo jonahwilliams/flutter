@@ -171,6 +171,7 @@ class AttachCommand extends FlutterCommand {
       final int localPort = await device.portForwarder.forward(devicePort);
       observatoryUri = Uri.parse('http://$ipv4Loopback:$localPort/');
     }
+    printTrace(globalResults['packages']);
     try {
       final FlutterDevice flutterDevice = FlutterDevice(
         device,

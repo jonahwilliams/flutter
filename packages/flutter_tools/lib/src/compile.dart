@@ -221,8 +221,10 @@ class KernelCompiler {
     if (incrementalCompilerByteStorePath != null) {
       command.add('--incremental');
     }
+    Uri mainUri;
     if (packagesPath != null) {
-      command.addAll(<String>['--packages', '/usr/local/google/home/jonahwilliams/fuchsia/out/x64/dartlang/gen/topaz/bin/wifi_settings/wifi_settings_dart_library.packages']);
+      command.addAll(<String>['--packages', packagesPath]);
+      mainUri = _PackageUriMapper.findUri(mainPath, '/usr/local/google/home/jonahwilliams/fuchsia/out/x64/dartlang/gen/topaz/bin/wifi_settings/wifi_settings_dart_library.packages');
     }
     if (outputFilePath != null) {
       command.addAll(<String>['--output-dill', outputFilePath]);
@@ -235,14 +237,8 @@ class KernelCompiler {
     if (fileSystemScheme != null) {
       command.addAll(<String>['--filesystem-scheme', fileSystemScheme]);
     }
-
-    if (extraFrontEndOptions != null)
+    if (extraFrontEndOptions != null) {
       command.addAll(extraFrontEndOptions);
-
-    Uri mainUri;
-    if (packagesPath != null) {
-      //command.addAll(<String>['--packages', packagesPath]);
-      mainUri = _PackageUriMapper.findUri(mainPath, packagesPath);
     }
     command.add(mainUri?.toString() ?? mainPath);
 
@@ -452,9 +448,11 @@ class ResidentCompiler {
     if (_trackWidgetCreation) {
       command.add('--track-widget-creation');
     }
-
-      command.addAll(<String>['--packages', '/usr/local/google/home/jonahwilliams/fuchsia/out/x64/dartlang/gen/topaz/bin/wifi_settings/wifi_settings_dart_library.packages']);
-
+    if (_packagesPath != null) {
+      command.addAll(<String>['--packages', _packagesPath]);
+    } else if (packagesFilePath != null) {
+      command.addAll(<String>['--packages', packagesFilePath]);
+    }
     if (_fileSystemRoots != null) {
       for (String root in _fileSystemRoots) {
         command.addAll(<String>['--filesystem-root', root]);
@@ -591,7 +589,3 @@ class ResidentCompiler {
     return _server.exitCode;
   }
 }
-
-/**
- *  flutter attach -m wifi_settings --filesystem-scheme fuchsia-source --filesystem-root /usr/local/google/home/jonahwilliams/fuchsia/ --packages /usr/local/google/home/jonahwilliams/fuchsia/out/x64/dartlang/gen/topaz/bin/wifi_settings/wifi_settings_dart_library.packages --output-dill /usr/local/google/home/jonahwilliams/fuchsia/out/x64/gen/topaz/bin/wifi_settings/wifi_settings_kernel.dil  --verbose
- */

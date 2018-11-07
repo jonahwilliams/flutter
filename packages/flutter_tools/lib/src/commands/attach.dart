@@ -8,6 +8,7 @@ import '../base/common.dart';
 import '../base/file_system.dart';
 import '../base/io.dart';
 import '../base/logger.dart';
+import '../base/utils.dart';
 import '../cache.dart';
 import '../commands/daemon.dart';
 import '../device.dart';
@@ -54,6 +55,10 @@ class AttachCommand extends FlutterCommand {
       ..addOption(
         'debug-port',
         help: 'Local port where the observatory is listening.',
+      )..addOption('pid-file',
+        help: 'Specify a file to write the process id to. '
+              'You can send SIGUSR1 to trigger a hot reload '
+              'and SIGUSR2 to trigger a hot restart.',
       )..addOption(
         'project-root',
         hide: !verboseHelp,
@@ -106,6 +111,8 @@ class AttachCommand extends FlutterCommand {
 
     await _validateArguments();
 
+    writePidFile(argResults['pid-file']);
+
     final Device device = await findTargetDevice();
     final int devicePort = observatoryPort;
 
@@ -124,7 +131,7 @@ class AttachCommand extends FlutterCommand {
         if (module == null) {
           throwToolExit('\'--module\' is requried for attaching to a Fuchsia device');
         }
-        ipv6 = _isIpv6(device.id.split('%').first);
+        ipv6 = _isIpv6(device.id);
         final List<int> ports = await device.servicePorts();
         if (ports.isEmpty) {
           throwToolExit('No active service ports on ${device.name}');
@@ -212,8 +219,10 @@ class AttachCommand extends FlutterCommand {
   Future<void> _validateArguments() async {}
 
   bool _isIpv6(String address) {
+    // Workaround for https://github.com/dart-lang/sdk/issues/29456
+    final String fragment = address.split('%').first;
     try {
-      Uri.parseIPv6Address(address);
+      Uri.parseIPv6Address(fragment);
       return true;
     } on FormatException {
       return false;

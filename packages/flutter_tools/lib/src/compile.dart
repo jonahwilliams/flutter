@@ -5,15 +5,19 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:meta/meta.dart';
 import 'package:usage/uuid/uuid.dart';
 
 import 'artifacts.dart';
 import 'base/common.dart';
 import 'base/context.dart';
+import 'base/file_system.dart';
 import 'base/fingerprint.dart';
 import 'base/io.dart';
+import 'base/platform.dart';
 import 'base/process_manager.dart';
 import 'base/terminal.dart';
+import 'dart/package_map.dart';
 import 'globals.dart';
 
 KernelCompiler get kernelCompiler => context[KernelCompiler];
@@ -74,6 +78,42 @@ class _StdoutHandler {
   }
 }
 
+// Converts filesystem paths to package URIs.
+class _PackageUriMapper {
+  _PackageUriMapper(String scriptPath, String packagesPath) {
+    final Map<String, Uri> packageMap = PackageMap(fs.path.absolute(packagesPath)).map;
+    final String scriptUri = Uri.file(scriptPath, windows: platform.isWindows).toString();
+
+    for (String packageName in packageMap.keys) {
+      final String prefix = packageMap[packageName].toString();
+      if (scriptUri.startsWith(prefix)) {
+        _packageName = packageName;
+        _uriPrefix = prefix;
+        return;
+      }
+    }
+  }
+
+  String _packageName;
+  String _uriPrefix;
+
+  Uri map(String scriptPath) {
+    if (_packageName == null)
+      return null;
+
+    final String scriptUri = Uri.file(scriptPath, windows: platform.isWindows).toString();
+    if (scriptUri.startsWith(_uriPrefix)) {
+      return Uri.parse('package:$_packageName/${scriptUri.substring(_uriPrefix.length)}');
+    }
+
+    return null;
+  }
+
+  static Uri findUri(String scriptPath, String packagesPath) {
+    return _PackageUriMapper(scriptPath, packagesPath).map(scriptPath);
+  }
+}
+
 class KernelCompiler {
   const KernelCompiler();
 
@@ -84,7 +124,7 @@ class KernelCompiler {
     String depFilePath,
     bool linkPlatformKernelIn = false,
     bool aot = false,
-    bool trackWidgetCreation = false,
+    @required bool trackWidgetCreation,
     List<String> extraFrontEndOptions,
     String incrementalCompilerByteStorePath,
     String packagesPath,
@@ -133,6 +173,7 @@ class KernelCompiler {
       sdkRoot,
       '--strong',
       '--target=flutter',
+      '--verbose',
     ];
     if (trackWidgetCreation)
       command.add('--track-widget-creation');
@@ -149,14 +190,11 @@ class KernelCompiler {
       command.add('--incremental');
     }
     if (packagesPath != null) {
-      command.addAll(<String>['--packages', packagesPath]);
+      command.addAll(<String>['--packages', '/usr/local/google/home/jonahwilliams/fuchsia/out/x64/dartlang/gen/topaz/bin/wifi_settings/wifi_settings_dart_library.packages']);
     }
     if (outputFilePath != null) {
       command.addAll(<String>['--output-dill', outputFilePath]);
     }
-    //if (depFilePath != null && (fileSystemRoots == null || fileSystemRoots.isEmpty)) {
-   //   command.addAll(<String>['--depfile', '../../../../gen/vendor/google/app/photo_frame/photo_frame_kernel.dil.d']); // FIXME
-   // }
     if (fileSystemRoots != null) {
       for (String root in fileSystemRoots) {
         command.addAll(<String>['--filesystem-root', root]);
@@ -168,7 +206,14 @@ class KernelCompiler {
 
     if (extraFrontEndOptions != null)
       command.addAll(extraFrontEndOptions);
-    command.add(mainPath);
+
+    Uri mainUri;
+    if (packagesPath != null) {
+      //command.addAll(<String>['--packages', packagesPath]);
+      mainUri = _PackageUriMapper.findUri(mainPath, packagesPath);
+    }
+    command.add(mainUri?.toString() ?? mainPath);
+
     printTrace(command.join(' '));
     final Process server = await processManager
         .start(command)
@@ -285,7 +330,8 @@ class ResidentCompiler {
   /// Binary file name is returned if compilation was successful, otherwise
   /// null is returned.
   Future<CompilerOutput> recompile(String mainPath, List<String> invalidatedFiles,
-      {String outputPath, String packagesFilePath}) async {
+      {@required String outputPath, String packagesFilePath}) async {
+    assert (outputPath != null);
     if (!_controller.hasListener) {
       _controller.stream.listen(_handleCompilationRequest);
     }
@@ -302,16 +348,29 @@ class ResidentCompiler {
 
     // First time recompile is called we actually have to compile the app from
     // scratch ignoring list of invalidated files.
+    _PackageUriMapper packageUriMapper;
+    if (request.packagesFilePath != null) {
+      packageUriMapper = _PackageUriMapper(request.mainPath, request.packagesFilePath);
+    }
     if (_server == null) {
-      return _compile(_mapFilename(request.mainPath),
-          request.outputPath, _mapFilename(request.packagesFilePath));
+      return _compile(
+          _mapFilename(request.mainPath, packageUriMapper),
+          request.outputPath,
+          _mapFilename(request.packagesFilePath, /* packageUriMapper= */ null)
+      );
     }
 
     final String inputKey = Uuid().generateV4();
-    _server.stdin.writeln('recompile ${request.mainPath != null ? _mapFilename(request.mainPath) + " ": ""}$inputKey');
+    final String mainUri = request.mainPath != null
+        ? _mapFilename(request.mainPath, packageUriMapper) + ' '
+        : '';
+    printTrace('recompile $mainUri$inputKey');
+    _server.stdin.writeln('recompile $mainUri$inputKey');
     for (String fileUri in request.invalidatedFiles) {
-      _server.stdin.writeln(_mapFileUri(fileUri));
+       printTrace(_mapFileUri(fileUri, packageUriMapper));
+      _server.stdin.writeln(_mapFileUri(fileUri, packageUriMapper));
     }
+    printTrace(inputKey);
     _server.stdin.writeln(inputKey);
 
     return _stdoutHandler.compilerOutput.future;
@@ -334,7 +393,7 @@ class ResidentCompiler {
     }
   }
 
-  Future<CompilerOutput> _compile(String scriptFilename, String outputPath,
+  Future<CompilerOutput> _compile(String scriptUri, String outputPath,
       String packagesFilePath) async {
     final String frontendServer = artifacts.getArtifactPath(
       Artifact.frontendServerSnapshotForEngineDartSdk
@@ -347,19 +406,17 @@ class ResidentCompiler {
       '--incremental',
       '--strong',
       '--target=flutter',
+      '--verbose',
     ];
     if (outputPath != null) {
       command.addAll(<String>['--output-dill', outputPath]);
     }
-    // if (packagesFilePath != null) {
-      command.addAll(<String>['--packages', '/usr/local/google/home/jonahwilliams/fuchsia/out/x64/dartlang/gen/vendor/google/app/photo_frame/photo_frame_dart_library.packages']);
-    // /}
     if (_trackWidgetCreation) {
       command.add('--track-widget-creation');
     }
-    // if (_packagesPath != null) {
-    //   command.addAll(<String>['--packages', _packagesPath]);
-    // }
+
+      command.addAll(<String>['--packages', '/usr/local/google/home/jonahwilliams/fuchsia/out/x64/dartlang/gen/topaz/bin/wifi_settings/wifi_settings_dart_library.packages']);
+
     if (_fileSystemRoots != null) {
       for (String root in _fileSystemRoots) {
         command.addAll(<String>['--filesystem-root', root]);
@@ -394,7 +451,7 @@ class ResidentCompiler {
       .transform<String>(const LineSplitter())
       .listen((String message) { printError(message); });
 
-    _server.stdin.writeln('compile $scriptFilename');
+    _server.stdin.writeln('compile $scriptUri');
 
     return _stdoutHandler.compilerOutput.future;
   }
@@ -457,22 +514,29 @@ class ResidentCompiler {
     _server?.stdin?.writeln('reset');
   }
 
-  String _mapFilename(String filename) {
-    if (_fileSystemRoots != null) {
-      for (String root in _fileSystemRoots) {
-        if (filename.startsWith(root)) {
-          return Uri(
-              scheme: _fileSystemScheme, path: filename.substring(root.length))
-              .toString();
-        }
-      }
-    }
-    return filename;
+  String _mapFilename(String filename, _PackageUriMapper packageUriMapper) {
+    return _doMapFilename(filename, packageUriMapper) ?? filename;
   }
 
-  String _mapFileUri(String fileUri) {
+  String _mapFileUri(String fileUri, _PackageUriMapper packageUriMapper) {
+    String filename;
+    try {
+      filename = Uri.parse(fileUri).toFilePath();
+    } on UnsupportedError catch (_) {
+      return fileUri;
+    }
+    return _doMapFilename(filename, packageUriMapper) ?? fileUri;
+  }
+
+  String _doMapFilename(String filename, _PackageUriMapper packageUriMapper) {
+    if (packageUriMapper != null) {
+      final Uri packageUri = packageUriMapper.map(filename);
+      if (packageUri != null) {
+        return packageUri.toString();
+    }
+    }
+
     if (_fileSystemRoots != null) {
-      final String filename = Uri.parse(fileUri).toFilePath();
       for (String root in _fileSystemRoots) {
         if (filename.startsWith(root)) {
           return Uri(
@@ -481,7 +545,7 @@ class ResidentCompiler {
         }
       }
     }
-    return fileUri;
+    return null;
   }
 
   Future<dynamic> shutdown() {
@@ -489,3 +553,7 @@ class ResidentCompiler {
     return _server.exitCode;
   }
 }
+
+/**
+ *  flutter attach -m wifi_settings --filesystem-scheme fuchsia-source --filesystem-root /usr/local/google/home/jonahwilliams/fuchsia/ --packages /usr/local/google/home/jonahwilliams/fuchsia/out/x64/dartlang/gen/topaz/bin/wifi_settings/wifi_settings_dart_library.packages --output-dill /usr/local/google/home/jonahwilliams/fuchsia/out/x64/gen/topaz/bin/wifi_settings/wifi_settings_kernel.dil  --verbose
+ */

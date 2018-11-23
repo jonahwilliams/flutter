@@ -51,7 +51,7 @@ class ColdRunner extends ResidentRunner {
       }
     }
 
-    for (FlutterDevice device in flutterDevices) {
+    for (FlutterDevice device in rootDevices) {
       final int result = await device.runCold(
         coldRunner: this,
         route: route,
@@ -65,17 +65,17 @@ class ColdRunner extends ResidentRunner {
     if (debuggingOptions.debuggingEnabled)
       await connectToServiceProtocol();
 
-    if (flutterDevices.first.observatoryUris != null) {
+    if (rootDevices.first.observatoryUris != null) {
       // For now, only support one debugger connection.
       connectionInfoCompleter?.complete(DebugConnectionInfo(
-        httpUri: flutterDevices.first.observatoryUris.first,
-        wsUri: flutterDevices.first.vmServices.first.wsAddress,
+        httpUri: rootDevices.first.observatoryUris.first,
+        wsUri: rootDevices.first.vmServices.first.wsAddress,
       ));
     }
 
     printTrace('Application running.');
 
-    for (FlutterDevice device in flutterDevices) {
+    for (FlutterDevice device in rootDevices) {
       if (device.vmServices == null)
         continue;
       device.initLogReader();
@@ -85,7 +85,7 @@ class ColdRunner extends ResidentRunner {
 
     if (traceStartup) {
       // Only trace startup for the first device.
-      final FlutterDevice device = flutterDevices.first;
+      final FlutterDevice device = rootDevices.first;
       if (device.vmServices != null && device.vmServices.isNotEmpty) {
         printStatus('Downloading startup trace info for ${device.device.name}');
         try {
@@ -127,7 +127,7 @@ class ColdRunner extends ResidentRunner {
   void printHelp({ @required bool details }) {
     bool haveDetails = false;
     bool haveAnything = false;
-    for (FlutterDevice device in flutterDevices) {
+    for (FlutterDevice device in rootDevices) {
       final String dname = device.device.name;
       if (device.observatoryUris != null) {
         for (Uri uri in device.observatoryUris) {
@@ -154,7 +154,7 @@ class ColdRunner extends ResidentRunner {
 
   @override
   Future<void> preStop() async {
-    for (FlutterDevice device in flutterDevices) {
+    for (FlutterDevice device in rootDevices) {
       // If we're running in release mode, stop the app using the device logic.
       if (device.vmServices == null || device.vmServices.isEmpty)
         await device.device.stopApp(device.package);

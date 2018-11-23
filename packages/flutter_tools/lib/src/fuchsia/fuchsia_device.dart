@@ -234,14 +234,15 @@ class FuchsiaDevice extends Device {
     return result.stdout;
   }
 
-  /// Finds the first port running a VM matching `isolateName` from the
-  /// provided set of `ports`.
+  /// Finds the first port running a VM matching a flutter view named
+  /// `isolateName` from the provided set of `ports`. If `searchAllIsolates`
+  /// is true, then all isolates are checked instead of only flutter views.
   ///
   /// Returns null if no isolate port can be found.
   ///
   // TODO(jonahwilliams): replacing this with the hub will require an update
   // to the flutter_runner.
-  Future<int> findIsolatePort(String isolateName, List<int> ports) async {
+  Future<int> findIsolatePort(String isolateName, List<int> ports, {bool searchAllIsolates = false}) async {
     for (int port in ports) {
       try {
         // Note: The square-bracket enclosure for using the IPv6 loopback
@@ -251,14 +252,23 @@ class FuchsiaDevice extends Device {
         final Uri uri = Uri.parse('http://[$_ipv6Loopback]:$port');
         final VMService vmService = await VMService.connect(uri);
         await vmService.getVM();
-        await vmService.refreshViews();
-        for (FlutterView flutterView in vmService.vm.views) {
-          if (flutterView.uiIsolate == null) {
-            continue;
+        if (searchAllIsolates) {
+          for (Isolate isolate in vmService.vm.isolates) {
+            final Uri address = isolate.owner.vmService.httpAddress;
+            if (isolate.name.contains(isolateName)) {
+              address.port;
+            }
           }
-          final Uri address = flutterView.owner.vmService.httpAddress;
-          if (flutterView.uiIsolate.name.contains(isolateName)) {
-            return address.port;
+        } else {
+          await vmService.refreshViews();
+          for (FlutterView flutterView in vmService.vm.views) {
+            if (flutterView.uiIsolate == null) {
+              continue;
+            }
+            final Uri address = flutterView.owner.vmService.httpAddress;
+            if (flutterView.uiIsolate.name.contains(isolateName)) {
+              return address.port;
+            }
           }
         }
       } on SocketException catch (err) {

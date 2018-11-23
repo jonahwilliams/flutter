@@ -37,6 +37,10 @@ class TargetModel {
         return flutter;
       case 'flutter_runner':
         return flutterRunner;
+      case 'dart':
+        return dart;
+      case 'dart_runner':
+        return dartRunner;
     }
     assert(false);
     return null;
@@ -44,11 +48,17 @@ class TargetModel {
 
   const TargetModel._(this._value);
 
-  /// The flutter patched dart SDK
+  /// The flutter patched Dart SDK
   static const TargetModel flutter = TargetModel._('flutter');
 
-  /// The fuchsia patched SDK.
+  /// The fuchsia patched Flutter SDK.
   static const TargetModel flutterRunner = TargetModel._('flutter_runner');
+
+  /// The standard Dart SDK.
+  static const TargetModel dart = TargetModel._('dart');
+
+  /// The fuchsia patched Dart SDK.
+  static const TargetModel dartRunner = TargetModel._('dart_runner');
 
   final String _value;
 

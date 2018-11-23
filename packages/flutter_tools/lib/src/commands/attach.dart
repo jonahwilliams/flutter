@@ -67,7 +67,8 @@ class AttachCommand extends FlutterCommand {
         negatable: false,
         help: 'Handle machine structured JSON command input and provide output '
               'and progress in machine friendly format.',
-      );
+      )
+      ..addFlag('dart-agent');
     hotRunnerFactory ??= HotRunnerFactory();
   }
 
@@ -138,7 +139,9 @@ class AttachCommand extends FlutterCommand {
           expectSlowOperation: true,
         );
         try {
-          final int localPort = await device.findIsolatePort(module, localPorts);
+          final int localPort = await device.findIsolatePort(
+            module, localPorts, searchAllIsolates: argResults['dart-agent'],
+          );
           if (localPort == null) {
             throwToolExit('No active Observatory running module \'$module\' on ${device.name}');
           }

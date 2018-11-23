@@ -496,7 +496,7 @@ class AppDomain extends Domain {
     if (app == null)
       throw "app '$appId' not found";
 
-    final Isolate isolate = app.runner.flutterDevices.first.views.first.uiIsolate;
+    final Isolate isolate = app.runner.rootDevices.first.isolates.first;
     final Map<String, dynamic> result = await isolate.invokeFlutterExtensionRpcRaw(methodName, params: params);
     if (result == null)
       throw 'method not available: $methodName';

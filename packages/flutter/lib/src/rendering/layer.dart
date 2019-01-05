@@ -11,6 +11,7 @@ import 'package:flutter/painting.dart';
 import 'package:vector_math/vector_math_64.dart';
 
 import 'debug.dart';
+import 'proxy_box.dart';
 
 /// A composited layer.
 ///
@@ -1732,7 +1733,7 @@ class AnnotatedRegionLayer<T> extends ContainerLayer {
   /// Creates a new layer annotated with [value] that clips to [size] if provided.
   ///
   /// The value provided cannot be null.
-  AnnotatedRegionLayer(this.value, {this.size}) : assert(value != null);
+  AnnotatedRegionLayer(this.value, {@required this.size, this.opaque = false}) : assert(value != null);
 
   /// The value returned by [find] if the offset is contained within this layer.
   final T value;
@@ -1743,19 +1744,31 @@ class AnnotatedRegionLayer<T> extends ContainerLayer {
   /// layer, unless an ancestor layer applies a clip.
   final Size size;
 
+  /// Whether the layer blocks descendant annotated regions from being found.
+  ///
+  /// This only applies if the offset provided to [Layer.find] is contained
+  /// within the layer (if sized), otherwise hit detection continues to child
+  /// layers.
+  final bool opaque;
+
   @override
   S find<S>(Offset regionOffset) {
-    final S result = super.find<S>(regionOffset);
-    if (result != null)
-      return result;
-    if (size != null && !size.contains(regionOffset))
-      return null;
-    if (T == S) {
-      final Object untypedResult = value;
-      final S typedResult = untypedResult;
-      return typedResult;
+    if (T != S) {
+      return super.find<S>(regionOffset);
     }
-    return super.find<S>(regionOffset);
+    if (size != null && !size.contains(regionOffset)) {
+      return null;
+    }
+    if (opaque) {
+      return _convertValue<S>() ?? super.find<S>(regionOffset);
+    }
+    return super.find<S>(regionOffset) ?? _convertValue<S>();
+  }
+
+  S _convertValue<S>() {
+    final Object untypedResult = value;
+    final S typedResult = untypedResult;
+    return typedResult;
   }
 
   @override

@@ -16,15 +16,17 @@ import 'framework.dart';
 class AnnotatedRegion<T> extends SingleChildRenderObjectWidget {
   /// Creates a new annotated region to insert [value] into the layer tree.
   ///
-  /// Neither [child] nor [value] may be null.
+  /// Neither `child` nor `value` may be null.
   ///
-  /// [sized] defaults to true and controls whether the annotated region will
-  /// clip its child.
+  /// `sized` defaults to true and controls whether the annotated region will
+  /// clip its child. `opaque` configures whether this layer will block
+  /// descendant layers.
   const AnnotatedRegion({
     Key key,
     @required Widget child,
     @required this.value,
     this.sized = true,
+    this.opaque = false,
   }) : assert(value != null),
        assert(child != null),
        super(key: key, child: child);
@@ -42,16 +44,24 @@ class AnnotatedRegion<T> extends SingleChildRenderObjectWidget {
   ///  * [AnnotatedRegionLayer], for a description of this behavior.
   final bool sized;
 
+  /// Whether the layer blocks descendant annotated regions from being found.
+  ///
+  /// This only applies if the offset provided to [Layer.find] is contained
+  /// within the layer (if sized), otherwise hit detection continues to child
+  /// layers.
+  final bool opaque;
+
   @override
   RenderObject createRenderObject(BuildContext context) {
-    return RenderAnnotatedRegion<T>(value: value, sized: sized);
+    return RenderAnnotatedRegion<T>(value: value, sized: sized, opaque: opaque);
   }
 
   @override
   void updateRenderObject(BuildContext context, RenderAnnotatedRegion<T> renderObject) {
     renderObject
       ..value = value
-      ..sized = sized;
+      ..sized = sized
+      ..opaque = opaque;
   }
 }
 

@@ -4609,11 +4609,13 @@ class RenderAnnotatedRegion<T> extends RenderProxyBox {
   RenderAnnotatedRegion({
     @required T value,
     @required bool sized,
+    @required bool opaque,
     RenderBox child,
   }) : assert(value != null),
        assert(sized != null),
        _value = value,
        _sized = sized,
+       _opaque = opaque,
        super(child);
 
   /// A value which can be retrieved using [Layer.find].
@@ -4633,6 +4635,21 @@ class RenderAnnotatedRegion<T> extends RenderProxyBox {
     if (_sized == value)
       return;
     _sized = value;
+    markNeedsPaint();
+  }
+
+  /// Whether the layer blocks descendant annotated regions from being found.
+  ///
+  /// This only applies if the offset provided to [Layer.find] is contained
+  /// within the layer (if sized), otherwise hit detection continues to child
+  /// layers.
+  bool get opaque => _opaque;
+  bool _opaque;
+  set opaque(bool value) {
+    if (value == opaque) {
+      return;
+    }
+    _opaque = value;
     markNeedsPaint();
   }
 

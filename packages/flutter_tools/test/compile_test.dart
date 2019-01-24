@@ -50,6 +50,7 @@ void main() {
               'result abc\nline1\nline2\nabc /path/to/main.dart.dill 0'
             ))
           ));
+      final KernelCompiler kernelCompiler = await kernelCompilerFactory.create();
       final CompilerOutput output = await kernelCompiler.compile(sdkRoot: '/path/to/sdkroot',
         mainPath: '/path/to/main.dart',
         trackWidgetCreation: false,
@@ -74,6 +75,7 @@ void main() {
             ))
           ));
 
+      final KernelCompiler kernelCompiler = await kernelCompilerFactory.create();
       final CompilerOutput output = await kernelCompiler.compile(sdkRoot: '/path/to/sdkroot',
         mainPath: '/path/to/main.dart',
         trackWidgetCreation: false,
@@ -100,6 +102,7 @@ void main() {
           ))
       ));
 
+      final KernelCompiler kernelCompiler = await kernelCompilerFactory.create();
       final CompilerOutput output = await kernelCompiler.compile(
         sdkRoot: '/path/to/sdkroot',
         mainPath: '/path/to/main.dart',

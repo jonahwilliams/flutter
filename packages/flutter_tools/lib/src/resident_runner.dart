@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:flutter_tools/src/build_runner/build_runner.dart';
 import 'package:meta/meta.dart';
 
 import 'application_package.dart';
@@ -301,7 +302,9 @@ class FlutterDevice {
     startEchoingDeviceLog();
 
     // Start the application.
-    final bool hasDirtyDependencies = hotRunner.hasDirtyDependencies(this);
+    final bool hasDirtyDependencies = await experimentalBuildEnabled
+      ? false
+      : hotRunner.hasDirtyDependencies(this);
     final Future<LaunchResult> futureResult = device.startApp(
       package,
       mainPath: hotRunner.mainPath,

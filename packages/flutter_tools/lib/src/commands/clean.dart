@@ -4,6 +4,8 @@
 
 import 'dart:async';
 
+import 'package:flutter_tools/src/project.dart';
+
 import '../base/common.dart';
 import '../base/file_system.dart';
 import '../build_info.dart';
@@ -19,22 +21,30 @@ class CleanCommand extends FlutterCommand {
   final String name = 'clean';
 
   @override
-  final String description = 'Delete the build/ directory.';
+  final String description = 'Delete the build/ and .dart_tool/ directories.';
 
   @override
   Future<FlutterCommandResult> runCommand() async {
+    final FlutterProject flutterProject = await FlutterProject.current();
     final Directory buildDir = fs.directory(getBuildDirectory());
+
     printStatus("Deleting '${buildDir.path}${fs.path.separator}'.");
-
-    if (!buildDir.existsSync())
-      return null;
-
-    try {
-      buildDir.deleteSync(recursive: true);
-    } catch (error) {
-      throwToolExit(error.toString());
+    if (buildDir.existsSync()) {
+      try {
+        buildDir.deleteSync(recursive: true);
+      } catch (error) {
+        throwToolExit(error.toString());
+      }
     }
 
-    return null;
+    printStatus("Deleting '${flutterProject.dartTool.path}'.");
+    if (flutterProject.dartTool.existsSync()) {
+      try {
+        flutterProject.dartTool.deleteSync(recursive: true);
+      } catch (error) {
+        throwToolExit(error.toString());
+      }
+    }
+    return const FlutterCommandResult(ExitStatus.success);
   }
 }

@@ -4,6 +4,9 @@
 
 import 'dart:async';
 
+import 'package:flutter_tools/src/build_runner/build_runner.dart';
+import 'package:flutter_tools/src/compile.dart';
+
 import '../base/common.dart';
 import '../base/file_system.dart';
 import '../base/time.dart';
@@ -333,6 +336,14 @@ class RunCommand extends RunCommandBase {
       throwToolExit('Error: --train is only allowed when running as --dynamic --profile '
           '(recommended) or --debug (may include unwanted debug symbols).');
 
+    ResidentCompiler generator;
+    if (await experimentalBuildEnabled) {
+     generator = await BuildResidentCompiler.create(
+       mainPath: targetFile,
+       trackWidgetCreation: argResults['track-widget-creation'],
+       unsafePackageSerialization: false,
+     );
+    }
     final List<FlutterDevice> flutterDevices = devices.map<FlutterDevice>((Device device) {
       return FlutterDevice(
         device,
@@ -341,6 +352,7 @@ class RunCommand extends RunCommandBase {
         fileSystemRoots: argResults['filesystem-root'],
         fileSystemScheme: argResults['filesystem-scheme'],
         viewFilter: argResults['isolate-filter'],
+        generator: generator,
       );
     }).toList();
 

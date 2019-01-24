@@ -42,7 +42,7 @@ class BuildKernelCompiler implements KernelCompiler {
     }
     final BuildRunner buildRunner = buildRunnerFactory.create();
     try {
-      final BuildResult buildResult = await buildRunner.build(
+      final FlutterBuildResult buildResult = await buildRunner.build(
         aot: aot,
         linkPlatformKernelIn: linkPlatformKernelIn,
         trackWidgetCreation: trackWidgetCreation,

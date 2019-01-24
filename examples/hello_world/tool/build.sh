@@ -1,0 +1,12 @@
+exec flutter pub pub run build_runner daemon \
+--define "flutter_build|kernel=disabled=false" \
+--define "flutter_build|kernel=aot=false" \
+--define "flutter_build|kernel=linkPlatformKernelIn=false" \
+--define "flutter_build|kernel=trackWidgetCreation=false" \
+--define "flutter_build|kernel=targetProductVm=false" \
+--define "flutter_build|kernel=extraFrontEndOptions=[]" \
+--define "flutter_build|kernel=mainPath=/Users/user/Documents/Flutter/flutter/examples/hello_world/lib/main.dart" \
+--define "flutter_build|kernel=packagesPath=/Users/user/Documents/Flutter/flutter/example/hello_world/.packages" \
+--define "flutter_build|kernel=sdkRoot=/Users/user/Documents/Flutter/flutter/bin/cache/artifacts/engine/common/flutter_patched_sdk" \
+--define "flutter_build|kernel=frontendServerPath=/Users/user/Documents/Flutter/flutter/bin/cache/artifacts/engine/darwin-x64/frontend_server.dart.snapshot" \
+--define "flutter_build|kernel=engineDartBinaryPath=/Users/user/Documents/Flutter/flutter/bin/cache/dart-sdk/bin/dart" \

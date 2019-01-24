@@ -5,6 +5,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter_tools/src/build_runner/build_runner.dart';
 import 'package:json_rpc_2/error_code.dart' as rpc_error_code;
 import 'package:json_rpc_2/json_rpc_2.dart' as rpc;
 import 'package:meta/meta.dart';
@@ -120,6 +121,10 @@ class HotRunner extends ResidentRunner {
         '$error'
       );
       return false;
+    }
+    if (await experimentalBuildEnabled) {
+      // Dependencies checked as part of build, multi-root not supported.
+      return true;
     }
 
     final DartDependencySetBuilder dartDependencySetBuilder =

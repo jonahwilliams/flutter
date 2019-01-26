@@ -42,7 +42,6 @@ FutureOr<bool> get experimentalBuildEnabled async {
   final Map<String, Uri> packages = PackageMap(flutterProject.packagesFile.path).map;
   return _experimentalBuildEnabled = packages.containsKey('flutter_build') && packages.containsKey('build_runner');
 }
-
 bool _experimentalBuildEnabled;
 
 @visibleForTesting

@@ -10,6 +10,7 @@ import '../base/common.dart';
 import '../base/file_system.dart';
 import '../build_info.dart';
 import '../globals.dart';
+import '../project.dart';
 import '../runner/flutter_command.dart';
 
 class CleanCommand extends FlutterCommand {
@@ -37,7 +38,7 @@ class CleanCommand extends FlutterCommand {
       }
     }
 
-    printStatus("Deleting '${flutterProject.dartTool.path}'.");
+    printStatus("Deleting '${flutterProject.dartTool.path}${fs.path.separator}'.");
     if (flutterProject.dartTool.existsSync()) {
       try {
         flutterProject.dartTool.deleteSync(recursive: true);
@@ -48,3 +49,4 @@ class CleanCommand extends FlutterCommand {
     return const FlutterCommandResult(ExitStatus.success);
   }
 }
+

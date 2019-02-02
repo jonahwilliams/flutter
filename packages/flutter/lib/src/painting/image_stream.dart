@@ -3,11 +3,38 @@
 // found in the LICENSE file.
 
 import 'dart:async';
-import 'dart:ui' as ui show Image, Codec, FrameInfo;
+import 'dart:typed_data';
+import 'dart:ui' as ui show Image, Codec, FrameInfo, ImageByteFormat;
 import 'dart:ui' show hashValues;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
+
+class ImageHandle implements ui.Image {
+  ImageHandle(this._image)
+    : height = _image.height,
+      width = _image.width;
+
+  ui.Image get image => _image;
+  ui.Image _image;
+
+  @override
+  void dispose() {
+    _image.dispose();
+    _image = null;
+  }
+
+  @override
+  final int height;
+
+  @override
+  Future<ByteData> toByteData({ui.ImageByteFormat format = ui.ImageByteFormat.rawRgba}) {
+    return _image?.toByteData(format: format);
+  }
+
+  @override
+  final int width;
+}
 
 /// A [dart:ui.Image] object with its corresponding scale.
 ///
@@ -545,7 +572,7 @@ class MultiFrameImageStreamCompleter extends ImageStreamCompleter {
     if (!hasListeners)
       return;
     if (_isFirstFrame() || _hasFrameDurationPassed(timestamp)) {
-      _emitFrame(ImageInfo(image: _nextFrame.image, scale: _scale));
+      _emitFrame(ImageInfo(image: ImageHandle(_nextFrame.image), scale: _scale));
       _shownTimestamp = timestamp;
       _frameDuration = _nextFrame.duration;
       _nextFrame = null;
@@ -586,7 +613,7 @@ class MultiFrameImageStreamCompleter extends ImageStreamCompleter {
     if (_codec.frameCount == 1) {
       // This is not an animated image, just return it and don't schedule more
       // frames.
-      _emitFrame(ImageInfo(image: _nextFrame.image, scale: _scale));
+      _emitFrame(ImageInfo(image: ImageHandle(_nextFrame.image), scale: _scale));
       return;
     }
     SchedulerBinding.instance.scheduleFrameCallback(_handleAppFrame);

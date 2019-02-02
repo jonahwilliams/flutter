@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:typed_data';
+import 'dart:ui' as ui;
+
 import 'image_stream.dart';
 
 const int _kDefaultSize = 1000;
@@ -124,6 +127,7 @@ class ImageCache {
     final _CachedImage image = _cache.remove(key);
     if (image != null) {
       _currentSizeBytes -= image.sizeBytes;
+      image.image.dispose();
       return true;
     }
     return false;
@@ -166,7 +170,7 @@ class ImageCache {
     void listener(ImageInfo info, bool syncCall) {
       // Images that fail to load don't contribute to cache size.
       final int imageSize = info?.image == null ? 0 : info.image.height * info.image.width * 4;
-      final _CachedImage image = _CachedImage(result, imageSize);
+      final _CachedImage image = _CachedImage(result, imageSize, info.image);
       // If the image is bigger than the maximum cache size, and the cache size
       // is not zero, then increase the cache size to the size of the image plus
       // some change.
@@ -196,6 +200,8 @@ class ImageCache {
       final Object key = _cache.keys.first;
       final _CachedImage image = _cache[key];
       _currentSizeBytes -= image.sizeBytes;
+      image.image.dispose();
+      print('disposing: ${key}');
       _cache.remove(key);
     }
     assert(_currentSizeBytes >= 0);
@@ -205,10 +211,11 @@ class ImageCache {
 }
 
 class _CachedImage {
-  _CachedImage(this.completer, this.sizeBytes);
+  _CachedImage(this.completer, this.sizeBytes, this.image);
 
   final ImageStreamCompleter completer;
   final int sizeBytes;
+  final ui.Image image;
 }
 
 class _PendingImage {

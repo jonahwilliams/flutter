@@ -434,15 +434,23 @@ void paintImage({
     canvas.scale(-1.0, 1.0);
     canvas.translate(dx, 0.0);
   }
-  if (centerSlice == null) {
-    final Rect sourceRect = alignment.inscribe(
-      sourceSize, Offset.zero & inputSize
-    );
-    for (Rect tileRect in _generateImageTileRects(rect, destinationRect, repeat))
-      canvas.drawImageRect(image, sourceRect, tileRect, paint);
+  ui.Image actualImage;
+  if (image is ImageHandle) {
+    actualImage = image.image;
   } else {
-    for (Rect tileRect in _generateImageTileRects(rect, destinationRect, repeat))
-      canvas.drawImageNine(image, centerSlice, tileRect, paint);
+    actualImage = image;
+  }
+  if (actualImage != null) {
+    if (centerSlice == null) {
+      final Rect sourceRect = alignment.inscribe(
+        sourceSize, Offset.zero & inputSize
+      );
+      for (Rect tileRect in _generateImageTileRects(rect, destinationRect, repeat))
+        canvas.drawImageRect(actualImage, sourceRect, tileRect, paint);
+    } else {
+      for (Rect tileRect in _generateImageTileRects(rect, destinationRect, repeat))
+        canvas.drawImageNine(actualImage, centerSlice, tileRect, paint);
+    }
   }
   if (needSave)
     canvas.restore();

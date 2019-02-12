@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:yaml/yaml.dart';
+import 'package:glob/glob.dart';
 
 import 'base/context.dart';
 import 'base/file_system.dart';
@@ -531,16 +532,10 @@ Map<_Asset, List<_Asset>> _parseAssets(
   final Map<_Asset, List<_Asset>> result = <_Asset, List<_Asset>>{};
 
   final _AssetDirectoryCache cache = _AssetDirectoryCache(excludeDirs);
-  for (Uri assetUri in flutterManifest.assets) {
-    if (assetUri.toString().endsWith('/')) {
-      _parseAssetsFromFolder(packageMap, flutterManifest, assetBase,
-          cache, result, assetUri,
-          excludeDirs: excludeDirs, packageName: packageName);
-    } else {
-      _parseAssetFromFile(packageMap, flutterManifest, assetBase,
-          cache, result, assetUri,
-          excludeDirs: excludeDirs, packageName: packageName);
-    }
+  for (Glob assetGlob in flutterManifest.assets) {
+    _parseAssetFromGlob(packageMap, flutterManifest, assetBase,
+        cache, result, assetGlob,
+        excludeDirs: excludeDirs, packageName: packageName);
   }
 
   // Add assets referenced in the fonts section of the manifest.
@@ -562,37 +557,6 @@ Map<_Asset, List<_Asset>> _parseAssets(
   }
 
   return result;
-}
-
-void _parseAssetsFromFolder(PackageMap packageMap,
-  FlutterManifest flutterManifest,
-  String assetBase,
-  _AssetDirectoryCache cache,
-  Map<_Asset, List<_Asset>> result,
-  Uri assetUri, {
-  List<String> excludeDirs = const <String>[],
-  String packageName
-}) {
-  final String directoryPath = fs.path.join(
-      assetBase, assetUri.toFilePath(windows: platform.isWindows));
-
-  if (!fs.directory(directoryPath).existsSync()) {
-    printError('Error: unable to find directory entry in pubspec.yaml: $directoryPath');
-    return;
-  }
-
-  final List<FileSystemEntity> lister = fs.directory(directoryPath).listSync();
-
-  for (FileSystemEntity entity in lister) {
-    if (entity is File) {
-      final String relativePath = fs.path.relative(entity.path, from: assetBase);
-
-      final Uri uri = Uri.file(relativePath, windows: platform.isWindows);
-
-      _parseAssetFromFile(packageMap, flutterManifest, assetBase, cache, result,
-          uri, packageName: packageName);
-    }
-  }
 }
 
 void _parseAssetFromFile(PackageMap packageMap,
@@ -628,6 +592,26 @@ void _parseAssetFromFile(PackageMap packageMap,
   }
 
   result[asset] = variants;
+}
+
+void _parseAssetFromGlob(PackageMap packageMap,
+  FlutterManifest flutterManifest,
+  String assetBase,
+  _AssetDirectoryCache cache,
+  Map<_Asset, List<_Asset>> result,
+  Glob assetGlob, {
+  List<String> excludeDirs = const <String>[],
+  String packageName
+}) {
+  for (FileSystemEntity entity in assetGlob.listSync(root: assetBase)) {
+    if (entity is File) {
+      final String relativePath = fs.path.relative(entity.path, from: assetBase);
+      final Uri uri = Uri.file(relativePath, windows: platform.isWindows);
+
+      _parseAssetFromFile(packageMap, flutterManifest, assetBase, cache, result,
+          uri, packageName: packageName);
+    }
+  }
 }
 
 _Asset _resolveAsset(

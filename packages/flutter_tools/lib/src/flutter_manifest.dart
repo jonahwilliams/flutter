@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:glob/glob.dart';
 import 'package:json_schema/json_schema.dart';
 import 'package:meta/meta.dart';
 import 'package:yaml/yaml.dart';
@@ -168,16 +169,17 @@ class FlutterManifest {
         : fontList.map<Map<String, dynamic>>(castStringKeyedMap).toList();
   }
 
-  List<Uri> get assets {
+  List<Glob> get assets {
     final List<dynamic> assets = _flutterDescriptor['assets'];
     if (assets == null) {
-      return const <Uri>[];
+      return const <Glob>[];
     }
     return assets
         .cast<String>()
-        .map<String>(Uri.encodeFull)
-        ?.map<Uri>(Uri.parse)
-        ?.toList();
+        .map<Glob>((String rawAsset) => rawAsset.endsWith('/')
+            ? Glob('$rawAsset*', context: fs.path)
+            : Glob(rawAsset, context: fs.path))
+        .toList();
   }
 
   List<Font> _fonts;

@@ -29,9 +29,9 @@ import 'vmservice.dart';
 
 class HotRunnerConfig {
   /// Should the hot runner compute the minimal Dart dependencies?
-  bool computeDartDependencies = true;
+  bool computeDartDependencies = false;
   /// Should the hot runner assume that the minimal Dart dependencies do not change?
-  bool stableDartDependencies = false;
+  bool stableDartDependencies = true;
   /// A hook for implementations to perform any necessary initialization prior
   /// to a hot restart. Should return true if the hot restart should continue.
   Future<bool> setupHotRestart() async {
@@ -317,6 +317,7 @@ class HotRunner extends ResidentRunner {
   Future<void> handleTerminalCommand(String code) async {
     final String lower = code.toLowerCase();
     if (lower == 'r') {
+      print('START: ${DateTime.now().millisecondsSinceEpoch}');
       OperationResult result;
       if (code == 'R') {
         // If hot restart is not supported for all devices, ignore the command.
@@ -768,6 +769,7 @@ class HotRunner extends ResidentRunner {
       allDevices.add(deviceCompleter.future);
     }
     await Future.wait(allDevices);
+    print('RELOAD SOURCE: ${DateTime.now().millisecondsSinceEpoch}');
     // We are now running from source.
     _runningFromSnapshot = false;
     // Check if any isolates are paused.
@@ -856,6 +858,7 @@ class HotRunner extends ResidentRunner {
           onSlow('${_describePausedIsolates(postReloadPausedIsolatesFound, serviceEventKind)}.');
       },
     );
+    print('Reassemble: ${DateTime.now().millisecondsSinceEpoch}');
     // Record time it took for Flutter to reassemble the application.
     _addBenchmarkData('hotReloadFlutterReassembleMilliseconds', reassembleTimer.elapsed.inMilliseconds);
 

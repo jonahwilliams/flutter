@@ -435,14 +435,13 @@ class ResidentCompiler {
           _mapFilename(request.packagesFilePath ?? _packagesPath, /* packageUriMapper= */ null)
       );
     }
-
     final String inputKey = Uuid().generateV4();
     final String mainUri = request.mainPath != null
-        ? _mapFilename(request.mainPath, packageUriMapper) + ' '
+        ? 'package:flutter_gallery/main.dart '
         : '';
     _server.stdin.writeln('recompile $mainUri$inputKey');
     for (String fileUri in request.invalidatedFiles) {
-      _server.stdin.writeln(_mapFileUri(fileUri, packageUriMapper));
+      _server.stdin.writeln('package:flutter_gallery/${fileUri.substring(4)}');
     }
     _server.stdin.writeln(inputKey);
 
@@ -468,11 +467,9 @@ class ResidentCompiler {
 
   Future<CompilerOutput> _compile(String scriptUri, String outputPath,
       String packagesFilePath) async {
-    final String frontendServer = artifacts.getArtifactPath(
-      Artifact.frontendServerSnapshotForEngineDartSdk
-    );
+    final String frontendServer = '/Users/jonahwilliams/Documents/flutter/bin/cache/artifacts/engine/darwin-x64/frontend_server.dart.snapshot';
     final List<String> command = <String>[
-      artifacts.getArtifactPath(Artifact.engineDartBinary),
+      '/Users/jonahwilliams/Documents/flutter/bin/cache/dart-sdk/bin/dart',
       frontendServer,
       '--sdk-root',
       _sdkRoot,
@@ -530,7 +527,7 @@ class ResidentCompiler {
       .transform<String>(const LineSplitter())
       .listen((String message) { printError(message); });
 
-    _server.stdin.writeln('compile $scriptUri');
+    _server.stdin.writeln('compile package:flutter_gallery/main.dart');
 
     return _stdoutHandler.compilerOutput.future;
   }

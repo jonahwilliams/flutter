@@ -1136,8 +1136,8 @@ class Isolate extends ServiceObjectOwner {
 
   Future<Map<String, dynamic>> reloadSources(
       { bool pause = false,
-        Uri rootLibUri,
-        Uri packagesUri}) async {
+        String rootLibUri,
+        String packagesUri}) async {
     try {
       final Map<String, dynamic> arguments = <String, dynamic>{
         'pause': pause

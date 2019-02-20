@@ -165,8 +165,8 @@ class FlutterDevice {
     for (FlutterView view in views) {
       final Future<Map<String, dynamic>> report = view.uiIsolate.reloadSources(
         pause: pause,
-        rootLibUri: deviceEntryUri,
-        packagesUri: devicePackagesUri
+        // rootLibUri: deviceEntryUri,
+        // packagesUri: devicePackagesUri
       );
       reports.add(report);
     }

@@ -555,12 +555,14 @@ class DevFS {
     if (fullRestart) {
       generator.reset();
     }
+    print('BEFORE COMPILE: ${DateTime.now().millisecondsSinceEpoch}');
     final CompilerOutput compilerOutput = await generator.recompile(
       mainPath,
       invalidatedFiles,
       outputPath:  dillOutputPath ?? getDefaultApplicationKernelPath(trackWidgetCreation: trackWidgetCreation),
       packagesFilePath : _packagesFilePath,
     );
+    print('RECOMPILE: ${DateTime.now().millisecondsSinceEpoch}');
     // Don't send full kernel file that would overwrite what VM already
     // started loading from.
     if (!bundleFirstUpload) {
@@ -582,6 +584,7 @@ class DevFS {
       if (_httpWriter != null) {
         try {
           await _httpWriter.write(dirtyEntries);
+          print('Write File: ${DateTime.now().millisecondsSinceEpoch}');
         } on SocketException catch (socketException, stackTrace) {
           printTrace('DevFS sync failed. Lost connection to device: $socketException');
           throw DevFSException('Lost connection to device.', socketException, stackTrace);

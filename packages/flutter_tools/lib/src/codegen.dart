@@ -26,7 +26,7 @@ CodeGenerator get codeGenerator => context[CodeGenerator];
 /// 'FLUTTER_EXPERIMENTAL_BUILD' and that the project itself has a
 /// dependency on the package 'flutter_build' and 'build_runner.'
 bool get experimentalBuildEnabled {
-  return _experimentalBuildEnabled ??= platform.environment['FLUTTER_EXPERIMENTAL_BUILD']?.toLowerCase() == 'true';
+  return true;//return _experimentalBuildEnabled ??= platform.environment['FLUTTER_EXPERIMENTAL_BUILD']?.toLowerCase() == 'true';
 }
 bool _experimentalBuildEnabled;
 

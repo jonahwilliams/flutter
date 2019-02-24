@@ -1,0 +1,9 @@
+{
+    "name": "Center",
+    "params": {
+        "child": {
+            "name": "Text",
+            "0": "Hello, World"
+        }
+    }
+}

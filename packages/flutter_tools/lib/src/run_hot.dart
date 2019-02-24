@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:flutter_tools/src/codegen.dart';
 import 'package:json_rpc_2/error_code.dart' as rpc_error_code;
 import 'package:json_rpc_2/json_rpc_2.dart' as rpc;
 import 'package:meta/meta.dart';
@@ -322,6 +323,8 @@ class HotRunner extends ResidentRunner {
     }
 
     final UpdateFSReport results = UpdateFSReport(success: true);
+    final List<String> invalidatedFiles = List<String>.of(watcher.invalidatedFiles);
+    watcher.invalidatedFiles.clear();
     for (FlutterDevice device in flutterDevices) {
       results.incorporateResults(await device.updateDevFS(
         mainPath: mainPath,
@@ -333,10 +336,9 @@ class HotRunner extends ResidentRunner {
         fullRestart: fullRestart,
         projectRootPath: projectRootPath,
         pathToReload: getReloadPath(fullRestart: fullRestart),
-        invalidatedFiles: watcher.invalidatedFiles,
+        invalidatedFiles: invalidatedFiles,
       ));
     }
-    watcher.invalidatedFiles.clear();
     return results;
   }
 
@@ -927,7 +929,12 @@ class ProjectWatcher {
     if (!fs.directory(projectPath).existsSync() || !fs.file(packagesPath).existsSync()) {
       return;
     }
-    _watches.add(DirectoryWatcher(projectDirectory ?? fs.currentDirectory.path));
+    _watches.add(DirectoryWatcher(projectPath));
+    if (experimentalBuildEnabled) {
+      final DirectoryWatcher generatedWatcher = DirectoryWatcher(fs.path.join(projectPath, '.dart_tool', 'build', 'generated', 'demo_example/'));
+      _watches.add(generatedWatcher);
+      generatedWatcher.events.listen(_onWatchEvent);
+    }
     final Map<String, Uri> packageMap = PackageMap(packagesPath).map;
     for (String dependency in packageMap.keys) {
       final String path = packageMap[dependency].path;

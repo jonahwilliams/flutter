@@ -8,6 +8,9 @@ import 'package:flutter_driver/driver_extension.dart';
 import 'coffee_app.dart';
 import 'src/coffee.dart';
 
+import 'src/models.dart';
+import 'src/widget.dart';
+
 Future<void> main() async {
   enableFlutterDriverExtension();
   coffeeApp = await CoffeeApp.create(PourOverCoffeeModule());
@@ -31,6 +34,7 @@ class _ExampleWidgetState extends State<ExampleWidget> {
         body: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
+            GeneratedWidget(),
             RaisedButton(
               child: const Text('Press Button, Get Coffee'),
               onPressed: () async {

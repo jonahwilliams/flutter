@@ -21,13 +21,14 @@ import '../base/logger.dart';
 import '../base/platform.dart';
 import '../base/process_manager.dart';
 import '../codegen.dart';
+import '../convert.dart';
 import '../dart/pub.dart';
 import '../globals.dart';
 import '../project.dart';
 import 'build_script_generator.dart';
 
 /// The minimum version of build_runner we can support in the flutter tool.
-const String kMinimumBuildRunnerVersion = '1.2.8';
+const String kMinimumBuildRunnerVersion = '1.3.1';
 
 /// A wrapper for a build_runner process which delegates to a generated
 /// build script.
@@ -87,6 +88,23 @@ class BuildRunner extends CodeGenerator {
         }
       }
       stringBuffer.writeln('  build_runner: ^$kMinimumBuildRunnerVersion');
+      stringBuffer.writeln('  _builders:');
+      stringBuffer.writeln('    sdk: flutter');
+      stringBuffer.write(r'''
+
+dependency_overrides:
+  build_web_compilers:
+    git:
+      url: git@github.com:jonahwilliams/build.git
+      ref: configure_web_compilers
+      path: build_web_compilers
+  build_modules:
+    git:
+      url: git@github.com:jonahwilliams/build.git
+      ref: configure_web_compilers
+      path: build_modules
+
+''');
       await syntheticPubspec.writeAsString(stringBuffer.toString());
 
       await pubGet(
@@ -157,6 +175,44 @@ class BuildRunner extends CodeGenerator {
       builder.target = flutterProject.manifest.appName;
     }));
     return _BuildRunnerCodegenDaemon(buildDaemonClient);
+  }
+
+  @override
+  Future<void> serve(FlutterProject flutterProject) async {
+    await generateBuildScript(flutterProject);
+    final String engineDartBinaryPath = artifacts.getArtifactPath(Artifact.engineDartBinary);
+    final File buildSnapshot = flutterProject
+      .dartTool
+      .childDirectory('build')
+      .childDirectory('entrypoint')
+      .childFile('build.dart.snapshot');
+    final String scriptPackagesPath = flutterProject
+      .dartTool
+      .childDirectory('flutter_tool')
+      .childFile('.packages')
+      .path;
+    final String platformSdk = artifacts.getArtifactPath(Artifact.flutterWebSdk);
+    final List<String> command = <String>[
+      engineDartBinaryPath,
+      '--packages=$scriptPackagesPath',
+      buildSnapshot.path,
+      'serve',
+      '--skip-build-script-check',
+      '--define', '_builders|ddc=platformSdk=$platformSdk',
+    ];
+    print(command);
+    final Process process = await processManager.start(command);
+    process
+      .stdout
+      .transform(utf8.decoder)
+      .transform(const LineSplitter())
+      .listen(printStatus);
+    process
+      .stderr
+      .transform(utf8.decoder)
+      .transform(const LineSplitter())
+      .listen(printError);
+    return process.exitCode;
   }
 }
 

@@ -1,0 +1,17 @@
+name: _builders
+
+environment:
+  # The pub client defaults to an <2.0.0 sdk constraint which we need to explicitly overwrite.
+  sdk: ">=2.0.0-dev.68.0 <3.0.0"
+
+dependencies:
+  build: any
+  build_modules: any
+  build_web_compilers: any
+
+dependency_overrides:
+  build_web_compilers:
+    git:
+      url: git@github.com:jonahwilliams/build.git
+      ref: configure_web_compilers
+      path: build_web_compilers

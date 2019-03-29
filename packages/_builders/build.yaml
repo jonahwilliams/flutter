@@ -1,0 +1,47 @@
+builders:
+  ddc:
+    import: "package:_builders/builders.dart"
+    builder_factories:
+      - devCompilerBuilder
+    build_extensions:
+      .dart:
+        - .ddc.js.errors
+        - .ddc.js
+        - .ddc.js.map
+    is_optional: True
+    auto_apply: all_packages
+    required_inputs:
+      - .dart
+      - .dartdevc.module
+    applies_builders:
+      - build_web_compilers|dart_source_cleanup
+      - build_modules|dartdevc
+      - build_modules|dart2js
+  entrypoint:
+    import: "package:_builders/builders.dart"
+    builder_factories:
+      - webEntrypointBuilder
+    build_extensions:
+      .dart:
+        - .dart.bootstrap.js
+        - .dart.js
+        - .dart.js.map
+        - .dart.js.tar.gz
+    required_inputs:
+      - .dart
+      - .ddc.js
+      - .dartdevc.module
+    build_to: cache
+    auto_apply: root_package
+    applies_builders:
+      - _builders|ddc
+    defaults:
+      generate_for:
+        include:
+          - web/**
+          - test/**_test.dart
+          - example/**
+          - benchmark/**
+        exclude:
+          - test/**.node_test.dart
+          - test/**.vm_test.dart

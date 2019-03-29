@@ -4,12 +4,14 @@
 
 import 'dart:async';
 
-import '../base/common.dart';
-import '../base/logger.dart';
+// import '../base/common.dart';
+// import '../base/logger.dart';
 import '../build_info.dart';
-import '../globals.dart';
+import '../codegen.dart';
+//import '../globals.dart';
+import '../project.dart';
 import '../runner/flutter_command.dart' show DevelopmentArtifact, FlutterCommandResult;
-import '../web/compile.dart';
+//import '../web/compile.dart';
 import 'build.dart';
 
 class BuildWebCommand extends BuildSubCommand {
@@ -36,13 +38,14 @@ class BuildWebCommand extends BuildSubCommand {
 
   @override
   Future<FlutterCommandResult> runCommand() async {
-    final String target = argResults['target'];
-    final Status status = logger.startProgress('Compiling $target to JavaScript...', timeout: null);
-    final int result = await webCompiler.compile(target: target);
-    status.stop();
-    if (result == 1) {
-      throwToolExit('Failed to compile $target to JavaScript.');
-    }
+    await codeGenerator.serve(await FlutterProject.current());
+    // final String target = argResults['target'];
+    // final Status status = logger.startProgress('Compiling $target to JavaScript...', timeout: null);
+    // final int result = await webCompiler.compile(target: target);
+    // status.stop();
+    // if (result == 1) {
+    //   throwToolExit('Failed to compile $target to JavaScript.');
+    // }
     return null;
   }
 }

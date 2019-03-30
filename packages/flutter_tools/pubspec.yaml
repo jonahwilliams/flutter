@@ -119,3 +119,13 @@ dartdoc:
   nodoc: true
 
 # PUBSPEC CHECKSUM: fc76
+
+dependency_overrides:
+  coverage:
+    git:
+      url: git@github.com:jonahwilliams/coverage.git
+      ref: testing_rootliburi
+  vm_service_client:
+    git:
+      url: git@github.com:jonahwilliams/vm_service_client.git
+      ref: testing_root_lib

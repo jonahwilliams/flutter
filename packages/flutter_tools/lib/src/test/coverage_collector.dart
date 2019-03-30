@@ -19,12 +19,24 @@ import 'watcher.dart';
 
 /// A class that's used to collect coverage data during tests.
 class CoverageCollector extends TestWatcher {
+  CoverageCollector() {
+    final Map<String, Uri> packageMap = PackageMap(PackageMap.globalPackagesPath).map;
+    for (String package in packageMap.keys) {
+      final String path = packageMap[package].toFilePath(windows: platform.isWindows);
+      if (path == 'lib/') {
+        _rootLibUri = 'package:$package';
+        break;
+      }
+    }
+  }
+
   Map<String, dynamic> _globalHitmap;
+  String _rootLibUri;
 
   @override
   Future<void> handleFinishedTest(ProcessEvent event) async {
     printTrace('test ${event.childIndex}: collecting coverage');
-    await collectCoverage(event.process, event.observatoryUri);
+    await collectCoverage(event.process, event.observatoryUri, _rootLibUri);
   }
 
   void _addHitmap(Map<String, dynamic> hitmap) {
@@ -40,19 +52,19 @@ class CoverageCollector extends TestWatcher {
   /// has been run to completion so that all coverage data has been recorded.
   ///
   /// The returned [Future] completes when the coverage is collected.
-  Future<void> collectCoverage(Process process, Uri observatoryUri) async {
+  Future<void> collectCoverage(Process process, Uri observatoryUri, String rootLibUri) async {
     assert(process != null);
     assert(observatoryUri != null);
 
     final int pid = process.pid;
-    printTrace('pid $pid: collecting coverage data from $observatoryUri...');
+    printTrace('pid $pid: collecting coverage data for $rootLibUri on $observatoryUri...');
 
     Map<String, dynamic> data;
     final Future<void> processComplete = process.exitCode
       .then<void>((int code) {
         throw Exception('Failed to collect coverage, process terminated prematurely with exit code $code.');
       });
-    final Future<void> collectionComplete = coverage.collect(observatoryUri, false, false)
+    final Future<void> collectionComplete = coverage.collect(observatoryUri, false, false, rootLibUri)
       .then<void>((Map<String, dynamic> result) {
         if (result == null)
           throw Exception('Failed to collect coverage.');

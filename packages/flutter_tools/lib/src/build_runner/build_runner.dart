@@ -198,6 +198,7 @@ dependency_overrides:
       buildSnapshot.path,
       'serve',
       '--skip-build-script-check',
+      '--verbose',
       '--define', '_builders|ddc=platformSdk=$platformSdk',
     ];
     print(command);

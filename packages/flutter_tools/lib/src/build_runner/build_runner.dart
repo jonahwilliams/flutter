@@ -192,14 +192,15 @@ dependency_overrides:
       .childFile('.packages')
       .path;
     final String platformSdk = artifacts.getArtifactPath(Artifact.flutterWebSdk);
+    final String dartSdkSummary = fs.path.join(platformSdk, 'lib', '_internal', 'ddc_sdk.sum');
     final List<String> command = <String>[
       engineDartBinaryPath,
       '--packages=$scriptPackagesPath',
       buildSnapshot.path,
       'serve',
       '--skip-build-script-check',
-      '--verbose',
       '--define', '_builders|ddc=platformSdk=$platformSdk',
+      '--define', 'build_modules|dartdevc=dart-sdk-summary=$dartSdkSummary',
     ];
     print(command);
     final Process process = await processManager.start(command);

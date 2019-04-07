@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:coverage/coverage.dart' as coverage;
+import 'package:vm_service_client/vm_service_client.dart';
 
 import '../base/file_system.dart';
 import '../base/io.dart';
@@ -30,7 +31,7 @@ class CoverageCollector extends TestWatcher {
     }
   }
 
-  Map<String, dynamic> _globalHitmap;
+  Map<String, dynamic> globalHitmap;
   String _rootLibUri;
 
   @override
@@ -39,11 +40,12 @@ class CoverageCollector extends TestWatcher {
     await collectCoverage(event.process, event.observatoryUri, _rootLibUri);
   }
 
-  void _addHitmap(Map<String, dynamic> hitmap) {
-    if (_globalHitmap == null)
-      _globalHitmap = hitmap;
-    else
-      coverage.mergeHitmaps(hitmap, _globalHitmap);
+  void addHitmap(Map<String, dynamic> hitmap) {
+    if (globalHitmap == null)
+      globalHitmap = hitmap;
+    else {
+      coverage.mergeHitmaps(hitmap, globalHitmap);
+    }
   }
 
   /// Collects coverage for the given [Process] using the given `port`.
@@ -59,7 +61,7 @@ class CoverageCollector extends TestWatcher {
     final int pid = process.pid;
     printTrace('pid $pid: collecting coverage data for $rootLibUri on $observatoryUri...');
 
-    Map<String, dynamic> data;
+    Map<String, Map<int, int>> data;
     final Future<void> processComplete = process.exitCode
       .then<void>((int code) {
         throw Exception('Failed to collect coverage, process terminated prematurely with exit code $code.');
@@ -74,7 +76,7 @@ class CoverageCollector extends TestWatcher {
     assert(data != null);
 
     printTrace('pid $pid ($observatoryUri): collected coverage data; merging...');
-    _addHitmap(coverage.createHitmap(data['coverage']));
+    addHitmap(data);
     printTrace('pid $pid ($observatoryUri): done merging coverage data into global coverage map.');
   }
 
@@ -88,7 +90,7 @@ class CoverageCollector extends TestWatcher {
     Directory coverageDirectory,
   }) async {
     printTrace('formating coverage data');
-    if (_globalHitmap == null)
+    if (globalHitmap == null)
       return null;
     if (formatter == null) {
       final coverage.Resolver resolver = coverage.Resolver(packagesPath: PackageMap.globalPackagesPath);
@@ -98,8 +100,8 @@ class CoverageCollector extends TestWatcher {
         : <String>[coverageDirectory.path];
       formatter = coverage.LcovFormatter(resolver, reportOn: reportOn, basePath: packagePath);
     }
-    final String result = await formatter.format(_globalHitmap);
-    _globalHitmap = null;
+    final String result = await formatter.format(globalHitmap);
+    globalHitmap = null;
     return result;
   }
 

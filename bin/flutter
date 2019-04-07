@@ -119,7 +119,7 @@ function upgrade_flutter () {
       export PUB_CACHE="${PUB_CACHE:-"$FLUTTER_ROOT/.pub-cache"}"
     fi
 
-    retry_upgrade
+    #retry_upgrade
 
     "$DART" $FLUTTER_TOOL_ARGS --snapshot="$SNAPSHOT_PATH" --snapshot-kind=app-jit --packages="$FLUTTER_TOOLS_DIR/.packages" "$SCRIPT_PATH" training
     echo "$revision" > "$STAMP_PATH"

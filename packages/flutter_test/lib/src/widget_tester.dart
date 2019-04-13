@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
@@ -39,8 +40,11 @@ export 'package:test_api/test_api.dart' hide
   TypeMatcher, // matcher's TypeMatcher conflicts with the one in the Flutter framework
   isInstanceOf; // we have our own wrapper in matchers.dart
 
-/// Signature for callback to [testWidgets] and [benchmarkWidgets].
+/// Signature for the callback to [testWidgets] and [benchmarkWidgets].
 typedef WidgetTesterCallback = Future<void> Function(WidgetTester widgetTester);
+
+/// Signature for the callback to [testLiveWidgets].
+typedef LiveWidgetTesterCallback = Future<void> Function(LiveWidgetTester widgetTester);
 
 /// Runs the [callback] inside the Flutter test environment.
 ///
@@ -93,6 +97,40 @@ void testWidgets(
 }) {
   final TestWidgetsFlutterBinding binding = TestWidgetsFlutterBinding.ensureInitialized();
   final WidgetTester tester = WidgetTester._(binding);
+  timeout ??= binding.defaultTestTimeout;
+  test(
+    description,
+    () {
+      SemanticsHandle semanticsHandle;
+      if (semanticsEnabled == true) {
+        semanticsHandle = tester.ensureSemantics();
+      }
+      tester._recordNumberOfSemanticsHandles();
+      test_package.addTearDown(binding.postTest);
+      return binding.runTest(
+        () async {
+          await callback(tester);
+          semanticsHandle?.dispose();
+        },
+        tester._endOfTestVerifications,
+        description: description ?? '',
+      );
+    },
+    skip: skip,
+    timeout: timeout,
+  );
+}
+
+@isTest
+void testLiveWidgets(
+  String description,
+  LiveWidgetTesterCallback callback, {
+  bool skip = false,
+  test_package.Timeout timeout,
+  bool semanticsEnabled = false,
+}) {
+  final LiveTestWidgetsFlutterBinding binding = LiveTestWidgetsFlutterBinding.ensureInitialized();
+  final LiveWidgetTester tester = LiveWidgetTester._(binding);
   timeout ??= binding.defaultTestTimeout;
   test(
     description,
@@ -748,6 +786,35 @@ class WidgetTester extends WidgetController implements HitTestDispatcher, Ticker
   Future<void> ensureVisible(Finder finder) => Scrollable.ensureVisible(element(finder));
 }
 
+/// A specialized [WidgetTester] for interacting with a real device.
+class LiveWidgetTester extends WidgetTester {
+  LiveWidgetTester._(LiveTestWidgetsFlutterBinding binding) : super._(binding) {
+    HttpOverrides.global = _httpOverrides;
+  }
+
+  static final _LiveWidgetHttpOverrides _httpOverrides = _LiveWidgetHttpOverrides();
+
+
+  /// Waits until all pending network requests have resolved.
+  ///
+  /// This does not include network activity performed by plugins.
+  Future<void> waitUntilNetworkIdle() {
+    final Completer<void> completer = Completer<void>();
+    if (_httpOverrides._httpClient.pending.isEmpty) {
+      completer.complete();
+    } else {
+      StreamSubscription<void> updateSubscription;
+      updateSubscription = _httpOverrides._httpClient.requestUpdates.stream.listen((void update) {
+        if (_httpOverrides._httpClient.pending.isEmpty) {
+          updateSubscription.cancel();
+          completer.complete();
+        }
+     });
+    }
+    return completer.future;
+  }
+}
+
 typedef _TickerDisposeCallback = void Function(_TestTicker ticker);
 
 class _TestTicker extends Ticker {
@@ -761,4 +828,182 @@ class _TestTicker extends Ticker {
       _onDispose(this);
     super.dispose();
   }
+}
+
+class _LiveWidgetHttpOverrides extends HttpOverrides {
+  final _LiveWidgetHttpClient _httpClient = _LiveWidgetHttpClient();
+
+  @override
+  HttpClient createHttpClient(SecurityContext context) {
+    return _httpClient;
+  }
+}
+
+// A delegating http client that tracks pending requests.
+class _LiveWidgetHttpClient implements HttpClient {
+  final HttpClient httpClient = HttpClient();
+  final Set<HttpClientRequest> pending = <HttpClientRequest>{};
+  final StreamController<void> requestUpdates = StreamController<void>.broadcast();
+
+  @override
+  void addCredentials(Uri url, String realm, HttpClientCredentials credentials) {
+    httpClient.addCredentials(url, realm, credentials);
+  }
+
+  @override
+  void addProxyCredentials(String host, int port, String realm, HttpClientCredentials credentials) {
+    httpClient.addProxyCredentials(host, port, realm, credentials);
+  }
+
+  @override
+  set authenticate(Future<bool> Function(Uri url, String scheme, String realm) f) {
+    httpClient.authenticate = f;
+  }
+
+  @override
+  set authenticateProxy(Future<bool> Function(String host, int port, String scheme, String realm) f) {
+     httpClient.authenticateProxy = f;
+  }
+
+  @override
+  set badCertificateCallback(bool Function(X509Certificate cert, String host, int port) callback) {
+    httpClient.badCertificateCallback = callback;
+  }
+
+  @override
+  void close({bool force = false}) {
+    httpClient.close(force: force);
+  }
+
+  @override
+  Future<HttpClientRequest> delete(String host, int port, String path) async {
+    final HttpClientRequest request = await httpClient.delete(host, port, path);
+    pending.add(request);
+    requestUpdates.add(null);
+    request.done.then((HttpClientResponse response) {
+      pending.remove(request);
+      requestUpdates.add(null);
+    });
+    return request;
+  }
+
+  @override
+  Future<HttpClientRequest> deleteUrl(Uri url) async {
+    final HttpClientRequest request = await httpClient.deleteUrl(url);
+    pending.add(request);
+    requestUpdates.add(null);
+    request.done.then((HttpClientResponse response) {
+      pending.remove(request);
+      requestUpdates.add(null);
+    });
+    return request;
+  }
+
+  @override
+  set findProxy(String Function(Uri url) f) {
+    httpClient.findProxy = f;
+  }
+
+  @override
+  Future<HttpClientRequest> get(String host, int port, String path) async {
+    return _trackRequest(await httpClient.get(host, port, path));
+  }
+
+  @override
+  Future<HttpClientRequest> getUrl(Uri url) async {
+    return _trackRequest(await httpClient.getUrl(url));
+  }
+
+  @override
+  Future<HttpClientRequest> head(String host, int port, String path) async {
+    return _trackRequest(await httpClient.head(host, port, path));
+  }
+
+  @override
+  Future<HttpClientRequest> headUrl(Uri url) async {
+    return _trackRequest(await httpClient.getUrl(url));
+  }
+
+  @override
+  Future<HttpClientRequest> open(String method, String host, int port, String path) async {
+    return _trackRequest(await httpClient.open(method, host, port, path));
+  }
+
+  @override
+  Future<HttpClientRequest> openUrl(String method, Uri url) async {
+    return _trackRequest(await httpClient.openUrl(method, url));
+  }
+
+  @override
+  Future<HttpClientRequest> patch(String host, int port, String path) async {
+    return _trackRequest(await httpClient.patch(host, port, path));
+  }
+
+  @override
+  Future<HttpClientRequest> patchUrl(Uri url) async {
+    return _trackRequest(await httpClient.patchUrl(url));
+  }
+
+  @override
+  Future<HttpClientRequest> post(String host, int port, String path) async {
+    return _trackRequest(await httpClient.post(host, port, path));
+  }
+
+  @override
+  Future<HttpClientRequest> postUrl(Uri url) async {
+    return _trackRequest(await httpClient.postUrl(url));
+  }
+
+  @override
+  Future<HttpClientRequest> put(String host, int port, String path) async {
+    return _trackRequest(await httpClient.put(host, port, path));
+  }
+
+  @override
+  Future<HttpClientRequest> putUrl(Uri url) async {
+    return _trackRequest(await httpClient.putUrl(url));
+  }
+
+  HttpClientRequest _trackRequest(HttpClientRequest request) {
+    pending.add(request);
+    requestUpdates.add(null);
+    request.done.then((HttpClientResponse response) {
+      pending.remove(request);
+      requestUpdates.add(null);
+    }, onError: (Object error) {
+      pending.remove(request);
+      requestUpdates.add(null);
+    });
+    return request;
+  }
+
+  @override
+  bool get autoUncompress => httpClient.autoUncompress;
+
+  @override
+  set autoUncompress(bool value) => httpClient.autoUncompress = value;
+
+  @override
+  Duration get connectionTimeout => httpClient.connectionTimeout;
+
+  @override
+  set connectionTimeout(Duration value) => httpClient.connectionTimeout = value;
+
+  @override
+  Duration get idleTimeout => httpClient.idleTimeout;
+
+  @override
+  set idleTimeout(Duration value) => httpClient.idleTimeout = value;
+
+  @override
+  int get maxConnectionsPerHost => httpClient.maxConnectionsPerHost;
+
+  @override
+  set maxConnectionsPerHost(int value) => httpClient.maxConnectionsPerHost = value;
+
+  @override
+  String get userAgent => httpClient.userAgent;
+
+  @override
+  set userAgent(String value) => httpClient.userAgent;
 }

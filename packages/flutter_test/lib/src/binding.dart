@@ -1075,6 +1075,19 @@ class LiveTestWidgetsFlutterBinding extends TestWidgetsFlutterBinding {
   @override
   test_package.Timeout get defaultTestTimeout => test_package.Timeout.none;
 
+  /// Creates and initializes the binding. This function is
+  /// idempotent; calling it a second time will just return the
+  /// previously-created instance.
+  ///
+  /// This function will use [LiveTestWidgetsFlutterBinding].
+  static WidgetsBinding ensureInitialized() {
+    if (WidgetsBinding.instance == null) {
+      LiveTestWidgetsFlutterBinding();
+    }
+    assert(WidgetsBinding.instance is TestWidgetsFlutterBinding);
+    return WidgetsBinding.instance;
+  }
+
   Completer<void> _pendingFrame;
   bool _expectingFrame = false;
   bool _viewNeedsPaint = false;

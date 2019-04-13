@@ -44,8 +44,6 @@
 /// If no configuration file is located, the test will be executed like normal.
 library flutter_test;
 
-export 'dart:async' show Future;
-
 export 'src/accessibility.dart';
 export 'src/all_elements.dart';
 export 'src/binding.dart';

@@ -566,13 +566,18 @@ class WindowsProject {
 
   final FlutterProject project;
 
-  bool existsSync() => project.directory.childDirectory('windows').existsSync();
+  Directory get editableDirectory => project.directory.childDirectory('windows');
 
-  // Note: The build script file exists as a temporary shim.
-  File get buildScript => project.directory.childDirectory('windows').childFile('build.bat');
+  bool existsSync() => editableDirectory.existsSync();
+
+  /// The Generated.props configuration file for msbuild.
+  File get generatedPropsFile => editableDirectory.childFile('Generated.props');
+
+  /// The msbuild solution file.
+  File get solutionFile => editableDirectory.childFile('Runner.sln');
 
   // Note: The name script file exists as a temporary shim.
-  File get nameScript => project.directory.childDirectory('windows').childFile('name_output.bat');
+  File get nameScript => editableDirectory.childFile('name_output.bat');
 }
 
 /// The Linux sub project.

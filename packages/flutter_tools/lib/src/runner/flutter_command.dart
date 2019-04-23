@@ -635,11 +635,15 @@ mixin DeviceBasedDevelopmentArtifacts on FlutterCommand {
           artifacts.add(DevelopmentArtifact.iOS);
           break;
         case TargetPlatform.darwin_x64:
+          artifacts.add(DevelopmentArtifact.macOS);
+          break;
         case TargetPlatform.fuchsia:
         case TargetPlatform.tester:
         case TargetPlatform.windows_x64:
+          artifacts.add(DevelopmentArtifact.windows);
+          break;
         case TargetPlatform.linux_x64:
-          // No artifacts currently supported.
+          artifacts.add(DevelopmentArtifact.linux);
           break;
       }
     }

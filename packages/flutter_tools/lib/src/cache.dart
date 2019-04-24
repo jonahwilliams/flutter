@@ -199,6 +199,16 @@ class Cache {
 
   static Cache get instance => context[Cache];
 
+  /// Removes all outdated cached artifacts from the cache, but does not
+  /// download new artifacts
+  void clearOutdated() {
+    for (CachedArtifact artifact in _artifacts) {
+      if (!artifact.isUpToDate() && artifact.location.existsSync()) {
+        artifact.location.deleteSync(recursive: true);
+      }
+    }
+  }
+
   /// Return the top-level directory in the cache; this is `bin/cache`.
   Directory getRoot() {
     if (_rootOverride != null)

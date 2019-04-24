@@ -6,6 +6,7 @@ import 'dart:async';
 
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
+import 'package:flutter_tools/src/base/file_system.dart';
 import 'package:mockito/mockito.dart';
 import 'package:platform/platform.dart';
 
@@ -140,6 +141,48 @@ void main() {
     expect(flattenNameSubdirs(Uri.parse('https://www.flutter.dev')), 'www.flutter.dev');
   }, overrides: <Type, Generator>{
     FileSystem: () => MockFileSystem(),
+  });
+
+  testUsingContext('clearOutdated removes outdated artifact directories', () async {
+    final MockCachedArtifact outdated = MockCachedArtifact();
+    final MockCachedArtifact recent = MockCachedArtifact();
+    final Cache cache = Cache(rootOverride: fs.currentDirectory, artifacts: <CachedArtifact>[
+      outdated,
+      recent
+    ]);
+    fs.directory('outdated').createSync();
+    fs.directory('recent').createSync();
+    when(outdated.isUpToDate()).thenReturn(false);
+    when(outdated.location).thenReturn(fs.directory('outdated'));
+    when(recent.isUpToDate()).thenReturn(true);
+    when(recent.location).thenReturn(fs.directory('recent'));
+
+    cache.clearOutdated();
+
+    expect(fs.directory('outdated').existsSync(), false);
+    expect(fs.directory('recent').existsSync(), true);
+  }, overrides: <Type, Generator>{
+    FileSystem:() => MemoryFileSystem(),
+  });
+
+  testUsingContext('clearOutdated removes recent artifact directories if they overlap with outdated', () async {
+    final MockCachedArtifact outdated = MockCachedArtifact();
+    final MockCachedArtifact recent = MockCachedArtifact();
+    final Cache cache = Cache(rootOverride: fs.currentDirectory, artifacts: <CachedArtifact>[
+      outdated,
+      recent
+    ]);
+    fs.directory('outdated').createSync();
+    when(outdated.isUpToDate()).thenReturn(false);
+    when(outdated.location).thenReturn(fs.directory('outdated'));
+    when(recent.isUpToDate()).thenReturn(true);
+    when(recent.location).thenReturn(fs.directory('outdated'));
+
+    cache.clearOutdated();
+
+    expect(fs.directory('outdated').existsSync(), false);
+  }, overrides: <Type, Generator>{
+    FileSystem:() => MemoryFileSystem(),
   });
 }
 

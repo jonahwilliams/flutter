@@ -169,6 +169,9 @@ class FakeUpgradeCommandRunner extends UpgradeCommandRunner {
   Future<void> precacheArtifacts() async {}
 
   @override
+  Future<void> clearCache() async {}
+
+  @override
   Future<void> updatePackages(FlutterVersion flutterVersion) async {}
 
   @override

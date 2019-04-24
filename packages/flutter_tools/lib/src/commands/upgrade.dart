@@ -86,6 +86,7 @@ class UpgradeCommandRunner {
     await resetChanges(gitTagVersion);
     await upgradeChannel(flutterVersion);
     await attemptFastForward();
+    await clearCache();
     await precacheArtifacts();
     await updatePackages(flutterVersion);
     await runDoctor();
@@ -193,6 +194,13 @@ class UpgradeCommandRunner {
       printStatus('');
       await pubGet(context: PubContext.pubUpgrade, directory: projectRoot, upgrade: true, checkLastModified: false);
     }
+  }
+
+  /// Clear the flutter artifact cache of outdated artifacts.
+  Future<void> clearCache() async {
+    printStatus('');
+    printStatus('Clearing outdated artifacts...');
+    Cache.instance.clearOutdated();
   }
 
   /// Run flutter doctor in case requirements have changed.

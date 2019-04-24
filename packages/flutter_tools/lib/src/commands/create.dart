@@ -8,7 +8,7 @@ import 'package:linter/src/rules/pub/package_names.dart' as package_names; // ig
 import 'package:linter/src/utils.dart' as linter_utils; // ignore: implementation_imports
 import 'package:yaml/yaml.dart' as yaml;
 
-import '../android/android.dart' as android;
+import '../android/android.dart' as android_api;
 import '../android/android_sdk.dart' as android_sdk;
 import '../android/gradle.dart' as gradle;
 import '../base/common.dart';
@@ -136,6 +136,11 @@ class CreateCommand extends FlutterCommand {
       defaultsTo: 'java',
       allowed: <String>['java', 'kotlin'],
     );
+    argParser.addFlag('ios', help: 'Whether to create an iOS template.');
+    argParser.addFlag('android', help: 'Whether to create an Android template.');
+    argParser.addFlag('windows', help: 'Whether to create a Windows template.');
+    argParser.addFlag('macOS', help: 'Whether to create a macOS template.');
+    argParser.addFlag('linux', help: 'Whether to create a linux template.');
   }
 
   @override
@@ -315,6 +320,20 @@ class CreateCommand extends FlutterCommand {
         );
       }
     }
+    // Backwards compatibiity check: no platform flags  implies --android and --ios.
+    final bool hasPlatformFlags = argResults.wasParsed('android')
+        || argResults.wasParsed('ios')
+        || argResults.wasParsed('linux')
+        || argResults.wasParsed('windows')
+        || argResults.wasParsed('macos');
+
+    // Desktop targets only support app templates.
+    final bool hasDesktoptarget = argResults.wasParsed('macos') || argResults.wasParsed('windows') || argResults.wasParsed('linux');
+    if (!FlutterVersion.instance.isStable && hasDesktoptarget && (generatePlugin || generatePackage || generateModule)) {
+      throwToolExit(
+        'Desktop targets can currently only be created with app templates.'
+      );
+    }
 
     String error = _validateProjectDir(projectDirPath, flutterRoot: flutterRoot, overwrite: argResults['overwrite']);
     if (error != null)
@@ -334,6 +353,11 @@ class CreateCommand extends FlutterCommand {
       withPluginHook: generatePlugin,
       androidLanguage: argResults['android-language'],
       iosLanguage: argResults['ios-language'],
+      android: argResults['android'] || !hasPlatformFlags,
+      ios: argResults['ios'] || !hasPlatformFlags,
+      linux: argResults['linux'] && !FlutterVersion.instance.isStable,
+      windows: argResults['windows'] && !FlutterVersion.instance.isStable,
+      macos: argResults['macos'] && !FlutterVersion.instance.isStable,
     );
 
     final String relativeDirPath = fs.path.relative(projectDirPath);
@@ -542,6 +566,11 @@ To edit platform code in an IDE see https://flutter.dev/developing-packages/#edi
     String flutterRoot,
     bool renderDriverTest = false,
     bool withPluginHook = false,
+    bool android,
+    bool ios,
+    bool linux,
+    bool windows,
+    bool macos,
   }) {
     flutterRoot = fs.path.normalize(flutterRoot);
 
@@ -557,7 +586,7 @@ To edit platform code in an IDE see https://flutter.dev/developing-packages/#edi
       'iosIdentifier': _createUTIIdentifier(organization, projectName),
       'description': projectDescription,
       'dartSdk': '$flutterRoot/bin/cache/dart-sdk',
-      'androidMinApiLevel': android.minApiLevel,
+      'androidMinApiLevel': android_api.minApiLevel,
       'androidSdkVersion': android_sdk.minimumAndroidSdkVersion,
       'androidFlutterJar': '$flutterRoot/bin/cache/artifacts/engine/android-arm/flutter.jar',
       'withDriverTest': renderDriverTest,
@@ -568,6 +597,11 @@ To edit platform code in an IDE see https://flutter.dev/developing-packages/#edi
       'iosLanguage': iosLanguage,
       'flutterRevision': FlutterVersion.instance.frameworkRevision,
       'flutterChannel': FlutterVersion.instance.channel,
+      'android': android,
+      'ios': ios,
+      'linux': linux,
+      'windows': windows,
+      'macos': macos,
     };
   }
 

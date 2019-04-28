@@ -311,8 +311,9 @@ class UpdatePackagesCommand extends FlutterCommand {
       // to specific versions because they are explicitly pinned by their
       // constraints. Here we list the names we earlier established we didn't
       // need to pin because they come from the Dart or Flutter SDKs.
-      for (PubspecYaml pubspec in pubspecs)
+      for (PubspecYaml pubspec in pubspecs) {
         pubspec.apply(tree, specialDependencies);
+      }
 
       // Now that the pubspec.yamls are updated, we run "pub get" on each one so
       // that the various packages are ready to use. This is what "flutter
@@ -441,9 +442,12 @@ class PubspecYaml {
     return _parse(file, file.readAsLinesSync());
   }
 
-  PubspecYaml._(this.file, this.name, this.version, this.inputData, this.checksum);
+  PubspecYaml._(this.file, this.name, this.version, this.inputData, this.checksum, this.isPackage);
 
   final File file; // The actual pubspec.yaml file.
+
+  /// Whether this is a vendored sdk package.
+  final bool isPackage;
 
   /// The package name.
   final String name;
@@ -600,7 +604,7 @@ class PubspecYaml {
         lastDependency = null;
       }
     }
-    return PubspecYaml._(file, packageName, packageVersion, result, checksum ?? PubspecChecksum(null, ''));
+    return PubspecYaml._(file, packageName, packageVersion, result, checksum ?? PubspecChecksum(null, ''), file.parent.path.contains('packages'));
   }
 
   /// This returns all the explicit dependencies that this pubspec.yaml lists under dependencies.
@@ -742,10 +746,12 @@ class PubspecYaml {
     // Create a new set to hold the list of packages we've already processed, so
     // that we don't redundantly process them multiple times.
     final Set<String> done = <String>{};
-    for (String package in directDependencies)
+    for (String package in directDependencies) {
       transitiveDependencies.addAll(versions.getTransitiveDependenciesFor(package, seen: done, exclude: implied));
-    for (String package in devDependencies)
+    }
+    for (String package in devDependencies) {
       transitiveDevDependencies.addAll(versions.getTransitiveDependenciesFor(package, seen: done, exclude: implied));
+    }
 
     // Sort each dependency block lexically so that we don't get noisy diffs when upgrading.
     final List<String> transitiveDependenciesAsList = transitiveDependencies.toList()..sort();
@@ -776,12 +782,16 @@ class PubspecYaml {
     // Compute a new checksum from all sorted dependencies and their version and convert to a hex string.
     final String checksumString = _computeChecksum(checksumDependencies, versions.versionFor);
 
+    // Only insert transitive dependencies for packages, not applications.
     // Insert the block of transitive dependency declarations into the output after [endOfDirectDependencies],
     // and the blocks of transitive dev dependency declarations into the output after [lastPossiblePlace]. Finally,
     // insert the [checksumString] at the very end.
+    if (isPackage) {
+      output
+        ..insertAll(endOfDevDependencies, transitiveDevDependencyOutput)
+        ..insertAll(endOfDirectDependencies, transitiveDependencyOutput);
+    }
     output
-      ..insertAll(endOfDevDependencies, transitiveDevDependencyOutput)
-      ..insertAll(endOfDirectDependencies, transitiveDependencyOutput)
       ..add('')
       ..add('$kDependencyChecksum$checksumString');
 

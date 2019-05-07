@@ -40,7 +40,7 @@ if [[ -n "$TRACK_WIDGET_CREATION" ]]; then
 fi
 
 # Copy the framework and handle local engine builds.
-framework_name = "FlutterMacOS.framework"
+framework_name="FlutterMacOS.framework"
 derived_dir="${SOURCE_ROOT}/../build/macos/Build/Products/flutter_framework"
 framework_path="${FLUTTER_ROOT}/bin/cache/artifacts/engine/darwin-x64"
 flutter_framework="${framework_path}/${framework_name}"
@@ -73,12 +73,24 @@ RunCommand cp -Rp -- "${flutter_framework}" "${derived_dir}"
 # Set the build mode
 build_mode="$(echo "${FLUTTER_BUILD_MODE:-${CONFIGURATION}}" | tr "[:upper:]" "[:lower:]")"
 
-RunCommand "${FLUTTER_ROOT}/bin/flutter" --suppress-analytics               \
-    ${verbose_flag}                                                         \
-    build bundle                                                            \
-    --target-platform=darwin-x64                                            \
-    --target="${target_path}"                                               \
-    --${build_mode}                                                         \
-    ${track_widget_creation_flag}                                           \
-    ${flutter_engine_flag}                                                  \
+
+if [[ "${build_mode}" != "debug" ]]; then
+  RunCommand "${FLUTTER_ROOT}/bin/flutter" --suppress-analytics           \
+    ${verbose_flag}                                                       \
+    build aot                                                             \
+    --target-platform=darwin-x64                                          \
+    --target="${target_path}"                                             \
+    --${build_mode}                                                       \
+    ${flutter_engine_flag}                                                \
     ${local_engine_flag}
+fi
+
+RunCommand "${FLUTTER_ROOT}/bin/flutter" --suppress-analytics             \
+  ${verbose_flag}                                                         \
+  build bundle                                                            \
+  --target-platform=darwin-x64                                            \
+  --target="${target_path}"                                               \
+  --${build_mode}                                                         \
+  ${track_widget_creation_flag}                                           \
+  ${flutter_engine_flag}                                                  \
+  ${local_engine_flag}

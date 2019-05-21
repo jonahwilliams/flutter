@@ -74,17 +74,6 @@ RunCommand cp -Rp -- "${flutter_framework}" "${derived_dir}"
 build_mode="$(echo "${FLUTTER_BUILD_MODE:-${CONFIGURATION}}" | tr "[:upper:]" "[:lower:]")"
 
 
-if [[ "${build_mode}" != "debug" ]]; then
-  RunCommand "${FLUTTER_ROOT}/bin/flutter" --suppress-analytics           \
-    ${verbose_flag}                                                       \
-    build aot                                                             \
-    --target-platform=darwin-x64                                          \
-    --target="${target_path}"                                             \
-    --${build_mode}                                                       \
-    ${flutter_engine_flag}                                                \
-    ${local_engine_flag}
-fi
-
 RunCommand "${FLUTTER_ROOT}/bin/flutter" --suppress-analytics             \
   ${verbose_flag}                                                         \
   build bundle                                                            \
@@ -94,3 +83,13 @@ RunCommand "${FLUTTER_ROOT}/bin/flutter" --suppress-analytics             \
   ${track_widget_creation_flag}                                           \
   ${flutter_engine_flag}                                                  \
   ${local_engine_flag}
+
+  RunCommand "${FLUTTER_ROOT}/bin/flutter" --suppress-analytics           \
+    ${verbose_flag}                                                       \
+    build aot                                                             \
+    --target-platform=darwin-x64                                          \
+    --target="${target_path}"                                             \
+    --output-dir=build/flutter_assets \
+    --${build_mode}                                                       \
+    ${flutter_engine_flag}                                                \
+    ${local_engine_flag}

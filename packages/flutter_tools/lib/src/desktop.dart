@@ -21,6 +21,9 @@ bool _flutterDesktopEnabled;
 
 /// Kills a process on linux or macOS.
 Future<bool> killProcess(String executable) async {
+  if (executable == null) {
+    return false;
+  }
   final RegExp whitespace = RegExp(r'\s+');
   bool succeeded = true;
   try {

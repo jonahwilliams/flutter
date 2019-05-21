@@ -115,7 +115,11 @@ class MacOSDevice extends Device {
   @override
   Future<bool> stopApp(covariant MacOSApp app) async {
     // Assume debug for now.
-    return killProcess(app.executable(BuildMode.debug));
+    try {
+      return killProcess(app.executable(BuildMode.debug));
+    } catch (err) {
+      return false;
+    }
   }
 
   @override

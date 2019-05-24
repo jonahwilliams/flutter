@@ -34,8 +34,12 @@ class TestBinding extends LiveTestWidgetsFlutterBinding {
   }
 }
 
-Future<void> main() async {
-  final TestBinding binding = TestBinding();
+void main() {
+  TestBinding binding;
+
+  setUp(() {
+    binding = TestBinding();
+  });
 
   test('test pumpBenchmark() only runs one frame', () async {
     await benchmarkWidgets((WidgetTester tester) async {

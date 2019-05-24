@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:meta/meta.dart';
 import 'package:test_api/src/backend/declarer.dart'; // ignore: implementation_imports
@@ -19,6 +20,7 @@ import 'package:test_api/src/backend/invoker.dart';  // ignore: implementation_i
 import 'package:test_api/src/backend/state.dart'; // ignore: implementation_imports
 
 import 'package:test_api/test_api.dart';
+import 'location.dart';
 
 Declarer _localDeclarer;
 Declarer get _declarer {
@@ -74,6 +76,18 @@ Future<void> _runGroup(Suite suiteConfig, Group group, List<Group> parents, _Rep
     parents.remove(group);
   }
 }
+
+bool _didSetup = false;
+
+Future webOnlyStuff(FutureOr<dynamic> testFn()) async {
+  if (!_didSetup) {
+    window.webOnlyLocationStrategy = TestLocationStrategy();
+    await webOnlyInitializePlatform();
+    _didSetup = true;
+  }
+  testFn();
+}
+
 
 Future<void> _runLiveTest(Suite suiteConfig, LiveTest liveTest, _Reporter reporter, { bool countSuccess = true }) async {
   reporter._onTestStarted(liveTest);
@@ -168,7 +182,7 @@ void test(
   int retry,
 }) {
   _declarer.test(
-    description.toString(), body,
+    description.toString(), () => webOnlyStuff(body),
     testOn: testOn,
     timeout: timeout,
     skip: skip,
@@ -248,7 +262,7 @@ void group(Object description, Function body, { dynamic skip }) {
 /// Each callback at the top level or in a given group will be run in the order
 /// they were declared.
 void setUp(Function body) {
-  _declarer.setUp(body);
+  _declarer.setUp(() => webOnlyStuff(body));
 }
 
 /// Registers a function to be run after tests.
@@ -282,7 +296,7 @@ void tearDown(Function body) {
 /// prefer [setUp], and only use [setUpAll] if the callback is prohibitively
 /// slow.
 void setUpAll(Function body) {
-  _declarer.setUpAll(body);
+  _declarer.setUpAll(() => webOnlyStuff(body));
 }
 
 /// Registers a function to be run once after all tests.

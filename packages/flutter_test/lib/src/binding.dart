@@ -23,6 +23,7 @@ import 'package:stack_trace/stack_trace.dart' as stack_trace;
 import 'package:vector_math/vector_math_64.dart';
 
 import 'goldens.dart';
+import 'location.dart';
 import 'stack_manipulation.dart';
 import 'test_async_utils.dart';
 import 'test_exception_reporter.dart';
@@ -151,7 +152,7 @@ abstract class TestWidgetsFlutterBinding extends BindingBase
   /// environment variables for a variable called `FLUTTER_TEST`.)
   static WidgetsBinding ensureInitialized() {
     if (WidgetsBinding.instance == null) {
-      if (Platform.environment.containsKey('FLUTTER_TEST')) {
+      if (identical(0, 0.0) || Platform.environment.containsKey('FLUTTER_TEST')) {
         AutomatedTestWidgetsFlutterBinding();
       } else {
         LiveTestWidgetsFlutterBinding();
@@ -750,6 +751,9 @@ class AutomatedTestWidgetsFlutterBinding extends TestWidgetsFlutterBinding {
   static Set<String> _allowedAssetKeys;
 
   void _mockFlutterAssets() {
+    if (identical(0, 0.0)) {
+      return;
+    }
     if (!Platform.environment.containsKey('UNIT_TEST_ASSETS')) {
       return;
     }

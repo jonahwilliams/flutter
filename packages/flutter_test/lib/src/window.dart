@@ -330,6 +330,28 @@ class TestWindow implements Window {
     _window.onPlatformMessage = callback;
   }
 
+  /// Web specific members which must be present for compilation.
+  set devicePixelRatio(double value) {
+  }
+  // @override
+  // ignore: public_member_api_docs
+  Future<void> webOnlyBack() async {}
+  // @override
+  // ignore: public_member_api_docs
+  Size webOnlyDebugPhysicalSizeOverride;
+
+  // @override
+  // ignore: public_member_api_docs
+  set webOnlyLocationStrategy(Object strategy) {
+  }
+  // @override
+  // ignore: public_member_api_docs
+  set webOnlyRouteName(String routeName) {
+  }
+  // @override
+  // ignore: public_member_api_docs
+  VoidCallback webOnlyScheduleFrameCallback;
+
   /// Delete any test value properties that have been set on this [TestWindow]
   /// and return to reporting the real [Window] values for all [Window] properties.
   ///

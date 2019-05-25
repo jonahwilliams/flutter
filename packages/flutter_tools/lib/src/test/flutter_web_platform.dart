@@ -10,27 +10,23 @@ import 'package:async/async.dart';
 import 'package:flutter_tools/src/base/file_system.dart';
 import 'package:http_multi_server/http_multi_server.dart';
 import 'package:path/path.dart' as p;
-
-
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as shelf_io;
+import 'package:shelf_packages_handler/shelf_packages_handler.dart';
 import 'package:shelf_static/shelf_static.dart';
 import 'package:shelf_web_socket/shelf_web_socket.dart';
-import 'package:shelf_packages_handler/shelf_packages_handler.dart';
 import 'package:stream_channel/stream_channel.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
-
-
+import 'package:test/src/runner/browser/browser_manager.dart';
+import 'package:test/src/runner/browser/default_settings.dart';
+import 'package:test/src/runner/executable_settings.dart';
 import 'package:test_api/src/backend/runtime.dart';
 import 'package:test_api/src/backend/suite_platform.dart';
 import 'package:test_api/src/util/stack_trace_mapper.dart';
-import 'package:test_core/src/runner/runner_suite.dart';
-import 'package:test_core/src/runner/platform.dart';
-import 'package:test_core/src/runner/suite.dart';
 import 'package:test_core/src/runner/configuration.dart';
-import 'package:test/src/runner/browser/browser_manager.dart';
-import 'package:test/src/runner/executable_settings.dart';
-import 'package:test/src/runner/browser/default_settings.dart';
+import 'package:test_core/src/runner/platform.dart';
+import 'package:test_core/src/runner/runner_suite.dart';
+import 'package:test_core/src/runner/suite.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../artifacts.dart';
 import '../cache.dart';
@@ -57,6 +53,15 @@ class FlutterWebPlatform extends PlatformPlugin {
             'lib', 'dev_compiler', 'amd', 'require.js',
           ));
           return shelf.Response.ok(result.openRead(), headers: <String, String>{'Content-Type': 'text/javascript'});
+        } else if (request.requestedUri.path.contains('Ahem.ttf')) {
+           final File result = fs.file(fs.path.join(
+              Cache.flutterRoot,
+              'packages',
+              'flutter_tools',
+              'static',
+              'Ahem.ttf',
+           ));
+           return shelf.Response.ok(result.openRead());
         } else if (request.requestedUri.path.contains('dart_sdk.js')) {
           final File result = fs.file(fs.path.join(
             artifacts.getArtifactPath(Artifact.flutterWebSdk),
@@ -138,6 +143,7 @@ class FlutterWebPlatform extends PlatformPlugin {
         </html>
       ''', headers: <String, String>{'Content-Type': 'text/html'});
     }
+    printTrace('Did not find anything for request: ${request.url}');
     return shelf.Response.notFound('Not found.');
   }
 
@@ -184,7 +190,7 @@ class FlutterWebPlatform extends PlatformPlugin {
       'debug': _config.pauseAfterLoad.toString()
     });
 
-    print(hostUrl);
+    printTrace('Serving tests at $hostUrl');
 
     final Future<BrowserManager> future = BrowserManager.start(
       browser, hostUrl, completer.future, _browserSettings[browser],

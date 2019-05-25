@@ -4,11 +4,10 @@
 
 import 'dart:async';
 
-
 import 'package:flutter_tools/src/test/flutter_web_platform.dart';
 import 'package:meta/meta.dart';
-import 'package:test_core/src/executable.dart' as test; // ignore: implementation_imports
 import 'package:test_api/backend.dart';
+import 'package:test_core/src/executable.dart' as test; // ignore: implementation_imports
 import 'package:test_core/src/runner/hack_register_platform.dart' as hack; // ignore: implementation_imports
 
 import '../artifacts.dart';
@@ -83,6 +82,8 @@ Future<int> runTests(
     );
     testArgs.add('--platform=chrome');
     testArgs.add('--precompiled=$tempBuildDir');
+    testArgs.add('--');
+    testArgs.addAll(testFiles);
     hack.registerPlatformPlugin(
       <Runtime>[Runtime.chrome],
       () {
@@ -92,7 +93,6 @@ Future<int> runTests(
     await test.main(testArgs);
     return exitCode;
   }
-
 
   testArgs.add('--');
   testArgs.addAll(testFiles);

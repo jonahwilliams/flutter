@@ -41,6 +41,9 @@ const String jsModuleErrorsExtension = '.ddc.js.errors';
 const String jsModuleExtension = '.ddc.js';
 const String jsSourceMapExtension = '.ddc.js.map';
 
+const String _kTestInputExtension = '_test.dart';
+const String _kTestOutputExtension = '_test.debug.html';
+
 final DartPlatform flutterWebPlatform = DartPlatform.register('flutter_web', <String>[
   'async',
   'collection',
@@ -71,8 +74,7 @@ final List<core.BuilderApplication> builders = <core.BuilderApplication>[
   core.apply(
     'flutter_tools|test_bootstrap',
     <BuilderFactory>[
-      (BuilderOptions options) => const DebugTestBuilder(),
-      (BuilderOptions options) => const DebugIndexBuilder(),
+      (BuilderOptions options) => const FlutterDebugTestBuilder(),
       (BuilderOptions options) => const FlutterWebTestBootstrapBuilder(),
     ],
     core.toRoot(),
@@ -135,7 +137,7 @@ final List<core.BuilderApplication> builders = <core.BuilderApplication>[
       include: <String>[
         'lib/**',
         'web/**',
-        'test/**.dart.browser_test.dart',
+        'test/**_test.dart.browser_test.dart',
       ],
     ),
   ),
@@ -310,6 +312,7 @@ class FlutterWebTestBootstrapBuilder implements Builder {
     await buildStep.writeAsString(id.addExtension('.browser_test.dart'), '''
 import 'dart:ui' as ui;
 import 'dart:html';
+import 'dart:js';
 
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test_api/src/backend/stack_trace_formatter.dart'; // ignore: implementation_imports
@@ -320,6 +323,11 @@ import 'package:test_api/src/suite_channel_manager.dart'; // ignore: implementat
 import "${path.url.basename(id.path)}" as test;
 
 Future<void> main() async {
+  // Extra initialization for flutter_web.
+  // The following parameters are hard-coded in Flutter's test embedder. Since
+  // we don't have an embedder yet this is the lowest-most layer we can put
+  // this stuff in.
+  await ui.webOnlyTestSetup();
   internalBootstrapBrowserTest(() => test.main);
 }
 
@@ -364,7 +372,10 @@ StreamChannel postMessageChannel() {
     });
   });
 
-  window.parent.postMessage({"href": window.location.href, "ready": true}, window.location.origin);
+  context['parent'].callMethod('postMessage', [
+    JsObject.jsify({"href": window.location.href, "ready": true}),
+    window.location.origin,
+  ]);
   return controller.foreign;
 }
 
@@ -380,4 +391,13 @@ void setStackTraceMapper(StackTraceMapper mapper) {
 ''');
     }
   }
+}
+
+class FlutterDebugTestBuilder extends DebugTestBuilder {
+  const FlutterDebugTestBuilder();
+
+  @override
+  Map<String, List<String>> get buildExtensions => const <String, List<String>>{
+    _kTestInputExtension: <String>[_kTestOutputExtension],
+  };
 }

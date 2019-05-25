@@ -813,7 +813,9 @@ class TextInput {
 
   static bool _debugEnsureInputActionWorksOnPlatform(TextInputAction inputAction) {
     assert(() {
-      if (Platform.isIOS) {
+      if (identical(0, 0.0)) {
+        // unsupported on web.
+      } else if (Platform.isIOS) {
         assert(
           _iOSSupportedInputActions.contains(inputAction),
           'The requested TextInputAction "$inputAction" is not supported on iOS.',

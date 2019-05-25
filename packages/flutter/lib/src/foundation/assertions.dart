@@ -619,6 +619,17 @@ class FlutterError extends Error with DiagnosticableTreeMixin implements Asserti
   /// format but the frame numbers will not be consecutive (frames are elided)
   /// and the final line may be prose rather than a stack frame.
   static Iterable<String> defaultStackFilter(Iterable<String> frames) {
+    if (identical(0, 0.0)) {
+      final List<String> result = <String>[];
+      for (String line in frames) {
+        if (line.contains('build_web_compilers') || line.contains('stack_zone_specification')) {
+          continue;
+        }
+        final String part = line.split('org-dartlang-app:/packages/').last;
+        result.add(part);
+      }
+      return result;
+    }
     const List<String> filteredPackages = <String>[
       'dart:async-patch',
       'dart:async',

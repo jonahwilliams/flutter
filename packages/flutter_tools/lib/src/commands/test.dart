@@ -170,6 +170,16 @@ class TestCommand extends FastFlutterCommand {
             'Test files must be in that directory and end with the pattern "_test.dart".'
         );
       }
+    } else {
+      final List<String> fileCopy = <String>[];
+      for (String file in files) {
+        if (file.endsWith(platform.pathSeparator)) {
+          fileCopy.addAll(_findTests(fs.directory(file)));
+        } else {
+          fileCopy.add(file);
+        }
+      }
+      files = fileCopy;
     }
 
     CoverageCollector collector;

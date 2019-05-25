@@ -332,21 +332,30 @@ class TestWindow implements Window {
 
   /// Web specific members which must be present for compilation.
   set devicePixelRatio(double value) {
+    (_window as dynamic).devicePixelRatio = devicePixelRatio;
   }
   // @override
   // ignore: public_member_api_docs
-  Future<void> webOnlyBack() async {}
+  Future<void> webOnlyBack() => (_window as dynamic).webOnlyBack();
   // @override
   // ignore: public_member_api_docs
-  Size webOnlyDebugPhysicalSizeOverride;
+  set webOnlyDebugPhysicalSizeOverride(Size value) {
+    (_window as dynamic).webOnlyDebugPhysicalSizeOverride = value;
+  }
+
+  // @override
+  // ignore: public_member_api_docs
+  Size get webOnlyDebugPhysicalSizeOverride => (_window as dynamic).webOnlyDebugPhysicalSizeOverride;
 
   // @override
   // ignore: public_member_api_docs
   set webOnlyLocationStrategy(Object strategy) {
+    (_window as dynamic).webOnlyLocationStrategy = strategy;
   }
   // @override
   // ignore: public_member_api_docs
   set webOnlyRouteName(String routeName) {
+    (_window as dynamic).webOnlyRouteName = routeName;
   }
   // @override
   // ignore: public_member_api_docs

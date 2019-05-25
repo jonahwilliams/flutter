@@ -89,34 +89,34 @@ void testWidgets(
   String description,
   WidgetTesterCallback callback, {
   bool skip = false,
+  dynamic tags,
   test_package.Timeout timeout,
   bool semanticsEnabled = false,
 }) {
+  final TestWidgetsFlutterBinding binding = TestWidgetsFlutterBinding.ensureInitialized();
+  final WidgetTester tester = WidgetTester._(binding);
+  timeout ??= binding.defaultTestTimeout;
   test(
     description,
     () {
-      webOnlyStuff(() {
-        final TestWidgetsFlutterBinding binding = TestWidgetsFlutterBinding.ensureInitialized();
-        final WidgetTester tester = WidgetTester._(binding);
-        timeout ??= binding.defaultTestTimeout;
-        SemanticsHandle semanticsHandle;
-        if (semanticsEnabled == true) {
-          semanticsHandle = tester.ensureSemantics();
-        }
-        tester._recordNumberOfSemanticsHandles();
-        test_package.addTearDown(binding.postTest);
-        return binding.runTest(
-          () async {
-            await callback(tester);
-            semanticsHandle?.dispose();
-          },
-          tester._endOfTestVerifications,
-          description: description ?? '',
-        );
-      });
+      SemanticsHandle semanticsHandle;
+      if (semanticsEnabled == true) {
+        semanticsHandle = tester.ensureSemantics();
+      }
+      tester._recordNumberOfSemanticsHandles();
+      test_package.addTearDown(binding.postTest);
+      return binding.runTest(
+        () async {
+          await callback(tester);
+          semanticsHandle?.dispose();
+        },
+        tester._endOfTestVerifications,
+        description: description ?? '',
+      );
     },
     skip: skip,
     timeout: timeout,
+    tags: tags,
   );
 }
 

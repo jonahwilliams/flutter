@@ -12,3 +12,15 @@ export 'package:test_api/test_api.dart' hide TypeMatcher, isInstanceOf;
 
 /// A matcher that compares the type of the actual value to the type argument T.
 Matcher isInstanceOf<T>() => test_package.TypeMatcher<T>();
+
+final RegExp _dotZero = RegExp('([0-9])\.0');
+
+/// Ignores formatting issues caused by JavaScript double's formatting.
+String ignoreWebNumericQuirks(String input) {
+  if (!identical(0, 0.0)) {
+    return input;
+  }
+  return input.replaceAllMapped(_dotZero, (Match match) {
+    return match.group(1);
+  });
+}

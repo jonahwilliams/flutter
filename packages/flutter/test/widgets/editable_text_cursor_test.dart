@@ -661,7 +661,7 @@ void main() {
     editableTextState.updateFloatingCursor(RawFloatingCursorPoint(state: FloatingCursorDragState.End));
     await tester.pumpAndSettle();
     debugDefaultTargetPlatformOverride = null;
-  });
+  }, tags: 'web_unimplemented');
 
   testWidgets('cursor layout iOS', (WidgetTester tester) async {
     final GlobalKey<EditableTextState> editableTextKey = GlobalKey<EditableTextState>();

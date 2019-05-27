@@ -858,7 +858,7 @@ void main() {
         skip: !Platform.isLinux
       );
     });
-  });
+  }, tags: 'golden');
 
   testWidgets('scrollController can be removed or added', (WidgetTester tester) async {
     final SemanticsHandle handle = tester.ensureSemantics();

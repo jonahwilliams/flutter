@@ -519,3 +519,17 @@ String _prefixLines(String text, String prefix, { String first, String last, Str
   buffer.write('$last${lines.last}');
   return buffer.toString();
 }
+final RegExp _dotZero = RegExp('([0-9]+)\.0');
+
+/// Whether the test us running on the web.
+const bool isRunningOnWeb = identical(0, 0.0);
+
+/// Ignores formatting issues caused by JavaScript double's formatting.
+String ignoreWebNumericQuirks(String input) {
+  if (!isRunningOnWeb) {
+    return input;
+  }
+  return input.replaceAllMapped(_dotZero, (Match match) {
+    return match.group(1);
+  });
+}

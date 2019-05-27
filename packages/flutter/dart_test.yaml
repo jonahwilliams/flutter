@@ -1,4 +1,3 @@
 tags:
   golden: {test_on: "!chrome"}
   web_unimplemented: {test_on: "!chrome"}
-  io_usage: {test_on:  "!chome"}

@@ -2960,7 +2960,7 @@ void main() {
   });
 
   void sendFakeKeyEvent(Map<String, dynamic> data) {
-    BinaryMessages.handlePlatformMessage(
+    defaultBinaryMessenger.handlePlatformMessage(
       SystemChannels.keyEvent.name,
       SystemChannels.keyEvent.codec.encodeMessage(data),
           (ByteData data) { },

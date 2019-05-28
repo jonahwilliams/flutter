@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'dart:io' show Platform;
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
 
@@ -30,17 +28,16 @@ void main() {
     debugDisableShadows = false;
     tester.binding.reassembleApplication();
     await tester.pump();
-    if (Platform.isLinux) {
-      // TODO(ianh): use the skip argument instead once that doesn't hang, https://github.com/dart-lang/test/issues/830
-      await expectLater(
-        find.byType(Container),
-        matchesGoldenFile('shadow.BoxDecoration.enabled.png'),
-      ); // shadows render differently on different platforms
-    }
+    await expectLater(
+      find.byType(Container),
+      matchesGoldenFile('shadow.BoxDecoration.enabled.png'),
+      skip: !isLinux
+    ); // shadows render differently on different platforms
     debugDisableShadows = true;
-  }, tags: 'golden');
+  }, skip: !isLinux);
 
-  group('Shadows', () {
+  group('Shadows', ()
+  {
     testWidgets('on ShapeDecoration', (WidgetTester tester) async {
       debugDisableShadows = false;
       Widget build(int elevation) {
@@ -49,7 +46,8 @@ void main() {
             child: Container(
               margin: const EdgeInsets.all(150.0),
               decoration: ShapeDecoration(
-                shape: BeveledRectangleBorder(borderRadius: BorderRadius.circular(20.0)),
+                shape: BeveledRectangleBorder(
+                    borderRadius: BorderRadius.circular(20.0)),
                 shadows: kElevationToShadow[elevation],
               ),
               height: 100.0,
@@ -66,7 +64,7 @@ void main() {
         );
       }
       debugDisableShadows = true;
-    }, skip: isRunningOnWeb || !Platform.isLinux); // shadows render differently on different platforms
+    }, skip: isLinux); // shadows render differently on different platforms
 
     testWidgets('with PhysicalLayer', (WidgetTester tester) async {
       await tester.pumpWidget(
@@ -94,13 +92,11 @@ void main() {
       debugDisableShadows = false;
       tester.binding.reassembleApplication();
       await tester.pump();
-      if (Platform.isLinux) {
-        // TODO(ianh): use the skip argument instead once that doesn't hang, https://github.com/dart-lang/test/issues/830
-        await expectLater(
-          find.byType(Container),
-          matchesGoldenFile('shadow.PhysicalModel.enabled.png'),
-        ); // shadows render differently on different platforms
-      }
+      await expectLater(
+        find.byType(Container),
+        matchesGoldenFile('shadow.PhysicalModel.enabled.png'),
+        skip: !isLinux,
+      ); // shadows render differently on different platforms
       debugDisableShadows = true;
     });
 
@@ -114,7 +110,8 @@ void main() {
               color: Colors.yellow[200],
               child: PhysicalShape(
                 color: Colors.green[900],
-                clipper: ShapeBorderClipper(shape: BeveledRectangleBorder(borderRadius: BorderRadius.circular(20.0))),
+                clipper: ShapeBorderClipper(shape: BeveledRectangleBorder(
+                    borderRadius: BorderRadius.circular(20.0))),
                 elevation: elevation,
                 child: const SizedBox(
                   height: 100.0,
@@ -133,6 +130,6 @@ void main() {
         );
       }
       debugDisableShadows = true;
-    }, skip: isRunningOnWeb || !Platform.isLinux); // shadows render differently on different platforms
-  }, tags: 'web_unimplemented');
+    }, skip: !isLinux); // shadows render differently on different platforms
+  });
 }

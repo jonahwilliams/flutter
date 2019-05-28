@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'dart:io';
 import 'dart:ui' as ui show TextBox;
 
 import 'package:flutter/rendering.dart';
@@ -50,30 +49,28 @@ void main() {
     expect(positionBelow.offset, greaterThan(position40.offset));
   });
 
-  group('', () {
-    test('getBoxesForSelection control test', () {
-      final RenderParagraph paragraph = RenderParagraph(
-        const TextSpan(text: _kText, style: TextStyle(fontSize: 10.0)),
-        textDirection: TextDirection.ltr,
-      );
-      layout(paragraph);
+  test('getBoxesForSelection control test', () {
+    final RenderParagraph paragraph = RenderParagraph(
+      const TextSpan(text: _kText, style: TextStyle(fontSize: 10.0)),
+      textDirection: TextDirection.ltr,
+    );
+    layout(paragraph);
 
-      List<ui.TextBox> boxes = paragraph.getBoxesForSelection(
-          const TextSelection(baseOffset: 5, extentOffset: 25)
-      );
+    List<ui.TextBox> boxes = paragraph.getBoxesForSelection(
+        const TextSelection(baseOffset: 5, extentOffset: 25)
+    );
 
-      expect(boxes.length, equals(1));
+    expect(boxes.length, equals(1));
 
-      boxes = paragraph.getBoxesForSelection(
-          const TextSelection(baseOffset: 25, extentOffset: 50)
-      );
+    boxes = paragraph.getBoxesForSelection(
+        const TextSelection(baseOffset: 25, extentOffset: 50)
+    );
 
-      expect(boxes.any((ui.TextBox box) => box.left == 250 && box.top == 0), isTrue);
-      expect(boxes.any((ui.TextBox box) => box.right == 100 && box.top == 10), isTrue);
-    },
-    // Ahem-based tests don't yet quite work on Windows or some MacOS environments
-    skip: Platform.isWindows || Platform.isMacOS);
-  }, tags: 'io_usage');
+    expect(boxes.any((ui.TextBox box) => box.left == 250 && box.top == 0), isTrue);
+    expect(boxes.any((ui.TextBox box) => box.right == 100 && box.top == 10), isTrue);
+  },
+  // Ahem-based tests don't yet quite work on Windows or some MacOS environments
+  skip: isLinux);
 
   test('getWordBoundary control test', () {
     final RenderParagraph paragraph = RenderParagraph(
@@ -195,7 +192,7 @@ void main() {
 
     layoutAt(3);
     expect(paragraph.size.height, 30.0);
-  }, skip: Platform.isWindows); // Ahem-based tests don't yet quite work on Windows
+  }, skip: isWindows); // Ahem-based tests don't yet quite work on Windows
 
   test('changing color does not do layout', () {
     final RenderParagraph paragraph = RenderParagraph(
@@ -326,5 +323,4 @@ void main() {
     paragraph.locale = const Locale('ja', 'JP');
     expect(paragraph.locale, const Locale('ja', 'JP'));
   });
-
 }

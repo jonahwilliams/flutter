@@ -17,6 +17,7 @@ import 'package:build_test/src/debug_test_builder.dart';
 import 'package:build_web_compilers/build_web_compilers.dart';
 import 'package:build_web_compilers/builders.dart';
 import 'package:build_web_compilers/src/dev_compiler_bootstrap.dart';
+import 'package:flutter_tools/src/base/platform.dart';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as path;
@@ -126,7 +127,7 @@ final List<core.BuilderApplication> builders = <core.BuilderApplication>[
     'flutter_tools|entrypoint',
     <BuilderFactory>[
       (BuilderOptions options) => FlutterWebEntrypointBuilder(
-          options.config['target'] ?? 'lib/main.dart'),
+          options.config['targets'] ?? <String>['lib/main.dart']),
     ],
     core.toRoot(),
     hideOutput: true,
@@ -182,6 +183,16 @@ class BuildRunnerWebCompilationProxy extends WebCompilationProxy {
       trackPerformance: false,
       deleteFilesByDefault: true,
     );
+    final Set<core.BuildDirectory> buildDirs = <core.BuildDirectory>{
+      if (testOutputDir != null)
+        core.BuildDirectory(
+          'test',
+          outputLocation: core.OutputLocation(
+            testOutputDir,
+            useSymlinks: !platform.isWindows,
+          ),
+      ),
+    };
     final Status status =
         logger.startProgress('Compiling ${targets.first} for the Web...', timeout: null);
     try {
@@ -191,12 +202,12 @@ class BuildRunnerWebCompilationProxy extends WebCompilationProxy {
         builders,
         <String, Map<String, dynamic>>{
           'flutter_tools|entrypoint': <String, dynamic>{
-            'targets': targets.join(','),
+            'targets': targets,
           }
         },
         isReleaseBuild: false,
       );
-      await _builder.run(const <AssetId, ChangeType>{});
+      await _builder.run(const <AssetId, ChangeType>{}, buildDirs: buildDirs);
     } finally {
       status.stop();
     }

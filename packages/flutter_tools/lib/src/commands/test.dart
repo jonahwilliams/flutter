@@ -94,15 +94,15 @@ class TestCommand extends FastFlutterCommand {
         help: 'The number of concurrent test processes to run.',
         valueHelp: 'jobs'
       )
-      ..addFlag('web',
-        defaultsTo: false,
-        help: 'Whether to run the tests in headless chrome.'
-      )
       ..addFlag('test-assets',
         defaultsTo: true,
         negatable: true,
         help: 'Whether to build the assets bundle for testing.\n'
               'Consider using --no-test-assets if assets are not required.',
+      )
+      ..addOption('platform',
+        allowed: const <String>['tester', 'chrome'],
+        defaultsTo: 'tester',
       );
   }
 
@@ -236,7 +236,7 @@ class TestCommand extends FastFlutterCommand {
       concurrency: jobs,
       buildTestAssets: buildTestAssets,
       flutterProject: flutterProject,
-      web: argResults['web'],
+      web: argResults['platform'] == 'chrome',
     );
 
     if (collector != null) {

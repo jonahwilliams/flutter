@@ -2,12 +2,12 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-@TestOn('!chrome') // different numeric behavior.
-
 import 'package:flutter/physics.dart';
 import 'package:flutter/widgets.dart';
 
 import '../flutter_test_alternative.dart';
+
+const double _kEpsilon = .00001;
 
 void main() {
   test('test_friction', () {
@@ -23,7 +23,7 @@ void main() {
 
     expect(friction.dx(1.0), 120.0);
     expect(friction.dx(2.0), 36.0);
-    expect(friction.dx(3.0), 10.8);
+    expect(friction.dx(3.0), closeTo(10.8, _kEpsilon));
     expect(friction.dx(4.0) < 3.5, true);
 
     expect(friction.isDone(5.0), true);

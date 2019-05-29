@@ -89,7 +89,6 @@ void testWidgets(
   String description,
   WidgetTesterCallback callback, {
   bool skip = false,
-  dynamic tags,
   test_package.Timeout timeout,
   bool semanticsEnabled = false,
 }) {
@@ -116,7 +115,6 @@ void testWidgets(
     },
     skip: skip,
     timeout: timeout,
-    tags: tags,
   );
 }
 

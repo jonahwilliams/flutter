@@ -10,6 +10,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/src/scheduler/ticker.dart';
+import 'package:flutter_test/flutter_test.dart' show isBrowser;
 import '../flutter_test_alternative.dart';
 
 import 'rendering_tester.dart';
@@ -229,7 +230,7 @@ void main() {
     expect(getPixel(20, 20), equals(0x00000080));
     expect(getPixel(image.width - 1, 0), equals(0x00000000));
     expect(getPixel(image.width - 1, 20), equals(0xffffffff));
-  });
+  }, skip: isBrowser);
 
   test('RenderOpacity does not composite if it is transparent', () {
     final RenderOpacity renderOpacity = RenderOpacity(

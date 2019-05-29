@@ -47,7 +47,7 @@ void main() {
 
     final TextPosition positionBelow = paragraph.getPositionForOffset(const Offset(5.0, 20.0));
     expect(positionBelow.offset, greaterThan(position40.offset));
-  });
+  }, skip: isBrowser);
 
   test('getBoxesForSelection control test', () {
     final RenderParagraph paragraph = RenderParagraph(
@@ -70,7 +70,7 @@ void main() {
     expect(boxes.any((ui.TextBox box) => box.right == 100 && box.top == 10), isTrue);
   },
   // Ahem-based tests don't yet quite work on Windows or some MacOS environments
-  skip: isLinux);
+  skip: !isLinux);
 
   test('getWordBoundary control test', () {
     final RenderParagraph paragraph = RenderParagraph(
@@ -87,7 +87,7 @@ void main() {
 
     final TextRange range85 = paragraph.getWordBoundary(const TextPosition(offset: 75));
     expect(range85.textInside(_kText), equals('Queen\'s'));
-  });
+  }, skip: isBrowser);
 
   test('overflow test', () {
     final RenderParagraph paragraph = RenderParagraph(
@@ -163,7 +163,7 @@ void main() {
 
     relayoutWith(maxLines: 100, softWrap: true, overflow: TextOverflow.fade);
     expect(paragraph.debugHasOverflowShader, isFalse);
-  });
+  }, skip: isBrowser);
 
   test('maxLines', () {
     final RenderParagraph paragraph = RenderParagraph(
@@ -192,7 +192,7 @@ void main() {
 
     layoutAt(3);
     expect(paragraph.size.height, 30.0);
-  }, skip: isWindows); // Ahem-based tests don't yet quite work on Windows
+  }, skip: isBrowser || isWindows); // Ahem-based tests don't yet quite work on Windows
 
   test('changing color does not do layout', () {
     final RenderParagraph paragraph = RenderParagraph(
@@ -279,7 +279,7 @@ void main() {
     expect(boxes[2].toRect().height, closeTo(26.0, 0.0001));
     expect(boxes[3].toRect().width, anyOf(14.0, 13.0));
     expect(boxes[3].toRect().height, closeTo(13.0, 0.0001));
-  });
+  }, skip: isBrowser);
 
   test('toStringDeep', () {
     final RenderParagraph paragraph = RenderParagraph(

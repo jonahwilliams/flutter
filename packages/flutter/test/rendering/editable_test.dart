@@ -327,7 +327,7 @@ void main() {
         ..paragraph(),
     );
     expect(editable, paintsExactlyCountTimes(#drawRect, 1));
-  });
+  }, skip: isBrowser);
 
   test('selects correct place with offsets', () {
     final TextSelectionDelegate delegate = FakeEditableTextState();
@@ -407,7 +407,7 @@ void main() {
     expect(currentSelection.isCollapsed, false);
     expect(currentSelection.baseOffset, 5);
     expect(currentSelection.extentOffset, 9);
-  });
+  }, skip: isBrowser);
 
   test('selects correct place when offsets are flipped', () {
     final TextSelectionDelegate delegate = FakeEditableTextState();
@@ -494,7 +494,7 @@ void main() {
     expect(updatedSelection.baseOffset, 3);
     expect(updatedSelection.extentOffset, 5);
     expect(selectionChangedCount, 1);
-  });
+  }, skip: isBrowser);
 
   test('editable hasFocus correctly initialized', () {
     // Regression test for https://github.com/flutter/flutter/issues/21640

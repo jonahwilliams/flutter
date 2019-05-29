@@ -1438,7 +1438,7 @@ void main() {
         skip: !isLinux,
       );
     }
-  }, tags: 'golden');
+  }, skip: isBrowser);
 
   testWidgets('BottomNavigationBar item title should not be nullable', (WidgetTester tester) async {
     expect(() {

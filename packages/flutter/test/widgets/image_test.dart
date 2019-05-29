@@ -313,16 +313,11 @@ void main() {
         'listeners), pixels: null)'));
     imageProvider.complete();
     await tester.pump();
-    expect(image.toString(), equalsIgnoringHashCodes('_ImageState#00000(stream: '
-        'ImageStream#00000(OneFrameImageStreamCompleter#00000, [100×100] @ ' +
-        ignoreWebNumericQuirks('1.0x') + ', 1 listener), pixels: [100×100] @ ' +
-        ignoreWebNumericQuirks('1.0x)')));
+    expect(image.toString(), equalsIgnoringHashCodes('_ImageState#00000(stream: ImageStream#00000(OneFrameImageStreamCompleter#00000, [100×100] @ 1.0x, 1 listener), pixels: [100×100] @ 1.0x)'));
     await tester.pumpWidget(Container());
     expect(image.toString(), equalsIgnoringHashCodes('_ImageState#00000('
         'lifecycle state: defunct, not mounted, stream: ImageStream#00000('
-        'OneFrameImageStreamCompleter#00000, [100×100] @ ' +
-        ignoreWebNumericQuirks('1.0x') + ', 0 listeners), pixels: [100×100] @ '
-        + ignoreWebNumericQuirks('1.0x)')));
+        'OneFrameImageStreamCompleter#00000, [100×100] @ 1.0x, 0 listeners), pixels: [100×100] @ 1.0x)'));
   });
 
   testWidgets('Stream completer errors can be listened to by attaching before resolving', (WidgetTester tester) async {

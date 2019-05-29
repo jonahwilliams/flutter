@@ -74,7 +74,7 @@ void main() {
       matchesGoldenFile('continuous_rectangle_border.golden_test_even_radii.png'),
       skip: !isLinux,
     );
-  }, tags: 'golden');
+  }, skip: isBrowser);
 
   testWidgets('Golden test varying radii', (WidgetTester tester) async {
     await tester.pumpWidget(RepaintBoundary(
@@ -96,7 +96,7 @@ void main() {
       matchesGoldenFile('continuous_rectangle_border.golden_test_varying_radii.png'),
       skip: !isLinux,
     );
-  }, tags: 'golden');
+  }, skip: isBrowser);
 
   testWidgets('Golden test large radii', (WidgetTester tester) async {
     await tester.pumpWidget(RepaintBoundary(
@@ -115,6 +115,6 @@ void main() {
       matchesGoldenFile('continuous_rectangle_border.golden_test_large_radii.png'),
       skip: !isLinux,
     );
-  }, tags: 'golden');
+  }, skip: isBrowser);
 
 }

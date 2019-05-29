@@ -31,7 +31,7 @@ void main() {
     expect(didPressButton, isFalse);
     await tester.tap(find.byType(Icon));
     expect(didPressButton, isTrue);
-  });
+  }, skip: isBrowser);
 
   testWidgets('Floating Action Button tooltip', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -48,7 +48,7 @@ void main() {
 
     await tester.tap(find.byType(Icon));
     expect(find.byTooltip('Add'), findsOneWidget);
-  });
+  }, skip: isBrowser);
 
   // Regression test for: https://github.com/flutter/flutter/pull/21084
   testWidgets('Floating Action Button tooltip (long press button edge)', (WidgetTester tester) async {
@@ -69,7 +69,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Add'), findsOneWidget);
-  });
+  }, skip: isBrowser);
 
   // Regression test for: https://github.com/flutter/flutter/pull/21084
   testWidgets('Floating Action Button tooltip (long press button edge - no child)', (WidgetTester tester) async {
@@ -89,7 +89,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Add'), findsOneWidget);
-  });
+  }, skip: isBrowser);
 
   testWidgets('Floating Action Button tooltip (no child)', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -124,7 +124,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Add'), findsOneWidget);
-  });
+  }, skip: isBrowser);
 
   testWidgets('Floating Action Button tooltip reacts when disabled', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -162,7 +162,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Add'), findsOneWidget);
-  });
+  }, skip: isBrowser);
 
   testWidgets('Floating Action Button elevation when highlighted - effect', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -199,7 +199,7 @@ void main() {
     expect(tester.widget<PhysicalShape>(find.byType(PhysicalShape)).elevation, 20.0);
     await tester.pump(const Duration(seconds: 1));
     expect(tester.widget<PhysicalShape>(find.byType(PhysicalShape)).elevation, 6.0);
-  });
+  }, skip: isBrowser);
 
   testWidgets('Floating Action Button elevation when disabled - defaults', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -214,7 +214,7 @@ void main() {
 
     // Disabled elevation defaults to regular default elevation.
     expect(tester.widget<PhysicalShape>(find.byType(PhysicalShape)).elevation, 6.0);
-  });
+  }, skip: isBrowser);
 
   testWidgets('Floating Action Button elevation when disabled - override', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -229,7 +229,7 @@ void main() {
     );
 
     expect(tester.widget<PhysicalShape>(find.byType(PhysicalShape)).elevation, 0.0);
-  });
+  }, skip: isBrowser);
 
   testWidgets('Floating Action Button elevation when disabled - effect', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -268,7 +268,7 @@ void main() {
     expect(tester.widget<PhysicalShape>(find.byType(PhysicalShape)).elevation, 3.0);
     await tester.pump(const Duration(seconds: 1));
     expect(tester.widget<PhysicalShape>(find.byType(PhysicalShape)).elevation, 6.0);
-  });
+  }, skip: isBrowser);
 
   testWidgets('Floating Action Button elevation when disabled while highlighted - effect', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -312,7 +312,7 @@ void main() {
     expect(tester.widget<PhysicalShape>(find.byType(PhysicalShape)).elevation, 6.0);
     await tester.pump(const Duration(seconds: 1));
     expect(tester.widget<PhysicalShape>(find.byType(PhysicalShape)).elevation, 6.0);
-  });
+  }, skip: isBrowser);
 
   testWidgets('FlatActionButton mini size is configurable by ThemeData.materialTapTargetSize', (WidgetTester tester) async {
     final Key key1 = UniqueKey();
@@ -350,7 +350,7 @@ void main() {
     );
 
     expect(tester.getSize(find.byKey(key2)), const Size(40.0, 40.0));
-  });
+  }, skip: isBrowser);
 
   testWidgets('FloatingActionButton.isExtended', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -415,7 +415,7 @@ void main() {
     expect(tester.getSize(find.byType(Icon)).width, 24.0);
     expect(tester.getSize(find.text('label')).width, 100.0);
     expect(tester.getSize(fabFinder).width, 168);
-  });
+  }, skip: isBrowser);
 
   testWidgets('FloatingActionButton.isExtended (without icon)', (WidgetTester tester) async {
     final Finder fabFinder = find.byType(FloatingActionButton);
@@ -464,7 +464,7 @@ void main() {
     // 140 = 20 + 100(label) + 20
     expect(tester.getSize(find.text('label')).width, 100.0);
     expect(tester.getSize(fabFinder).width, 140);
-  });
+  }, skip: isBrowser);
 
   testWidgets('Floating Action Button heroTag', (WidgetTester tester) async {
     BuildContext theContext;
@@ -487,7 +487,7 @@ void main() {
       },
     ));
     await tester.pump(); // this would fail if heroTag was the same on both FloatingActionButtons (see below).
-  });
+  }, skip: isBrowser);
 
   testWidgets('Floating Action Button heroTag - with duplicate', (WidgetTester tester) async {
     BuildContext theContext;
@@ -511,7 +511,7 @@ void main() {
     ));
     await tester.pump();
     expect(tester.takeException().toString(), contains('FloatingActionButton'));
-  });
+  }, skip: isBrowser);
 
   testWidgets('Floating Action Button heroTag - with duplicate', (WidgetTester tester) async {
     BuildContext theContext;
@@ -535,7 +535,7 @@ void main() {
     ));
     await tester.pump();
     expect(tester.takeException().toString(), contains('xyzzy'));
-  });
+  }, skip: isBrowser);
 
   testWidgets('Floating Action Button semantics (enabled)', (WidgetTester tester) async {
     final SemanticsTester semantics = SemanticsTester(tester);
@@ -569,7 +569,7 @@ void main() {
     ), ignoreTransform: true, ignoreId: true, ignoreRect: true));
 
     semantics.dispose();
-  });
+  }, skip: isBrowser);
 
   testWidgets('Floating Action Button semantics (disabled)', (WidgetTester tester) async {
     final SemanticsTester semantics = SemanticsTester(tester);
@@ -599,7 +599,7 @@ void main() {
     ), ignoreTransform: true, ignoreId: true, ignoreRect: true));
 
     semantics.dispose();
-  });
+  }, skip: isBrowser);
 
   testWidgets('Tooltip is used as semantics label', (WidgetTester tester) async {
     final SemanticsTester semantics = SemanticsTester(tester);
@@ -644,7 +644,7 @@ void main() {
     ), ignoreTransform: true, ignoreId: true, ignoreRect: true));
 
     semantics.dispose();
-  });
+  }, skip: isBrowser);
 
   testWidgets('extended FAB hero transitions succeed', (WidgetTester tester) async {
     // Regression test for https://github.com/flutter/flutter/issues/18782
@@ -709,7 +709,7 @@ void main() {
     expect(longFAB, findsOneWidget);
     expect(shortFAB, findsNothing);
     expect(helloWorld, findsOneWidget);
-  });
+  }, skip: isBrowser);
 
   // This test prevents https://github.com/flutter/flutter/issues/20483
   testWidgets('Floating Action Button clips ink splash and highlight', (WidgetTester tester) async {
@@ -738,7 +738,7 @@ void main() {
       matchesGoldenFile('floating_action_button_test.clip.2.png'), // .clip.1.png is obsolete and can be removed
       skip: !isLinux,
     );
-  });
+  }, skip: isBrowser);
 
   testWidgets('Floating Action Button has no clip by default', (WidgetTester tester) async {
     final FocusNode focusNode = FocusNode();
@@ -761,7 +761,7 @@ void main() {
       tester.renderObject(find.byType(FloatingActionButton)),
       paintsExactlyCountTimes(#clipPath, 0),
     );
-  });
+  }, skip: isBrowser);
 }
 
 Offset _rightEdgeOfFab(WidgetTester tester) {

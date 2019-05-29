@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+//@TestOn('!chrome')
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -31,7 +33,7 @@ void main() {
     expect(_getRawMaterialButton(tester).elevation, 6);
     expect(_getRawMaterialButton(tester).highlightElevation, 12);
     expect(_getRawMaterialButton(tester).shape, const CircleBorder());
-  });
+  }, skip: isBrowser);
 
   testWidgets('FloatingActionButtonThemeData values are used when no FloatingActionButton properties are specified', (WidgetTester tester) async {
     const Color backgroundColor = Color(0xBEEFBEEF);
@@ -66,7 +68,7 @@ void main() {
     expect(_getRawMaterialButton(tester).disabledElevation, disabledElevation);
     expect(_getRawMaterialButton(tester).highlightElevation, highlightElevation);
     expect(_getRawMaterialButton(tester).shape, shape);
-  });
+  }, skip: isBrowser);
 
   testWidgets('FloatingActionButton values take priority over FloatingActionButtonThemeData values when both properties are specified', (WidgetTester tester) async {
     const Color backgroundColor = Color(0xBEEFBEEF);
@@ -107,7 +109,7 @@ void main() {
     expect(_getRawMaterialButton(tester).disabledElevation, disabledElevation);
     expect(_getRawMaterialButton(tester).highlightElevation, highlightElevation);
     expect(_getRawMaterialButton(tester).shape, shape);
-  });
+  }, skip: isBrowser);
 
   testWidgets('FloatingActionButton foreground color uses iconAccentTheme if no widget or widget theme color is specified', (WidgetTester tester) async {
     await tester.pumpWidget(MaterialApp(
@@ -125,7 +127,7 @@ void main() {
     ));
 
     expect(_getRichText(tester).text.style.color, const Color(0xFACEFACE));
-  });
+  }, skip: isBrowser);
 
   testWidgets('FloatingActionButton uses a custom shape when specified in the theme', (WidgetTester tester) async {
     const ShapeBorder customShape = BeveledRectangleBorder();
@@ -140,7 +142,7 @@ void main() {
     ));
 
     expect(_getRawMaterialButton(tester).shape, customShape);
-  });
+  }, skip: isBrowser);
 
   testWidgets('default FloatingActionButton debugFillProperties', (WidgetTester tester) async {
     final DiagnosticPropertiesBuilder builder = DiagnosticPropertiesBuilder();
@@ -173,9 +175,9 @@ void main() {
     expect(description, <String>[
       'foregroundColor: Color(0xfeedfeed)',
       'backgroundColor: Color(0xcafecafe)',
-      ignoreWebNumericQuirks('elevation: 23.0'),
-      ignoreWebNumericQuirks('disabledElevation: 11.0'),
-      ignoreWebNumericQuirks('highlightElevation: 43.0'),
+      'elevation: 23.0',
+      'disabledElevation: 11.0',
+      'highlightElevation: 43.0',
       'shape: BeveledRectangleBorder(BorderSide(Color(0xff000000), 0.0, BorderStyle.none), BorderRadius.zero)',
     ]);
   });

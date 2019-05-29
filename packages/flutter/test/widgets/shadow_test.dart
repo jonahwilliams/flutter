@@ -36,100 +36,97 @@ void main() {
     debugDisableShadows = true;
   }, skip: !isLinux);
 
-  group('Shadows', ()
-  {
-    testWidgets('on ShapeDecoration', (WidgetTester tester) async {
-      debugDisableShadows = false;
-      Widget build(int elevation) {
-        return Center(
-          child: RepaintBoundary(
-            child: Container(
-              margin: const EdgeInsets.all(150.0),
-              decoration: ShapeDecoration(
-                shape: BeveledRectangleBorder(
-                    borderRadius: BorderRadius.circular(20.0)),
-                shadows: kElevationToShadow[elevation],
+  testWidgets('Shadows on ShapeDecoration', (WidgetTester tester) async {
+    debugDisableShadows = false;
+    Widget build(int elevation) {
+      return Center(
+        child: RepaintBoundary(
+          child: Container(
+            margin: const EdgeInsets.all(150.0),
+            decoration: ShapeDecoration(
+              shape: BeveledRectangleBorder(
+                  borderRadius: BorderRadius.circular(20.0)),
+              shadows: kElevationToShadow[elevation],
+            ),
+            height: 100.0,
+            width: 100.0,
+          ),
+        ),
+      );
+    }
+    for (int elevation in kElevationToShadow.keys) {
+      await tester.pumpWidget(build(elevation));
+      await expectLater(
+        find.byType(Container),
+        matchesGoldenFile('shadow.ShapeDecoration.$elevation.png'),
+      );
+    }
+    debugDisableShadows = true;
+  }, skip: !isLinux); // shadows render differently on different platforms
+
+  testWidgets('Shadows with PhysicalLayer', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      Center(
+        child: RepaintBoundary(
+          child: Container(
+            margin: const EdgeInsets.all(150.0),
+            color: Colors.yellow[200],
+            child: PhysicalModel(
+              elevation: 9.0,
+              color: Colors.blue[900],
+              child: const SizedBox(
+                height: 100.0,
+                width: 100.0,
               ),
-              height: 100.0,
-              width: 100.0,
             ),
           ),
-        );
-      }
-      for (int elevation in kElevationToShadow.keys) {
-        await tester.pumpWidget(build(elevation));
-        await expectLater(
-          find.byType(Container),
-          matchesGoldenFile('shadow.ShapeDecoration.$elevation.png'),
-        );
-      }
-      debugDisableShadows = true;
-    }, skip: isLinux); // shadows render differently on different platforms
+        ),
+      ),
+    );
+    await expectLater(
+      find.byType(Container),
+      matchesGoldenFile('shadow.PhysicalModel.disabled.png'),
+    );
+    debugDisableShadows = false;
+    tester.binding.reassembleApplication();
+    await tester.pump();
+    await expectLater(
+      find.byType(Container),
+      matchesGoldenFile('shadow.PhysicalModel.enabled.png'),
+      skip: !isLinux,
+    ); // shadows render differently on different platforms
+    debugDisableShadows = true;
+  }, skip: !isLinux);
 
-    testWidgets('with PhysicalLayer', (WidgetTester tester) async {
-      await tester.pumpWidget(
-        Center(
-          child: RepaintBoundary(
-            child: Container(
-              margin: const EdgeInsets.all(150.0),
-              color: Colors.yellow[200],
-              child: PhysicalModel(
-                elevation: 9.0,
-                color: Colors.blue[900],
-                child: const SizedBox(
-                  height: 100.0,
-                  width: 100.0,
-                ),
+  testWidgets('Shadows with PhysicalShape', (WidgetTester tester) async {
+    debugDisableShadows = false;
+    Widget build(double elevation) {
+      return Center(
+        child: RepaintBoundary(
+          child: Container(
+            padding: const EdgeInsets.all(150.0),
+            color: Colors.yellow[200],
+            child: PhysicalShape(
+              color: Colors.green[900],
+              clipper: ShapeBorderClipper(shape: BeveledRectangleBorder(
+                  borderRadius: BorderRadius.circular(20.0))),
+              elevation: elevation,
+              child: const SizedBox(
+                height: 100.0,
+                width: 100.0,
               ),
             ),
           ),
         ),
       );
+    }
+    for (int elevation in kElevationToShadow.keys) {
+      await tester.pumpWidget(build(elevation.toDouble()));
       await expectLater(
         find.byType(Container),
-        matchesGoldenFile('shadow.PhysicalModel.disabled.png'),
+        matchesGoldenFile('shadow.PhysicalShape.$elevation.1.png'),
       );
-      debugDisableShadows = false;
-      tester.binding.reassembleApplication();
-      await tester.pump();
-      await expectLater(
-        find.byType(Container),
-        matchesGoldenFile('shadow.PhysicalModel.enabled.png'),
-        skip: !isLinux,
-      ); // shadows render differently on different platforms
-      debugDisableShadows = true;
-    });
-
-    testWidgets('with PhysicalShape', (WidgetTester tester) async {
-      debugDisableShadows = false;
-      Widget build(double elevation) {
-        return Center(
-          child: RepaintBoundary(
-            child: Container(
-              padding: const EdgeInsets.all(150.0),
-              color: Colors.yellow[200],
-              child: PhysicalShape(
-                color: Colors.green[900],
-                clipper: ShapeBorderClipper(shape: BeveledRectangleBorder(
-                    borderRadius: BorderRadius.circular(20.0))),
-                elevation: elevation,
-                child: const SizedBox(
-                  height: 100.0,
-                  width: 100.0,
-                ),
-              ),
-            ),
-          ),
-        );
-      }
-      for (int elevation in kElevationToShadow.keys) {
-        await tester.pumpWidget(build(elevation.toDouble()));
-        await expectLater(
-          find.byType(Container),
-          matchesGoldenFile('shadow.PhysicalShape.$elevation.1.png'),
-        );
-      }
-      debugDisableShadows = true;
-    }, skip: !isLinux); // shadows render differently on different platforms
-  });
+    }
+    debugDisableShadows = true;
+  }, skip: !isLinux); // shadows render differently on different platforms
 }

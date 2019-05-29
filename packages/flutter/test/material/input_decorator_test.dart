@@ -274,7 +274,7 @@ void main() {
     expect(tester.getSize(find.byType(InputDecorator)), const Size(800.0, 56.0));
     expect(tester.getTopLeft(find.text('label')).dy, tester.getTopLeft(find.text('hint')).dy);
     expect(tester.getBottomLeft(find.text('label')).dy, tester.getBottomLeft(find.text('hint')).dy);
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator alignLabelWithHint for multiline TextField no-strut', (WidgetTester tester) async {
     Widget buildFrame(bool alignLabelWithHint) {
@@ -307,7 +307,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.text('label')).dy, tester.getTopLeft(find.text('hint')).dy);
     expect(tester.getBottomLeft(find.text('label')).dy, tester.getBottomLeft(find.text('hint')).dy);
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator alignLabelWithHint for multiline TextField', (WidgetTester tester) async {
     Widget buildFrame(bool alignLabelWithHint) {
@@ -339,7 +339,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(find.text('label')).dy, tester.getTopLeft(find.text('hint')).dy);
     expect(tester.getBottomLeft(find.text('label')).dy, tester.getBottomLeft(find.text('hint')).dy);
-  });
+  }, skip: isBrowser);
 
   // Overall height for this InputDecorator is 40.0dps
   //   12 - top padding
@@ -366,7 +366,7 @@ void main() {
     expect(getBorderWeight(tester), 1.0);
 
     expect(tester.getSize(find.text('hint')).width, tester.getSize(find.text('text')).width);
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator input/label/hint layout', (WidgetTester tester) async {
     // Label is visible, hint is not (opacity 0.0).
@@ -475,7 +475,7 @@ void main() {
     expect(getOpacity(tester, 'hint'), 0.0);
     expect(getBorderBottom(tester), 56.0);
     expect(getBorderWeight(tester), 2.0);
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator input/label/hint dense layout', (WidgetTester tester) async {
     // Label is visible, hint is not (opacity 0.0).
@@ -537,7 +537,7 @@ void main() {
     expect(getOpacity(tester, 'hint'), 1.0);
     expect(getBorderBottom(tester), 48.0);
     expect(getBorderWeight(tester), 2.0);
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator with no input border', (WidgetTester tester) async {
     // Label is visible, hint is not (opacity 0.0).
@@ -551,7 +551,7 @@ void main() {
       ),
     );
     expect(getBorderWeight(tester), 0.0);
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator error/helper/counter layout', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -699,7 +699,7 @@ void main() {
     expect(getBorderWeight(tester), 1.0);
     expect(tester.getTopLeft(find.text('error')), const Offset(12.0, 56.0));
     expect(tester.getTopRight(find.text('counter')), const Offset(788.0, 56.0));
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator counter text, widget, and null', (WidgetTester tester) async {
     Widget buildFrame({
@@ -796,7 +796,7 @@ void main() {
       maxLength: maxLength,
     ));
     expect(find.byKey(buildCounterKey), findsOneWidget);
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecoration errorMaxLines', (WidgetTester tester) async {
     const String kError1 = 'e0';
@@ -872,7 +872,7 @@ void main() {
     expect(tester.getSize(find.byType(InputDecorator)), const Size(800.0, 76.0));
     expect(tester.getTopLeft(find.text(kError1)), const Offset(12.0, 64.0));
     expect(tester.getBottomLeft(find.text(kError1)), const Offset(12.0, 76.0));
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator prefix/suffix texts', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -909,7 +909,7 @@ void main() {
     expect(tester.getTopLeft(find.text('p')).dx, 12.0);
     expect(tester.getTopRight(find.text('p')).dx, lessThanOrEqualTo(tester.getTopLeft(find.text('text')).dx));
     expect(tester.getTopRight(find.text('text')).dx, lessThanOrEqualTo(tester.getTopLeft(find.text('s')).dx));
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator icon/prefix/suffix', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -948,7 +948,7 @@ void main() {
     expect(tester.getTopRight(find.byType(Icon)).dx, lessThanOrEqualTo(tester.getTopLeft(find.text('p')).dx));
     expect(tester.getTopRight(find.text('p')).dx, lessThanOrEqualTo(tester.getTopLeft(find.text('text')).dx));
     expect(tester.getTopRight(find.text('text')).dx, lessThanOrEqualTo(tester.getTopLeft(find.text('s')).dx));
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator prefix/suffix widgets', (WidgetTester tester) async {
     const Key pKey = Key('p');
@@ -999,7 +999,7 @@ void main() {
     expect(tester.getTopLeft(find.byKey(pKey)).dx, 12.0);
     expect(tester.getTopRight(find.byKey(pKey)).dx, tester.getTopLeft(find.text('text')).dx);
     expect(tester.getTopRight(find.text('text')).dx, lessThanOrEqualTo(tester.getTopRight(find.byKey(sKey)).dx));
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator tall prefix', (WidgetTester tester) async {
     const Key pKey = Key('p');
@@ -1043,7 +1043,7 @@ void main() {
     // layout is a row: [prefix text suffix]
     expect(tester.getTopLeft(find.byKey(pKey)).dx, 12.0);
     expect(tester.getTopRight(find.byKey(pKey)).dx, tester.getTopLeft(find.text('text')).dx);
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator tall prefix with border', (WidgetTester tester) async {
     const Key pKey = Key('p');
@@ -1093,7 +1093,7 @@ void main() {
     // layout is a row: [prefix text suffix]
     expect(tester.getTopLeft(find.byKey(pKey)).dx, 12.0);
     expect(tester.getTopRight(find.byKey(pKey)).dx, tester.getTopLeft(find.text('text')).dx);
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator prefixIcon/suffixIcon', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -1128,7 +1128,7 @@ void main() {
     expect(tester.getTopLeft(find.byIcon(Icons.pages)).dx, 0.0);
     expect(tester.getTopRight(find.byIcon(Icons.pages)).dx, lessThanOrEqualTo(tester.getTopLeft(find.text('text')).dx));
     expect(tester.getTopRight(find.text('text')).dx, lessThanOrEqualTo(tester.getTopLeft(find.byIcon(Icons.satellite)).dx));
-  });
+  }, skip: isBrowser);
 
   testWidgets('prefix/suffix icons are centered when smaller than 48 by 48', (WidgetTester tester) async {
     const Key prefixKey = Key('prefix');
@@ -1153,7 +1153,7 @@ void main() {
     expect(tester.getSize(find.byType(InputDecorator)), const Size(800.0, 48.0));
     expect(tester.getSize(find.byKey(prefixKey)).height, 16.0);
     expect(tester.getTopLeft(find.byKey(prefixKey)).dy, 16.0);
-  });
+  }, skip: isBrowser);
 
   testWidgets('prefix/suffix icons increase height of decoration when larger than 48 by 48', (WidgetTester tester) async {
     const Key prefixKey = Key('prefix');
@@ -1175,7 +1175,7 @@ void main() {
     expect(tester.getSize(find.byType(InputDecorator)), const Size(800.0, 100.0));
     expect(tester.getSize(find.byKey(prefixKey)).height, 100.0);
     expect(tester.getTopLeft(find.byKey(prefixKey)).dy, 0.0);
-  });
+  }, skip: isBrowser);
 
   testWidgets('counter text has correct right margin - LTR, not dense', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -1194,7 +1194,7 @@ void main() {
     expect(tester.getSize(find.byType(InputDecorator)), const Size(800.0, 60.0));
     final double dx = tester.getRect(find.byType(InputDecorator)).right;
     expect(tester.getRect(find.text('test')).right, dx - 12.0);
-  });
+  }, skip: isBrowser);
 
   testWidgets('counter text has correct right margin - RTL, not dense', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -1213,7 +1213,7 @@ void main() {
     // 0 + 12 = 12.
     expect(tester.getSize(find.byType(InputDecorator)), const Size(800.0, 60.0));
     expect(tester.getRect(find.text('test')).left, 12.0);
-  });
+  }, skip: isBrowser);
 
   testWidgets('counter text has correct right margin - LTR, dense', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -1233,7 +1233,7 @@ void main() {
     expect(tester.getSize(find.byType(InputDecorator)), const Size(800.0, 52.0));
     final double dx = tester.getRect(find.byType(InputDecorator)).right;
     expect(tester.getRect(find.text('test')).right, dx - 12.0);
-  });
+  }, skip: isBrowser);
 
   testWidgets('counter text has correct right margin - RTL, dense', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -1253,7 +1253,7 @@ void main() {
     // 0 + 12 = 12.
     expect(tester.getSize(find.byType(InputDecorator)), const Size(800.0, 52.0));
     expect(tester.getRect(find.text('test')).left, 12.0);
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator error/helper/counter RTL layout', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -1308,7 +1308,7 @@ void main() {
     expect(tester.getTopLeft(find.text('counter')), const Offset(12.0, 64.0));
     expect(tester.getTopRight(find.text('error')), const Offset(788.0, 64.0));
     expect(find.text('helper'), findsNothing);
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator prefix/suffix RTL', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -1341,7 +1341,7 @@ void main() {
     expect(tester.getTopLeft(find.text('s')).dx, 12.0);
     expect(tester.getTopRight(find.text('s')).dx, lessThanOrEqualTo(tester.getTopLeft(find.text('text')).dx));
     expect(tester.getTopRight(find.text('text')).dx, lessThanOrEqualTo(tester.getTopLeft(find.text('p')).dx));
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator contentPadding RTL layout', (WidgetTester tester) async {
     // LTR: content left edge is contentPadding.start: 40.0
@@ -1381,7 +1381,7 @@ void main() {
     expect(tester.getTopRight(find.text('text')).dx, 760.0);
     expect(tester.getTopRight(find.text('label')).dx, 760.0);
     expect(tester.getTopRight(find.text('hint')).dx, 760.0);
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator prefix/suffix dense layout', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -1422,7 +1422,7 @@ void main() {
 
     expect(getBorderBottom(tester), 32.0);
     expect(getBorderWeight(tester), 2.0);
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator with empty InputDecoration', (WidgetTester tester) async {
     await tester.pumpWidget(buildInputDecorator());
@@ -1437,7 +1437,7 @@ void main() {
     expect(tester.getTopLeft(find.text('text')).dy, 12.0);
     expect(getBorderBottom(tester), 40.0);
     expect(getBorderWeight(tester), 1.0);
-  }, tags: 'web_unimplemented');
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator.collapsed', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -1476,7 +1476,7 @@ void main() {
     expect(tester.getSize(find.text('hint')).height, 16.0);
     expect(tester.getTopLeft(find.text('hint')).dy, 0.0);
     expect(getBorderWeight(tester), 0.0);
-  }, tags: 'web_unimplemented');
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator with baseStyle', (WidgetTester tester) async {
     // Setting the baseStyle of the InputDecoration and the style of the input
@@ -1517,7 +1517,7 @@ void main() {
     expect(tester.getTopLeft(find.text('hint')).dy, 23.5);
     expect(tester.getTopLeft(find.text('label')).dy, 17.75);
     expect(tester.getTopLeft(find.text('text')).dy, 23.5);
-  }, tags: 'web_unimplemented');
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator with empty style overrides', (WidgetTester tester) async {
     // Same as not specifying any style overrides
@@ -1559,7 +1559,7 @@ void main() {
     expect(getBorderWeight(tester), 1.0);
     expect(tester.getTopLeft(find.text('helper')), const Offset(12.0, 64.0));
     expect(tester.getTopRight(find.text('counter')), const Offset(788.0, 64.0));
-  }, tags: 'web_unimplemented');
+  }, skip: isBrowser);
 
   testWidgets('InputDecoration outline shape with no border and no floating placeholder', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -1583,7 +1583,7 @@ void main() {
     expect(tester.getBottomLeft(find.text('label')).dy, 36.0);
     expect(getBorderBottom(tester), 56.0);
     expect(getBorderWeight(tester), 0.0);
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecoration outline shape with no border and no floating placeholder not empty', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -1611,7 +1611,7 @@ void main() {
 
     // The label should not be seen.
     expect(getOpacity(tester, 'label'), 0.0);
-  }, tags: 'web_unimplemented');
+  }, skip: isBrowser);
 
   testWidgets('InputDecorationTheme outline border', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -1636,7 +1636,7 @@ void main() {
     expect(tester.getBottomLeft(find.text('label')).dy, 36.0);
     expect(getBorderBottom(tester), 56.0);
     expect(getBorderWeight(tester), 1.0);
-  }, tags: 'web_unimplemented');
+  }, skip: isBrowser);
 
   testWidgets('InputDecorationTheme outline border, dense layout', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -1663,7 +1663,7 @@ void main() {
     expect(tester.getBottomLeft(find.text('label')).dy, 32.0);
     expect(getBorderBottom(tester), 48.0);
     expect(getBorderWeight(tester), 1.0);
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorationTheme style overrides', (WidgetTester tester) async {
     const TextStyle style16 = TextStyle(fontFamily: 'Ahem', fontSize: 16.0);
@@ -1736,7 +1736,7 @@ void main() {
       ).style;
     }
     expect(getLabelStyle().color, labelStyle.color);
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator.toString()', (WidgetTester tester) async {
     const Widget child = InputDecorator(
@@ -1752,7 +1752,7 @@ void main() {
       child.toString(),
       "InputDecorator-[<'key'>](decoration: InputDecoration(), baseStyle: TextStyle(<all styles inherited>), isFocused: false, isEmpty: false)",
     );
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator.debugDescribeChildren', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -1793,7 +1793,7 @@ void main() {
       renderer.debugDescribeChildren().map<Object>((DiagnosticsNode node) => node.value)
     );
     expect(nodeValues.length, 11);
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator with empty border and label', (WidgetTester tester) async {
     // Regression test for https://github.com/flutter/flutter/issues/14165
@@ -1812,7 +1812,7 @@ void main() {
     expect(getBorderWeight(tester), 0.0);
     expect(tester.getTopLeft(find.text('label')).dy, 12.0);
     expect(tester.getBottomLeft(find.text('label')).dy, 24.0);
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorationTheme.inputDecoration', (WidgetTester tester) async {
     const TextStyle themeStyle = TextStyle(color: Colors.green);
@@ -1901,7 +1901,7 @@ void main() {
     expect(decoration.fillColor, Colors.blue);
     expect(decoration.border, const OutlineInputBorder());
     expect(decoration.alignLabelWithHint, false);
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator OutlineInputBorder fillColor is clipped by border', (WidgetTester tester) async {
     // This is a regression test for https://github.com/flutter/flutter/issues/15742
@@ -1941,7 +1941,7 @@ void main() {
       strokeWidth: 1.0,
       rrect: RRect.fromLTRBR(0.5, 0.5, 799.5, 55.5, const Radius.circular(11.5)),
     ));
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator UnderlineInputBorder fillColor is clipped by border', (WidgetTester tester) async {
     await tester.pumpWidget(
@@ -1973,7 +1973,7 @@ void main() {
         const Offset(800 - 1.0, 56.0 - 6.0), // bottom right
       ],
     ));
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator constrained to 0x0', (WidgetTester tester) async {
     // Regression test for https://github.com/flutter/flutter/issues/17710
@@ -1993,7 +1993,7 @@ void main() {
         ),
       ),
     );
-  });
+  }, skip: isBrowser);
 
   testWidgets(
     'InputDecorator OutlineBorder focused label with icon',
@@ -2117,7 +2117,7 @@ void main() {
     expect(getBorderColor(tester), equals(disabledColor));
     await tester.pump(const Duration(seconds: 10));
     expect(getBorderColor(tester), equals(disabledColor));
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorator draws and animates focusColor', (WidgetTester tester) async {
     const Color focusColor = Color(0xFF0000FF);
@@ -2166,7 +2166,7 @@ void main() {
     expect(getBorderColor(tester), equals(disabledColor));
     await tester.pump(const Duration(seconds: 10));
     expect(getBorderColor(tester), equals(disabledColor));
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorationTheme.toString()', (WidgetTester tester) async {
     // Regression test for https://github.com/flutter/flutter/issues/19305
@@ -2216,7 +2216,7 @@ void main() {
     expect(debugString, contains('focusColor: Color(0x00000020)'));
     expect(debugString, contains('errorBorder: UnderlineInputBorder()'));
     expect(debugString, contains('focusedBorder: OutlineInputBorder()'));
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecoration borders', (WidgetTester tester) async {
     const InputBorder errorBorder = OutlineInputBorder(
@@ -2352,7 +2352,7 @@ void main() {
     );
     await tester.pumpAndSettle(); // border changes are animated
     expect(getBorder(tester), disabledBorder);
-  });
+  }, skip: isBrowser);
 
   testWidgets('OutlineInputBorder radius carries over when lerping', (WidgetTester tester) async {
     // This is a regression test for https://github.com/flutter/flutter/issues/23982
@@ -2390,7 +2390,7 @@ void main() {
     expect(getBorderRadius(tester), BorderRadius.zero);
     await tester.pumpAndSettle();
     expect(getBorderRadius(tester), BorderRadius.zero);
-  });
+  }, skip: isBrowser);
 
   testWidgets('OutlineInputBorder async lerp', (WidgetTester tester) async {
     // Regression test for https://github.com/flutter/flutter/issues/28724
@@ -2425,7 +2425,7 @@ void main() {
 
     completer.complete();
     await tester.pumpAndSettle();
-  });
+  }, skip: isBrowser);
 
   test('InputBorder equality', () {
     // OutlineInputBorder's equality is defined by the borderRadius, borderSide, & gapPadding
@@ -2445,7 +2445,7 @@ void main() {
     const UnderlineInputBorder underlineInputBorder = UnderlineInputBorder(borderSide: BorderSide(color: Colors.blue));
     expect(underlineInputBorder, const UnderlineInputBorder(borderSide: BorderSide(color: Colors.blue)));
     expect(underlineInputBorder, isNot(const UnderlineInputBorder()));
-  });
+  }, skip: isBrowser);
 
 
   test('InputBorder hashCodes', () {
@@ -2466,7 +2466,7 @@ void main() {
     const UnderlineInputBorder underlineInputBorder = UnderlineInputBorder(borderSide: BorderSide(color: Colors.blue));
     expect(underlineInputBorder.hashCode, const UnderlineInputBorder(borderSide: BorderSide(color: Colors.blue)).hashCode);
     expect(underlineInputBorder.hashCode, isNot(const UnderlineInputBorder().hashCode));
-  });
+  }, skip: isBrowser);
 
   testWidgets('InputDecorationTheme implements debugFillDescription', (WidgetTester tester) async {
     final DiagnosticPropertiesBuilder builder = DiagnosticPropertiesBuilder();
@@ -2515,5 +2515,5 @@ void main() {
       'border: UnderlineInputBorder()',
       'alignLabelWithHint: true',
     ]);
-  });
+  }, skip: isBrowser);
 }

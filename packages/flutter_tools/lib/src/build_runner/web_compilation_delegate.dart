@@ -17,7 +17,6 @@ import 'package:build_test/src/debug_test_builder.dart';
 import 'package:build_web_compilers/build_web_compilers.dart';
 import 'package:build_web_compilers/builders.dart';
 import 'package:build_web_compilers/src/dev_compiler_bootstrap.dart';
-import 'package:flutter_tools/src/base/platform.dart';
 import 'package:logging/logging.dart';
 import 'package:meta/meta.dart';
 import 'package:path/path.dart' as path;
@@ -41,10 +40,8 @@ const String jsModuleErrorsExtension = '.ddc.js.errors';
 const String jsModuleExtension = '.ddc.js';
 const String jsSourceMapExtension = '.ddc.js.map';
 
-const String _kTestInputExtension = '_test.dart';
-const String _kTestOutputExtension = '_test.debug.html';
-
-final DartPlatform flutterWebPlatform = DartPlatform.register('flutter_web', <String>[
+final DartPlatform flutterWebPlatform =
+    DartPlatform.register('flutter_web', <String>[
   'async',
   'collection',
   'convert',
@@ -74,7 +71,7 @@ final List<core.BuilderApplication> builders = <core.BuilderApplication>[
   core.apply(
     'flutter_tools|test_bootstrap',
     <BuilderFactory>[
-      (BuilderOptions options) => const FlutterDebugTestBuilder(),
+      (BuilderOptions options) => const DebugTestBuilder(),
       (BuilderOptions options) => const FlutterWebTestBootstrapBuilder(),
     ],
     core.toRoot(),
@@ -129,7 +126,7 @@ final List<core.BuilderApplication> builders = <core.BuilderApplication>[
     'flutter_tools|entrypoint',
     <BuilderFactory>[
       (BuilderOptions options) => FlutterWebEntrypointBuilder(
-          options.config['targets']?.split(',') ?? <String>['lib/main.dart']),
+          options.config['target'] ?? 'lib/main.dart'),
     ],
     core.toRoot(),
     hideOutput: true,
@@ -186,51 +183,22 @@ class BuildRunnerWebCompilationProxy extends WebCompilationProxy {
       deleteFilesByDefault: true,
     );
     final Status status =
-        logger.startProgress('Compiling to JavaScript...', timeout: null);
+        logger.startProgress('Compiling ${targets.first} for the Web...', timeout: null);
     try {
-      _builder = await _initialize(projectDirectory, buildOptions, buildEnvironment, targets);
-      Set<core.BuildDirectory> buildDirs;
-      if (testOutputDir != null) {
-        buildDirs = <core.BuildDirectory>{
-          core.BuildDirectory('test',
-            outputLocation: core.OutputLocation(testOutputDir, useSymlinks: !platform.isWindows)
-          )
-        };
-      }
-      await _builder.run(const <AssetId, ChangeType>{}, buildDirs: buildDirs);
+      _builder = await BuildImpl.create(
+        buildOptions,
+        buildEnvironment,
+        builders,
+        <String, Map<String, dynamic>>{
+          'flutter_tools|entrypoint': <String, dynamic>{
+            'targets': targets.join(','),
+          }
+        },
+        isReleaseBuild: false,
+      );
+      await _builder.run(const <AssetId, ChangeType>{});
     } finally {
       status.stop();
-    }
-  }
-
-  Future<BuildImpl> _initialize(Directory projectDirectory, BuildOptions buildOptions, core.BuildEnvironment buildEnvironment, List<String> targets) async {
-    try {
-      return BuildImpl.create(
-        buildOptions,
-        buildEnvironment,
-        builders,
-        <String, Map<String, dynamic>>{
-          'flutter_tools|entrypoint': <String, dynamic>{
-            'targets': targets.join(','),
-          }
-        },
-        isReleaseBuild: false,
-      );
-    } on core.BuildScriptChangedException {
-      // If a build script changed in the flutter_tool, that means we've
-      // updated flutter and need to invalidate everything anyway.
-      projectDirectory.childDirectory('.dart_tool').deleteSync(recursive: true);
-      return BuildImpl.create(
-        buildOptions,
-        buildEnvironment,
-        builders,
-        <String, Map<String, dynamic>>{
-          'flutter_tools|entrypoint': <String, dynamic>{
-            'targets': targets.join(','),
-          }
-        },
-        isReleaseBuild: false,
-      );
     }
   }
 
@@ -393,11 +361,3 @@ void setStackTraceMapper(StackTraceMapper mapper) {
   }
 }
 
-class FlutterDebugTestBuilder extends DebugTestBuilder {
-  const FlutterDebugTestBuilder();
-
-  @override
-  Map<String, List<String>> get buildExtensions => const <String, List<String>>{
-    _kTestInputExtension: <String>[_kTestOutputExtension],
-  };
-}

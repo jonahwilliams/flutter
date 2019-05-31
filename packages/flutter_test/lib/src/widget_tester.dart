@@ -40,6 +40,9 @@ export 'package:test_api/test_api.dart' hide
   TypeMatcher, // matcher's TypeMatcher conflicts with the one in the Flutter framework
   isInstanceOf; // we have our own wrapper in matchers.dart
 
+// Whether we're running on web.
+const bool _kIsWeb = identical(0, 0.0);
+
 /// Signature for callback to [testWidgets] and [benchmarkWidgets].
 typedef WidgetTesterCallback = Future<void> Function(WidgetTester widgetTester);
 
@@ -95,6 +98,9 @@ void testWidgets(
   final TestWidgetsFlutterBinding binding = TestWidgetsFlutterBinding.ensureInitialized();
   final WidgetTester tester = WidgetTester._(binding);
   timeout ??= binding.defaultTestTimeout;
+  if (_kIsWeb) {
+    binding.window.devicePixelRatioTestValue = 3.0;
+  }
   test(
     description,
     () {

@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import '../build_system/targets/android.dart';
+
 import '../base/common.dart';
 import '../base/file_system.dart';
 import '../build_info.dart';
@@ -22,6 +24,11 @@ const BuildSystem buildSystem = BuildSystem(<Target>[
   unpackWindows,
   copyAssets,
   kernelSnapshot,
+  androidGenerateResource,
+  androidCompileJava,
+  translateDalvik,
+  packageApk,
+  signApk,
 ]);
 
 /// Assemble provides a low level API to interact with the flutter tool build

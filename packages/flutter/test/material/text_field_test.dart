@@ -486,7 +486,7 @@ void main() {
       // The toolbar exists in the Overlay above the MaterialApp.
       find.byType(Overlay),
       matchesGoldenFile('text_field_opacity_test.0.2.png'),
-      skip: !Platform.isLinux,
+      skip: !isLinux,
     );
   }, skip: isBrowser);
 

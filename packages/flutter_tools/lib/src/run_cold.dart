@@ -6,7 +6,10 @@ import 'dart:async';
 
 import 'package:meta/meta.dart';
 
+import 'application_package.dart';
 import 'base/file_system.dart';
+import 'base/utils.dart';
+import 'build_info.dart';
 import 'device.dart';
 import 'globals.dart';
 import 'resident_runner.dart';
@@ -57,14 +60,56 @@ class ColdRunner extends ResidentRunner {
       }
     }
 
+    final String modeName = debuggingOptions.buildInfo.friendlyModeName;
     for (FlutterDevice device in flutterDevices) {
-      final int result = await device.runCold(
-        coldRunner: this,
-        route: route,
-        shouldBuild: shouldBuild,
+      final TargetPlatform targetPlatform = await device.device.targetPlatform;
+      final ApplicationPackage package = await ApplicationPackageFactory.instance.getPackageForPlatform(
+        targetPlatform,
+        applicationBinary: applicationBinary,
       );
-      if (result != 0)
-        return result;
+      if (mainPath == null) {
+        assert(prebuiltMode);
+        printStatus('Launching ${package.displayName} on ${device.device.name} in $modeName mode...');
+      } else {
+        printStatus('Launching ${getDisplayPath(mainPath)} on ${device.device.name} in $modeName mode...');
+      }
+
+      if (package == null) {
+        String message = 'No application found for $targetPlatform.';
+        final String hint = await getMissingPackageHintForPlatform(targetPlatform);
+        if (hint != null)
+          message += '\n$hint';
+        printError(message);
+        return 1;
+      }
+
+      final Map<String, dynamic> platformArgs = <String, dynamic>{};
+      if (traceStartup != null) {
+        platformArgs['trace-startup'] = traceStartup;
+      }
+      device.startEchoingDeviceLog();
+
+      final LaunchResult result = await device.device.startApp(
+        package,
+        mainPath: mainPath,
+        debuggingOptions: debuggingOptions,
+        platformArgs: platformArgs,
+        route: route,
+        prebuiltApplication: prebuiltMode,
+        usesTerminalUi: usesTerminalUI,
+        ipv6: ipv6,
+      );
+
+      if (!result.started) {
+        printError('Error running application on ${device.device.name}.');
+        await stopEchoingDeviceLog();
+        return 2;
+      }
+      if (result.hasObservatory) {
+        device.observatoryUris = <Uri>[result.observatoryUri];
+      } else {
+        device.observatoryUris = <Uri>[];
+      }
     }
 
     // Connect to observatory.

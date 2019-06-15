@@ -8,6 +8,7 @@ import 'package:json_rpc_2/error_code.dart' as rpc_error_code;
 import 'package:json_rpc_2/json_rpc_2.dart' as rpc;
 import 'package:meta/meta.dart';
 
+import 'application_package.dart';
 import 'base/common.dart';
 import 'base/context.dart';
 import 'base/file_system.dart';
@@ -248,15 +249,52 @@ class HotRunner extends ResidentRunner {
     }
 
     firstBuildTime = DateTime.now();
-
+    final String modeName = debuggingOptions.buildInfo.friendlyModeName;
+    final bool prebuiltMode = applicationBinary != null;
     for (FlutterDevice device in flutterDevices) {
-      final int result = await device.runHot(
-        hotRunner: this,
-        route: route,
-        shouldBuild: shouldBuild,
+      printStatus('Launching ${getDisplayPath(mainPath)} on ${device.device.name} in $modeName mode...');
+
+      final TargetPlatform targetPlatform = await device.device.targetPlatform;
+      final ApplicationPackage package = await ApplicationPackageFactory.instance.getPackageForPlatform(
+        targetPlatform,
+        applicationBinary: applicationBinary,
       );
-      if (result != 0) {
-        return result;
+
+      if (package == null) {
+        String message = 'No application found for $targetPlatform.';
+        final String hint = await getMissingPackageHintForPlatform(targetPlatform);
+        if (hint != null)
+          message += '\n$hint';
+        printError(message);
+        return 1;
+      }
+
+      final Map<String, dynamic> platformArgs = <String, dynamic>{};
+
+      device.startEchoingDeviceLog();
+
+      // Start the application.
+      final Future<LaunchResult> futureResult = device.device.startApp(
+        package,
+        mainPath: mainPath,
+        debuggingOptions: debuggingOptions,
+        platformArgs: platformArgs,
+        route: route,
+        prebuiltApplication: prebuiltMode,
+        usesTerminalUi: usesTerminalUI,
+        ipv6: ipv6,
+      );
+      final LaunchResult result = await futureResult;
+
+      if (!result.started) {
+        printError('Error launching application on ${device.device.name}.');
+        await stopEchoingDeviceLog();
+        return 2;
+      }
+      if (result.hasObservatory) {
+        device.observatoryUris = <Uri>[result.observatoryUri];
+      } else {
+        device.observatoryUris = <Uri>[];
       }
     }
 
@@ -649,9 +687,12 @@ class HotRunner extends ResidentRunner {
             final Map<String, dynamic> firstReport = reports.first;
             // Don't print errors because they will be printed further down when
             // `validateReloadReport` is called again.
-            await device.updateReloadStatus(
-              validateReloadReport(firstReport, printErrors: false),
-            );
+            final bool wasReloadSuccessful = validateReloadReport(firstReport, printErrors: false);
+            if (wasReloadSuccessful) {
+              device.generator?.accept();
+            } else {
+              await device.generator?.reject();
+            }
             completer.complete(DeviceReloadReport(device, reports));
           },
         ));

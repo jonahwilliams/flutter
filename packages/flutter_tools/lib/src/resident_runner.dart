@@ -23,8 +23,6 @@ import 'devfs.dart';
 import 'device.dart';
 import 'globals.dart';
 import 'project.dart';
-import 'run_cold.dart';
-import 'run_hot.dart';
 import 'vmservice.dart';
 
 class FlutterDevice {
@@ -339,121 +337,6 @@ class FlutterDevice {
     device.getLogReader(app: package).appPid = vmServices.first.vm.pid;
   }
 
-  Future<int> runHot({
-    HotRunner hotRunner,
-    String route,
-    bool shouldBuild,
-  }) async {
-    final bool prebuiltMode = hotRunner.applicationBinary != null;
-    final String modeName = hotRunner.debuggingOptions.buildInfo.friendlyModeName;
-    printStatus('Launching ${getDisplayPath(hotRunner.mainPath)} on ${device.name} in $modeName mode...');
-
-    final TargetPlatform targetPlatform = await device.targetPlatform;
-    package = await ApplicationPackageFactory.instance.getPackageForPlatform(
-      targetPlatform,
-      applicationBinary: hotRunner.applicationBinary,
-    );
-
-    if (package == null) {
-      String message = 'No application found for $targetPlatform.';
-      final String hint = await getMissingPackageHintForPlatform(targetPlatform);
-      if (hint != null)
-        message += '\n$hint';
-      printError(message);
-      return 1;
-    }
-
-    final Map<String, dynamic> platformArgs = <String, dynamic>{};
-
-    startEchoingDeviceLog();
-
-    // Start the application.
-    final Future<LaunchResult> futureResult = device.startApp(
-      package,
-      mainPath: hotRunner.mainPath,
-      debuggingOptions: hotRunner.debuggingOptions,
-      platformArgs: platformArgs,
-      route: route,
-      prebuiltApplication: prebuiltMode,
-      usesTerminalUi: hotRunner.usesTerminalUI,
-      ipv6: hotRunner.ipv6,
-    );
-
-    final LaunchResult result = await futureResult;
-
-    if (!result.started) {
-      printError('Error launching application on ${device.name}.');
-      await stopEchoingDeviceLog();
-      return 2;
-    }
-    if (result.hasObservatory) {
-      observatoryUris = <Uri>[result.observatoryUri];
-    } else {
-      observatoryUris = <Uri>[];
-    }
-    return 0;
-  }
-
-
-  Future<int> runCold({
-    ColdRunner coldRunner,
-    String route,
-    bool shouldBuild = true,
-  }) async {
-    final TargetPlatform targetPlatform = await device.targetPlatform;
-    package = await ApplicationPackageFactory.instance.getPackageForPlatform(
-      targetPlatform,
-      applicationBinary: coldRunner.applicationBinary,
-    );
-
-    final String modeName = coldRunner.debuggingOptions.buildInfo.friendlyModeName;
-    final bool prebuiltMode = coldRunner.applicationBinary != null;
-    if (coldRunner.mainPath == null) {
-      assert(prebuiltMode);
-      printStatus('Launching ${package.displayName} on ${device.name} in $modeName mode...');
-    } else {
-      printStatus('Launching ${getDisplayPath(coldRunner.mainPath)} on ${device.name} in $modeName mode...');
-    }
-
-    if (package == null) {
-      String message = 'No application found for $targetPlatform.';
-      final String hint = await getMissingPackageHintForPlatform(targetPlatform);
-      if (hint != null)
-        message += '\n$hint';
-      printError(message);
-      return 1;
-    }
-
-    final Map<String, dynamic> platformArgs = <String, dynamic>{};
-    if (coldRunner.traceStartup != null)
-      platformArgs['trace-startup'] = coldRunner.traceStartup;
-
-    startEchoingDeviceLog();
-
-    final LaunchResult result = await device.startApp(
-      package,
-      mainPath: coldRunner.mainPath,
-      debuggingOptions: coldRunner.debuggingOptions,
-      platformArgs: platformArgs,
-      route: route,
-      prebuiltApplication: prebuiltMode,
-      usesTerminalUi: coldRunner.usesTerminalUI,
-      ipv6: coldRunner.ipv6,
-    );
-
-    if (!result.started) {
-      printError('Error running application on ${device.name}.');
-      await stopEchoingDeviceLog();
-      return 2;
-    }
-    if (result.hasObservatory) {
-      observatoryUris = <Uri>[result.observatoryUri];
-    } else {
-      observatoryUris = <Uri>[];
-    }
-    return 0;
-  }
-
   Future<UpdateFSReport> updateDevFS({
     String mainPath,
     String target,
@@ -493,13 +376,6 @@ class FlutterDevice {
     devFSStatus.stop();
     printTrace('Synced ${getSizeAsMB(report.syncedBytes)}.');
     return report;
-  }
-
-  Future<void> updateReloadStatus(bool wasReloadSuccessful) async {
-    if (wasReloadSuccessful)
-      generator?.accept();
-    else
-      await generator?.reject();
   }
 }
 

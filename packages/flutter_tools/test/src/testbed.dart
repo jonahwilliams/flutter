@@ -8,6 +8,7 @@ import 'package:file/memory.dart';
 import 'package:flutter_tools/src/base/context.dart';
 import 'package:flutter_tools/src/base/file_system.dart';
 import 'package:flutter_tools/src/base/logger.dart';
+import 'package:flutter_tools/src/base/platform.dart';
 import 'package:flutter_tools/src/base/terminal.dart';
 import 'package:flutter_tools/src/cache.dart';
 import 'package:flutter_tools/src/context_runner.dart';
@@ -22,7 +23,10 @@ export 'package:flutter_tools/src/base/context.dart' show Generator;
 //      [BufferLogger], [MemoryFileSystem].
 //    - More TBD.
 final Map<Type, Generator> _testbedDefaults = <Type, Generator>{
-  FileSystem: () => MemoryFileSystem(), // Keeps tests fast by avoid actual file system.
+  // Keeps tests fast by avoid actual file system.
+  FileSystem: () => MemoryFileSystem(style: platform.isWindows
+    ? FileSystemStyle.windows
+    : FileSystemStyle.posix),
   Logger: () => BufferLogger(), // Allows reading logs and prevents stdout.
   OutputPreferences: () => OutputPreferences(showColor: false), // configures BufferLogger to avoid color codes.
   Usage: () => NoOpUsage(), // prevent addition of analytics from burdening test mocks
@@ -67,7 +71,7 @@ class Testbed {
       _overrides = overrides;
 
 
-  final Future<void> Function() _setup;
+  final FutureOr<void> Function() _setup;
   final Map<Type, Generator> _overrides;
 
   /// Runs `test` within a tool zone.

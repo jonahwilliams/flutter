@@ -126,6 +126,33 @@ enum BuildMode {
   dynamicRelease
 }
 
+const List<String> _kBuildModes = <String>[
+  'debug',
+  'profile',
+  'release',
+  'dynamic-profile',
+  'dynamic-release',
+];
+
+/// Return the name for the build mode, or "any" if null.
+String getNameForBuildMode(BuildMode buildMode) {
+  return _kBuildModes[buildMode.index];
+}
+
+/// Returns the [BuildMode] for a particular `name`.
+BuildMode getBuildModeForName(String name) {
+  switch (name) {
+    case 'debug':
+      return BuildMode.debug;
+    case 'profile':
+      return BuildMode.profile;
+    case 'release':
+      return BuildMode.release;
+    default:
+      throw ArgumentError('$name is not a valid build mode');
+  }
+}
+
 String validatedBuildNumberForPlatform(TargetPlatform targetPlatform, String buildNumber) {
   if (buildNumber == null) {
     return null;
@@ -238,6 +265,32 @@ String getNameForHostPlatform(HostPlatform platform) {
   }
   assert(false);
   return null;
+}
+
+/// Returns the host folder name for a particular target platform.
+String getHostFolderForTargetPlaltform(TargetPlatform targetPlatform) {
+  switch (targetPlatform) {
+    case TargetPlatform.android_arm:
+    case TargetPlatform.android_arm64:
+    case TargetPlatform.android_x64:
+    case TargetPlatform.android_x86:
+      return 'android';
+    case TargetPlatform.ios:
+      return 'ios';
+    case TargetPlatform.darwin_x64:
+      return 'macos';
+    case TargetPlatform.linux_x64:
+      return 'linux';
+    case TargetPlatform.windows_x64:
+      return 'windows';
+    case TargetPlatform.fuchsia:
+      return 'fuchsia';
+    case TargetPlatform.web_javascript:
+      return 'web_javascript';
+    case TargetPlatform.tester:
+      throw UnsupportedError('tester is not a support platform for building.');
+  }
+  return 'any';
 }
 
 enum TargetPlatform {

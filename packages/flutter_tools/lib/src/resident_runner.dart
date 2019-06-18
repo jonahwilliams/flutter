@@ -375,7 +375,6 @@ class FlutterDevice {
       platformArgs: platformArgs,
       route: route,
       prebuiltApplication: prebuiltMode,
-      usesTerminalUi: hotRunner.usesTerminalUI,
       ipv6: hotRunner.ipv6,
     );
 
@@ -437,7 +436,6 @@ class FlutterDevice {
       platformArgs: platformArgs,
       route: route,
       prebuiltApplication: prebuiltMode,
-      usesTerminalUi: coldRunner.usesTerminalUI,
       ipv6: coldRunner.ipv6,
     );
 
@@ -503,13 +501,170 @@ class FlutterDevice {
   }
 }
 
+/// A delegate for interacting with the [ResidentRunner].
+abstract class ResidentRunnerDelegate {
+  /// Called once during teardown.
+  void teardown();
+
+  /// Called once during runner setup.
+  void setup(ResidentRunner runner);
+}
+
+/// A delegate which maps command line interaction to a resident runner.
+class ResidentRunnerTerminalDelegate implements ResidentRunnerDelegate{
+  ResidentRunnerTerminalDelegate();
+
+  ResidentRunner _residentRunner;
+  bool _processingUserRequest = false;
+
+  @override
+  void teardown() {
+    terminal.singleCharMode = false;
+  }
+
+  @override
+  void setup(ResidentRunner runner) {
+    _residentRunner = runner;
+    if (!logger.quiet) {
+      printStatus('');
+      _residentRunner.printHelp(details: false);
+    }
+    terminal.singleCharMode = true;
+    terminal.keystrokes.listen(processTerminalInput);
+  }
+
+  /// Returns [true] if the input has been handled by this function.
+  Future<bool> _commonTerminalInputHandler(String character) async {
+    final String lower = character.toLowerCase();
+
+    printStatus(''); // the key the user tapped might be on this line
+
+    if (lower == 'h' || lower == '?') {
+      // help
+      _residentRunner.printHelp(details: true);
+      return true;
+    } else if (lower == 'w') {
+      if (_residentRunner.supportsServiceProtocol) {
+        await _residentRunner._debugDumpApp();
+        return true;
+      }
+    } else if (lower == 't') {
+      if (_residentRunner.supportsServiceProtocol) {
+        await _residentRunner._debugDumpRenderTree();
+        return true;
+      }
+    } else if (character == 'L') {
+      if (_residentRunner.supportsServiceProtocol) {
+        await _residentRunner._debugDumpLayerTree();
+        return true;
+      }
+    } else if (character == 'S') {
+      if (_residentRunner.supportsServiceProtocol) {
+        await _residentRunner._debugDumpSemanticsTreeInTraversalOrder();
+        return true;
+      }
+    } else if (character == 'U') {
+      if (_residentRunner.supportsServiceProtocol) {
+        await _residentRunner._debugDumpSemanticsTreeInInverseHitTestOrder();
+        return true;
+      }
+    } else if (character == 'p') {
+      if (_residentRunner.supportsServiceProtocol && _residentRunner.isRunningDebug) {
+        await _residentRunner._debugToggleDebugPaintSizeEnabled();
+        return true;
+      }
+    } else if (character == 'P') {
+      if (_residentRunner.supportsServiceProtocol) {
+        await _residentRunner._debugTogglePerformanceOverlayOverride();
+      }
+    } else if (lower == 'i') {
+      if (_residentRunner.supportsServiceProtocol) {
+        await _residentRunner._debugToggleWidgetInspector();
+        return true;
+      }
+    } else if (character == 's') {
+      for (FlutterDevice device in _residentRunner.flutterDevices) {
+        if (device.device.supportsScreenshot)
+          await _residentRunner._screenshot(device);
+      }
+      return true;
+    } else if (character == 'a') {
+      if (_residentRunner.supportsServiceProtocol) {
+        await _residentRunner._debugToggleProfileWidgetBuilds();
+      }
+    } else if (lower == 'o') {
+      if (_residentRunner.supportsServiceProtocol && _residentRunner.isRunningDebug) {
+        await _residentRunner._debugTogglePlatform();
+        return true;
+      }
+    } else if (lower == 'q') {
+      // exit
+      await _residentRunner.exit();
+      return true;
+    } else if (lower == 'd') {
+      await _residentRunner.detach();
+      return true;
+    } else if (lower == 'z') {
+      await _residentRunner._debugToggleDebugCheckElevationsEnabled();
+      return true;
+    }
+    return false;
+  }
+
+  @visibleForTesting
+  Future<void> processTerminalInput(String command) async {
+    // When terminal doesn't support line mode, '\n' can sneak into the input.
+    command = command.trim();
+    if (_processingUserRequest) {
+      printTrace('Ignoring terminal input: "$command" because we are busy.');
+      return;
+    }
+    _processingUserRequest = true;
+    try {
+      final bool handled = await _commonTerminalInputHandler(command);
+      if (!handled)
+        await handleTerminalCommand(command);
+    } catch (error, st) {
+      printError('$error\n$st');
+      await _residentRunner._cleanUpAndExit(null);
+    } finally {
+      _processingUserRequest = false;
+    }
+  }
+
+   @visibleForTesting
+  Future<void> handleTerminalCommand(String code) async {
+    final String lower = code.toLowerCase();
+    if (lower == 'r') {
+      OperationResult result;
+      if (code == 'R') {
+        // If hot restart is not supported for all devices, ignore the command.
+        if (!_residentRunner.canHotRestart) {
+          return;
+        }
+        result = await _residentRunner.restart(fullRestart: true);
+      } else {
+        result = await _residentRunner.restart(fullRestart: false);
+      }
+      if (!result.isOk) {
+        printStatus('Try again after fixing the above error(s).', emphasis: true);
+      }
+    } else if (lower == 'l') {
+      final List<FlutterView> views = _residentRunner.flutterDevices.expand((FlutterDevice d) => d.views).toList();
+      printStatus('Connected ${pluralize('view', views.length)}:');
+      for (FlutterView v in views) {
+        printStatus('${v.uiIsolate.name} (${v.uiIsolate.id})', indent: 2);
+      }
+    }
+  }
+}
+
 // Shared code between different resident application runners.
 abstract class ResidentRunner {
   ResidentRunner(
     this.flutterDevices, {
     this.target,
     this.debuggingOptions,
-    this.usesTerminalUI = true,
     String projectRootPath,
     String packagesFilePath,
     this.saveCompilationTrace,
@@ -526,7 +681,6 @@ abstract class ResidentRunner {
   final List<FlutterDevice> flutterDevices;
   final String target;
   final DebuggingOptions debuggingOptions;
-  final bool usesTerminalUI;
   final bool saveCompilationTrace;
   final bool stayResident;
   final bool ipv6;
@@ -542,6 +696,8 @@ abstract class ResidentRunner {
 
   AssetBundle _assetBundle;
   AssetBundle get assetBundle => _assetBundle;
+
+  ResidentRunnerDelegate _delegate;
 
   bool get isRunningDebug => debuggingOptions.buildInfo.isDebug;
   bool get isRunningProfile => debuggingOptions.buildInfo.isProfile;
@@ -568,11 +724,13 @@ abstract class ResidentRunner {
     Completer<void> appStartedCompleter,
     String route,
     bool shouldBuild = true,
+    ResidentRunnerDelegate delegate,
   });
 
   Future<int> attach({
     Completer<DebugConnectionInfo> connectionInfoCompleter,
     Completer<void> appStartedCompleter,
+    ResidentRunnerDelegate delegate,
   });
 
   bool get supportsRestart => false;
@@ -753,7 +911,7 @@ abstract class ResidentRunner {
   }
 
   Future<void> _cleanUpAndExit(io.ProcessSignal signal) async {
-    _resetTerminal();
+    _delegate.teardown();
     await cleanupAfterSignal();
     io.exit(0);
   }
@@ -838,105 +996,6 @@ abstract class ResidentRunner {
     return Future<void>.error(error, stack);
   }
 
-  /// Returns [true] if the input has been handled by this function.
-  Future<bool> _commonTerminalInputHandler(String character) async {
-    final String lower = character.toLowerCase();
-
-    printStatus(''); // the key the user tapped might be on this line
-
-    if (lower == 'h' || lower == '?') {
-      // help
-      printHelp(details: true);
-      return true;
-    } else if (lower == 'w') {
-      if (supportsServiceProtocol) {
-        await _debugDumpApp();
-        return true;
-      }
-    } else if (lower == 't') {
-      if (supportsServiceProtocol) {
-        await _debugDumpRenderTree();
-        return true;
-      }
-    } else if (character == 'L') {
-      if (supportsServiceProtocol) {
-        await _debugDumpLayerTree();
-        return true;
-      }
-    } else if (character == 'S') {
-      if (supportsServiceProtocol) {
-        await _debugDumpSemanticsTreeInTraversalOrder();
-        return true;
-      }
-    } else if (character == 'U') {
-      if (supportsServiceProtocol) {
-        await _debugDumpSemanticsTreeInInverseHitTestOrder();
-        return true;
-      }
-    } else if (character == 'p') {
-      if (supportsServiceProtocol && isRunningDebug) {
-        await _debugToggleDebugPaintSizeEnabled();
-        return true;
-      }
-    } else if (character == 'P') {
-      if (supportsServiceProtocol) {
-        await _debugTogglePerformanceOverlayOverride();
-      }
-    } else if (lower == 'i') {
-      if (supportsServiceProtocol) {
-        await _debugToggleWidgetInspector();
-        return true;
-      }
-    } else if (character == 's') {
-      for (FlutterDevice device in flutterDevices) {
-        if (device.device.supportsScreenshot)
-          await _screenshot(device);
-      }
-      return true;
-    } else if (character == 'a') {
-      if (supportsServiceProtocol) {
-        await _debugToggleProfileWidgetBuilds();
-      }
-    } else if (lower == 'o') {
-      if (supportsServiceProtocol && isRunningDebug) {
-        await _debugTogglePlatform();
-        return true;
-      }
-    } else if (lower == 'q') {
-      // exit
-      await exit();
-      return true;
-    } else if (lower == 'd') {
-      await detach();
-      return true;
-    } else if (lower == 'z') {
-      await _debugToggleDebugCheckElevationsEnabled();
-      return true;
-    }
-
-    return false;
-  }
-
-  Future<void> processTerminalInput(String command) async {
-    // When terminal doesn't support line mode, '\n' can sneak into the input.
-    command = command.trim();
-    if (_processingUserRequest) {
-      printTrace('Ignoring terminal input: "$command" because we are busy.');
-      return;
-    }
-    _processingUserRequest = true;
-    try {
-      final bool handled = await _commonTerminalInputHandler(command);
-      if (!handled)
-        await handleTerminalCommand(command);
-    } catch (error, st) {
-      printError('$error\n$st');
-      await _cleanUpAndExit(null);
-    } finally {
-      _processingUserRequest = false;
-    }
-  }
-
   void _serviceDisconnected() {
     if (_exited) {
       // User requested the application exit.
@@ -945,7 +1004,6 @@ abstract class ResidentRunner {
     if (_finished.isCompleted)
       return;
     printStatus('Lost connection to device.');
-    _resetTerminal();
     _finished.complete(0);
   }
 
@@ -953,25 +1011,7 @@ abstract class ResidentRunner {
     if (_finished.isCompleted)
       return;
     printStatus('Application finished.');
-    _resetTerminal();
     _finished.complete(0);
-  }
-
-  void _resetTerminal() {
-    if (usesTerminalUI)
-      terminal.singleCharMode = false;
-  }
-
-  void setupTerminal() {
-    assert(stayResident);
-    if (usesTerminalUI) {
-      if (!logger.quiet) {
-        printStatus('');
-        printHelp(details: false);
-      }
-      terminal.singleCharMode = true;
-      terminal.keystrokes.listen(processTerminalInput);
-    }
   }
 
   Future<int> waitForAppToFinish() async {
@@ -1017,10 +1057,9 @@ abstract class ResidentRunner {
 
   /// Called when a signal has requested we exit.
   Future<void> cleanupAfterSignal();
+
   /// Called right before we exit.
   Future<void> cleanupAtFinish();
-  /// Called when the runner should handle a terminal command.
-  Future<void> handleTerminalCommand(String code);
 }
 
 class OperationResult {

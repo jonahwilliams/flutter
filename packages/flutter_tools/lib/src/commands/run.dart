@@ -474,6 +474,12 @@ class RunCommand extends RunCommandBase {
         ipv6: ipv6,
       );
     }
+    // If we're run with a terminal/resident then provide the right
+    // delegate.
+    ResidentRunnerDelegate residentRunnerDelegate;
+    if (stayResident) {
+      residentRunnerDelegate = ResidentRunnerTerminalDelegate();
+    }
 
     DateTime appStartedTime;
     // Sync completer so the completing agent attaching to the resident doesn't
@@ -490,6 +496,7 @@ class RunCommand extends RunCommandBase {
       appStartedCompleter: appStartedTimeRecorder,
       route: route,
       shouldBuild: !runningWithPrebuiltApplication && argResults['build'],
+      delegate: residentRunnerDelegate,
     );
     if (result != 0)
       throwToolExit(null, exitCode: result);

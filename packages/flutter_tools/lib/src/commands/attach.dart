@@ -277,7 +277,6 @@ class AttachCommand extends FlutterCommand {
             target: targetFile,
             debuggingOptions: debuggingOptions,
             packagesFilePath: globalResults['packages'],
-            usesTerminalUI: daemon == null,
             projectRootPath: argResults['project-root'],
             dillOutputPath: argResults['output-dill'],
             ipv6: usesIpv6,
@@ -312,7 +311,7 @@ class AttachCommand extends FlutterCommand {
         result = await app.runner.waitForAppToFinish();
         assert(result != null);
       } else {
-        result = await runner.attach();
+        result = await runner.attach(delegate: ResidentRunnerTerminalDelegate());
         assert(result != null);
       }
       if (result != 0) {
@@ -350,7 +349,6 @@ class HotRunnerFactory {
     List<FlutterDevice> devices, {
     String target,
     DebuggingOptions debuggingOptions,
-    bool usesTerminalUI = true,
     bool benchmarkMode = false,
     File applicationBinary,
     bool hostIsIde = false,
@@ -364,7 +362,6 @@ class HotRunnerFactory {
     devices,
     target: target,
     debuggingOptions: debuggingOptions,
-    usesTerminalUI: usesTerminalUI,
     benchmarkMode: benchmarkMode,
     applicationBinary: applicationBinary,
     hostIsIde: hostIsIde,

@@ -37,7 +37,6 @@ class ResidentWebRunner extends ResidentRunner {
   }) : super(
           flutterDevices,
           target: target,
-          usesTerminalUI: true,
           stayResident: true,
           saveCompilationTrace: false,
           debuggingOptions: debuggingOptions,
@@ -51,11 +50,13 @@ class ResidentWebRunner extends ResidentRunner {
   final FlutterProject flutterProject;
 
   @override
-  Future<int> attach(
-      {Completer<DebugConnectionInfo> connectionInfoCompleter,
-      Completer<void> appStartedCompleter}) async {
+  Future<int> attach({
+    Completer<DebugConnectionInfo> connectionInfoCompleter,
+    Completer<void> appStartedCompleter,
+    ResidentRunnerDelegate delegate,
+  }) async {
     connectionInfoCompleter?.complete(DebugConnectionInfo());
-    setupTerminal();
+    delegate.setup(this);
     final int result = await waitForAppToFinish();
     await cleanupAtFinish();
     return result;
@@ -73,17 +74,6 @@ class ResidentWebRunner extends ResidentRunner {
     await _connection?.sendCommand('Browser.close');
     _connection = null;
     await _server?.dispose();
-  }
-
-  @override
-  Future<void> handleTerminalCommand(String code) async {
-    if (code == 'R') {
-      // If hot restart is not supported for all devices, ignore the command.
-      if (!canHotRestart) {
-        return;
-      }
-      await restart(fullRestart: true);
-    }
   }
 
   @override
@@ -112,6 +102,7 @@ class ResidentWebRunner extends ResidentRunner {
     Completer<void> appStartedCompleter,
     String route,
     bool shouldBuild = true,
+    ResidentRunnerDelegate delegate,
   }) async {
     final ApplicationPackage package = await ApplicationPackageFactory.instance.getPackageForPlatform(
       TargetPlatform.web_javascript,
@@ -163,6 +154,7 @@ class ResidentWebRunner extends ResidentRunner {
     return attach(
       connectionInfoCompleter: connectionInfoCompleter,
       appStartedCompleter: appStartedCompleter,
+      delegate: delegate,
     );
   }
 

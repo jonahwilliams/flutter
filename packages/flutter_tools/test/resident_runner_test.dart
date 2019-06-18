@@ -16,18 +16,12 @@ class TestRunner extends ResidentRunner {
     : super(devices);
 
   bool hasHelpBeenPrinted = false;
-  String receivedCommand;
 
   @override
   Future<void> cleanupAfterSignal() async { }
 
   @override
   Future<void> cleanupAtFinish() async { }
-
-  @override
-  Future<void> handleTerminalCommand(String code) async {
-    receivedCommand = code;
-  }
 
   @override
   void printHelp({ bool details }) {
@@ -40,13 +34,24 @@ class TestRunner extends ResidentRunner {
     Completer<void> appStartedCompleter,
     String route,
     bool shouldBuild = true,
+    ResidentRunnerDelegate delegate,
   }) async => null;
 
   @override
   Future<int> attach({
     Completer<DebugConnectionInfo> connectionInfoCompleter,
     Completer<void> appStartedCompleter,
+    ResidentRunnerDelegate delegate,
   }) async => null;
+}
+
+class TestTerminalDelegate extends ResidentRunnerTerminalDelegate {
+  String receivedCommand;
+
+  @override
+  Future<void> handleTerminalCommand(String command) async {
+    receivedCommand = command;
+  }
 }
 
 void main() {
@@ -59,29 +64,43 @@ void main() {
   }
 
   group('keyboard input handling', () {
+    TestTerminalDelegate delegate;
+
+    setUp(() {
+      delegate = TestTerminalDelegate();
+    });
+
     testUsingContext('single help character', () async {
       final TestRunner testRunner = createTestRunner();
-      expect(testRunner.hasHelpBeenPrinted, isFalse);
-      await testRunner.processTerminalInput('h');
-      expect(testRunner.hasHelpBeenPrinted, isTrue);
+      delegate.setup(testRunner);
+      testRunner.hasHelpBeenPrinted = false;
+      expect(testRunner.hasHelpBeenPrinted, false);
+      await delegate.processTerminalInput('h');
+      expect(testRunner.hasHelpBeenPrinted, true);
     });
+
     testUsingContext('help character surrounded with newlines', () async {
       final TestRunner testRunner = createTestRunner();
-      expect(testRunner.hasHelpBeenPrinted, isFalse);
-      await testRunner.processTerminalInput('\nh\n');
-      expect(testRunner.hasHelpBeenPrinted, isTrue);
+      delegate.setup(testRunner);
+      testRunner.hasHelpBeenPrinted = false;
+      expect(testRunner.hasHelpBeenPrinted, false);
+      await delegate.processTerminalInput('\nh\n');
+      expect(testRunner.hasHelpBeenPrinted, true);
     });
+
     testUsingContext('reload character with trailing newline', () async {
       final TestRunner testRunner = createTestRunner();
-      expect(testRunner.receivedCommand, isNull);
-      await testRunner.processTerminalInput('r\n');
-      expect(testRunner.receivedCommand, equals('r'));
+      delegate.setup(testRunner);
+      expect(delegate.receivedCommand, null);
+      await delegate.processTerminalInput('r\n');
+      expect(delegate.receivedCommand, equals('r'));
     });
     testUsingContext('newlines', () async {
       final TestRunner testRunner = createTestRunner();
-      expect(testRunner.receivedCommand, isNull);
-      await testRunner.processTerminalInput('\n\n');
-      expect(testRunner.receivedCommand, equals(''));
+      delegate.setup(testRunner);
+      expect(delegate.receivedCommand, null);
+      await delegate.processTerminalInput('\n\n');
+      expect(delegate.receivedCommand, equals(''));
     });
   });
 }

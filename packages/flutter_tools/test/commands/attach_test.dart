@@ -119,7 +119,6 @@ void main() {
             dillOutputPath: anyNamed('dillOutputPath'),
             debuggingOptions: anyNamed('debuggingOptions'),
             packagesFilePath: anyNamed('packagesFilePath'),
-            usesTerminalUI: anyNamed('usesTerminalUI'),
             flutterProject: anyNamed('flutterProject'),
             ipv6: false,
           ),
@@ -151,7 +150,6 @@ void main() {
             dillOutputPath: outputDill,
             debuggingOptions: anyNamed('debuggingOptions'),
             packagesFilePath: anyNamed('packagesFilePath'),
-            usesTerminalUI: anyNamed('usesTerminalUI'),
             flutterProject: anyNamed('flutterProject'),
             ipv6: false,
           ),
@@ -226,7 +224,6 @@ void main() {
         target: anyNamed('target'),
         debuggingOptions: anyNamed('debuggingOptions'),
         packagesFilePath: anyNamed('packagesFilePath'),
-        usesTerminalUI: anyNamed('usesTerminalUI'),
         flutterProject: anyNamed('flutterProject'),
         ipv6: false,
       )).thenReturn(mockHotRunner);
@@ -256,7 +253,6 @@ void main() {
         target: foo.path,
         debuggingOptions: anyNamed('debuggingOptions'),
         packagesFilePath: anyNamed('packagesFilePath'),
-        usesTerminalUI: anyNamed('usesTerminalUI'),
         flutterProject: anyNamed('flutterProject'),
         ipv6: false,
       )).called(1);

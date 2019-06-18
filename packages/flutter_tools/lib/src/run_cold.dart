@@ -19,7 +19,6 @@ class ColdRunner extends ResidentRunner {
     List<FlutterDevice> devices, {
     String target,
     DebuggingOptions debuggingOptions,
-    bool usesTerminalUI = true,
     this.traceStartup = false,
     this.awaitFirstFrameWhenTracing = true,
     this.applicationBinary,
@@ -29,7 +28,6 @@ class ColdRunner extends ResidentRunner {
   }) : super(devices,
              target: target,
              debuggingOptions: debuggingOptions,
-             usesTerminalUI: usesTerminalUI,
              saveCompilationTrace: saveCompilationTrace,
              stayResident: stayResident,
              ipv6: ipv6);
@@ -45,6 +43,7 @@ class ColdRunner extends ResidentRunner {
     Completer<void> appStartedCompleter,
     String route,
     bool shouldBuild = true,
+    ResidentRunnerDelegate delegate,
   }) async {
     final bool prebuiltMode = applicationBinary != null;
     if (!prebuiltMode) {
@@ -106,24 +105,26 @@ class ColdRunner extends ResidentRunner {
         );
       }
       appFinished();
-    } else if (stayResident) {
-      setupTerminal();
-      registerSignalHandlers();
     }
 
     appStartedCompleter?.complete();
-
-    if (stayResident && !traceStartup)
-      return waitForAppToFinish();
-    await cleanupAtFinish();
-    return 0;
+    if (!traceStartup) {
+      return attach(
+        delegate: delegate,
+      );
+    } else {
+      await cleanupAtFinish();
+      return 0;
+    }
   }
 
   @override
   Future<int> attach({
     Completer<DebugConnectionInfo> connectionInfoCompleter,
     Completer<void> appStartedCompleter,
+    ResidentRunnerDelegate delegate,
   }) async {
+    delegate.setup(this);
     _didAttach = true;
     try {
       await connectToServiceProtocol();
@@ -141,7 +142,6 @@ class ColdRunner extends ResidentRunner {
       }
     }
     if (stayResident) {
-      setupTerminal();
       registerSignalHandlers();
     }
     appStartedCompleter?.complete();
@@ -151,9 +151,6 @@ class ColdRunner extends ResidentRunner {
     await cleanupAtFinish();
     return 0;
   }
-
-  @override
-  Future<void> handleTerminalCommand(String code) async { }
 
   @override
   Future<void> cleanupAfterSignal() async {

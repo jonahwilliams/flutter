@@ -19,6 +19,7 @@ import '../vmservice.dart';
 
 import 'watcher.dart';
 
+
 /// A class that's used to collect coverage data during tests.
 class CoverageCollector extends TestWatcher {
   CoverageCollector({this.flutterProject, this.coverageDirectory});
@@ -184,12 +185,15 @@ class CoverageCollector extends TestWatcher {
   }
 }
 
-Future<Map<String, dynamic>> collect(Uri serviceUri, bool Function(String) libraryPredicate) async {
-  final VMService vmService = await VMService.connect(serviceUri, compression: CompressionOptions.compressionOff);
+Future<VMService> defaultConnect(Uri serviceUri) {
+  return VMService.connect(serviceUri, compression: CompressionOptions.compressionOff);
+}
+
+Future<Map<String, dynamic>> collect(Uri serviceUri, bool Function(String) libraryPredicate, [Future<VMService> Function(Uri) connector = defaultConnect]) async {
+  final VMService vmService = await connector(serviceUri);
   await vmService.getVM();
   return _getAllCoverage(vmService, libraryPredicate);
 }
-
 
 Future<Map<String, dynamic>> _getAllCoverage(VMService service, bool Function(String) libraryPredicate) async {
   await service.getVM();
@@ -203,6 +207,13 @@ Future<Map<String, dynamic>> _getAllCoverage(VMService service, bool Function(St
     final Map<String, Map<String, dynamic>> sourceReports = <String, Map<String, dynamic>>{};
     // For each ScriptRef loaded into the VM, load the corresponding Script and
     // SourceReport object.
+
+    // We may receive such objects as
+    // {type: Sentinel, kind: Collected, valueAsString: <collected>}
+    // that need to be skipped.
+    if (scriptList['scripts'] == null) {
+      continue;
+    }
     for (Map<String, dynamic> script in scriptList['scripts']) {
       if (!libraryPredicate(script['uri'])) {
         continue;

@@ -135,6 +135,15 @@ void main() {
 
     expect(() => invalidBase.accept(visitor), throwsA(isInstanceOf<InvalidPatternException>()));
   }));
+
+  test('does not add directories to source list when traversing with wildcards', () => testbed.run(() {
+    fs.file('foo.dart').createSync();
+    fs.file('foofizz/bar.dart').createSync(recursive: true);
+    const Source wildcardWithDirectory = Source.pattern('{PROJECT_DIR}/foo*');
+    wildcardWithDirectory.accept(visitor);
+
+    expect(visitor.sources.first.path, '/foo.dart');
+  }));
 }
 
 class TestBehavior extends SourceBehavior {

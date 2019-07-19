@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import 'package:args/command_runner.dart';
+import 'package:file/src/interface/file.dart';
 import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/build_system/build_system.dart';
 import 'package:flutter_tools/src/cache.dart';
@@ -31,7 +32,7 @@ void main() {
   test('Can run a build', () => testbed.run(() async {
     when(mockBuildSystem.build(any, any, buildSystemConfig: anyNamed('buildSystemConfig')))
         .thenAnswer((Invocation invocation) async {
-      return BuildResult(true, const <String, ExceptionMeasurement>{}, const <String, PerformanceMeasurement>{});
+      return FakeBuildResult(success: true);
     });
     final CommandRunner<void> commandRunner = createTestCommandRunner(AssembleCommand());
     await commandRunner.run(<String>['assemble', 'unpack_macos']);
@@ -42,3 +43,25 @@ void main() {
 }
 
 class MockBuildSystem extends Mock implements BuildSystem {}
+
+class FakeBuildResult implements BuildResult {
+  FakeBuildResult({ this.success });
+
+  @override
+  Map<String, ExceptionMeasurement> get exceptions => <String, ExceptionMeasurement>{};
+
+  @override
+  bool get hasException => false;
+
+  @override
+  List<File> get inputs => <File>[];
+
+  @override
+  List<File> get outputs => <File>[];
+
+  @override
+  Map<String, PerformanceMeasurement> get performance => <String, PerformanceMeasurement>{};
+
+  @override
+  final bool success;
+}

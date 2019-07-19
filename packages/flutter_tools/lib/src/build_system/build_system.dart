@@ -457,12 +457,35 @@ class Environment {
 
 /// The result information from the build system.
 class BuildResult {
-  BuildResult(this.success, this.exceptions, this.performance);
+  const BuildResult._({
+    this.success,
+    this.inputs,
+    this.outputs,
+    this.exceptions,
+    this.performance
+  });
 
+  /// Whether the build finished successfully.
   final bool success;
+
+  /// The input files used in the build.
+  ///
+  /// This does not include implicit inputs, or those produced for later
+  /// consumption by dependent steps.
+  final List<File> inputs;
+
+  /// The output files used in the build.
+  ///
+  /// This includes all files, even implicit outputs produced during the build.
+  final List<File> outputs;
+
+  /// A table of exceptions caught per build target.
   final Map<String, ExceptionMeasurement> exceptions;
+
+  /// A table of [PerformanceMeasurement]s per build target.
   final Map<String, PerformanceMeasurement> performance;
 
+  /// Whether [exceptions] contains any exception information.
   bool get hasException => exceptions.isNotEmpty;
 }
 
@@ -493,10 +516,12 @@ class BuildSystem {
       // Always persist the file cache to disk.
       fileCache.persist();
     }
-    return BuildResult(
-      passed,
-      buildInstance.exceptionMeasurements,
-      buildInstance.stepTimings,
+    return BuildResult._(
+      success: passed,
+      exceptions: buildInstance.exceptionMeasurements,
+      performance: buildInstance.stepTimings,
+      inputs: buildInstance.inputFiles.values.toList(),
+      outputs: buildInstance.outputFiles.values.toList(),
     );
   }
 }
@@ -518,6 +543,9 @@ class _BuildInstance {
   // Exceptions caught during the build process.
   final Map<String, ExceptionMeasurement> exceptionMeasurements = <String, ExceptionMeasurement>{};
 
+  final Map<String, File> inputFiles = <String, File>{};
+  final Map<String, File> outputFiles = <String, File>{};
+
   Future<bool> invokeTarget(Target target) async {
     final List<bool> results = await Future.wait(target.dependencies.map(invokeTarget));
     if (results.any((bool result) => !result)) {
@@ -534,6 +562,13 @@ class _BuildInstance {
     bool skipped = false;
     try {
       final List<File> inputs = target.resolveInputs(environment);
+      for (File file in inputs) {
+        // Input file was output of other target.
+        if (outputFiles.containsKey(file.path)) {
+          continue;
+        }
+        inputFiles[file.path] = file;
+      }
       final Map<String, ChangeType> updates = await target.computeChanges(inputs, environment, fileCache);
       if (updates.isEmpty) {
         skipped = true;
@@ -545,12 +580,17 @@ class _BuildInstance {
         printStatus('${target.name}: Complete');
 
         final List<File> outputs = target.resolveOutputs(environment);
+        for (File file in outputs) {
+          if (outputFiles.containsKey(file.path)) {
+            throw DuplicateOutputException(file.path, target.name);
+          }
+          outputFiles[file.path] = file;
+        }
         // Update hashes for output files.
         await fileCache.hashFiles(outputs);
         target._writeStamp(inputs, outputs, environment);
       }
     } catch (exception, stackTrace) {
-      // TODO(jonahwilliams): test
       target.clearStamp(environment);
       passed = false;
       skipped = false;

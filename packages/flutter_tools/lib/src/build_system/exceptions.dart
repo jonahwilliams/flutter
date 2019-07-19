@@ -93,3 +93,17 @@ class MissingDefineException implements Exception {
         'but it was not provided';
   }
 }
+
+/// An exception thrown if more than one target outputs the same file.
+class DuplicateOutputException implements Exception {
+  DuplicateOutputException(this.path, this.target);
+
+  final String path;
+  final String target;
+
+  @override
+  String toString() {
+    return 'Target $target produced output at $path, but this file was already'
+      ' created.';
+  }
+}

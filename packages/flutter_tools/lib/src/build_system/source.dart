@@ -90,6 +90,9 @@ class SourceVisitor {
         throw Exception('$filePath does not exist!');
       }
       for (FileSystemEntity entity in fs.directory(filePath).listSync()) {
+        if (entity is! File) {
+          continue;
+        }
         final String filename = fs.path.basename(entity.path);
         if (segments.isEmpty) {
           sources.add(fs.file(entity.absolute));

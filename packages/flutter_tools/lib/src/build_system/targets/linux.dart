@@ -2,10 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+
 import '../../artifacts.dart';
 import '../../base/file_system.dart';
 import '../../globals.dart';
 import '../build_system.dart';
+
+/// The define for the filepath of the linux entry point.
+const String kLinuxEntrypoint = 'LinuxEntrypoint';
 
 /// Copies the Linux desktop embedding files to the copy directory.
 class UnpackLinux extends Target {
@@ -22,13 +26,13 @@ class UnpackLinux extends Target {
 
   @override
   List<Source> get outputs => const <Source>[
-    Source.pattern('{PROJECT_DIR}/linux/flutter/libflutter_linux.so'),
-    Source.pattern('{PROJECT_DIR}/linux/flutter/flutter_export.h'),
-    Source.pattern('{PROJECT_DIR}/linux/flutter/flutter_messenger.h'),
-    Source.pattern('{PROJECT_DIR}/linux/flutter/flutter_plugin_registrar.h'),
-    Source.pattern('{PROJECT_DIR}/linux/flutter/flutter_glfw.h'),
-    Source.pattern('{PROJECT_DIR}/linux/flutter/icudtl.dat'),
-    Source.pattern('{PROJECT_DIR}/linux/flutter/cpp_client_wrapper/*'),
+    Source.pattern('{BUILD_DIR}/flutter/libflutter_linux.so'),
+    Source.pattern('{BUILD_DIR}/flutter/flutter_export.h'),
+    Source.pattern('{BUILD_DIR}/flutter/flutter_messenger.h'),
+    Source.pattern('{BUILD_DIR}/flutter/flutter_plugin_registrar.h'),
+    Source.pattern('{BUILD_DIR}/flutter/flutter_glfw.h'),
+    Source.pattern('{BUILD_DIR}/flutter/icudtl.dat'),
+    Source.pattern('{BUILD_DIR}/flutter/cpp_client_wrapper/*'),
   ];
 
   @override
@@ -42,8 +46,7 @@ class UnpackLinux extends Target {
         continue;
       }
       final String outputPath = fs.path.join(
-        environment.projectDir.path,
-        'linux',
+        environment.buildDir.path,
         'flutter',
         fs.path.relative(input.path, from: basePath),
       );

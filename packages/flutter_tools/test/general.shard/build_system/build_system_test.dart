@@ -206,6 +206,7 @@ void main() {
     final BuildResult result = await buildSystem.build(fizzTarget, environment);
 
     expect(result.hasException, true);
+    expect(environment.buildDir.childFile('fizz.stamp').existsSync(), false);
   }));
 
   test('Can describe itself with JSON output', () => testbed.run(() {

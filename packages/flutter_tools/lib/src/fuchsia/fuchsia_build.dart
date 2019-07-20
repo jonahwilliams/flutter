@@ -45,7 +45,7 @@ Future<void> buildFuchsia(
 
   await _timedBuildStep('fuchsia-kernel-compile',
     () => fuchsiaSdk.fuchsiaKernelCompiler.build(
-      fuchsiaProject: fuchsiaProject, target: target, buildInfo: buildInfo));
+      fuchsiaProject: fuchsiaProject, target: target, buildInfo: buildInfo, outputRoot: outDir.path));
   await _timedBuildStep('fuchsia-build-assets',
     () => _buildAssets(fuchsiaProject, target, buildInfo));
   await _timedBuildStep('fuchsia-build-package',

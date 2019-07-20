@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'package:flutter_tools/src/fuchsia/fuchsia_sdk.dart';
+
 import '../../artifacts.dart';
 import '../../base/build.dart';
 import '../../base/file_system.dart';
@@ -65,6 +67,24 @@ Future<void> compileKernel(Map<String, ChangeType> updates, Environment environm
   if (output.errorCount != 0) {
     throw Exception('Errors during snapshot creation: $output');
   }
+}
+
+/// Supports compiling dart source to kernel for Fuchsia
+///
+/// This is a non-incremental compile so the specific [updates] are ignored.
+Future<void> compileKernelFuchsia(Map<String, ChangeType> updates, Environment environment) async {
+  if (environment.defines[kBuildMode] == null) {
+    throw MissingDefineException(kBuildMode, 'kernel_snapshot_fuchisa');
+  }
+  final FlutterProject flutterProject = FlutterProject.fromDirectory(environment.projectDir);
+  final BuildMode buildMode = getBuildModeForName(environment.defines[kBuildMode]);
+  final String targetFile = environment.defines[kTargetFile] ?? fs.path.join('lib', 'main.dart');
+  await fuchsiaSdk.fuchsiaKernelCompiler.build(
+    fuchsiaProject: flutterProject.fuchsia,
+    buildInfo: BuildInfo(buildMode, null),
+    target: targetFile,
+    outputRoot: environment.buildDir.path,
+  );
 }
 
 /// Supports compiling a dart kernel file to an ELF binary.
@@ -194,6 +214,24 @@ const Target kernelSnapshot = Target(
   ],
   dependencies: <Target>[],
   buildAction: compileKernel,
+);
+
+const Target kernelSnapshotFuchsia = Target(
+  name: 'kernel_snapshot_fuchsia',
+  buildAction: compileKernelFuchsia,
+  inputs: <Source>[
+    Source.function(listDartSources), // <- every dart file under {PROJECT_DIR}/lib and in .packages
+    Source.artifact(Artifact.platformKernelDill), // needs to be fuchsia dill.
+    Source.artifact(Artifact.engineDartBinary),
+    Source.artifact(Artifact.frontendServerSnapshotForEngineDartSdk),
+  ],
+  outputs: <Source>[
+    // TODO(jonahwilliams): perfect example of why we need a planning stage to generate
+    // build phases. This should be `appname.dilpmanifest`.
+    Source.pattern('{BUILD_DIR}/*.dilpmanifest'),
+    Source.pattern('{BUILD_DIR}/*.dilp'),
+  ],
+  dependencies: <Target>[],
 );
 
 /// Generate an ELF binary from a dart kernel file in profile mode.

@@ -28,6 +28,7 @@ class FuchsiaKernelCompiler {
     @required FuchsiaProject fuchsiaProject,
     @required String target, // E.g., lib/main.dart
     BuildInfo buildInfo = BuildInfo.debug,
+    @required String outputRoot,
   }) async {
     // TODO(zra): Use filesystem root and scheme information from buildInfo.
     if (fuchsiaArtifacts.kernelCompiler == null) {
@@ -35,12 +36,11 @@ class FuchsiaKernelCompiler {
     }
     const String multiRootScheme = 'main-root';
     final String packagesFile = fuchsiaProject.project.packagesFile.path;
-    final String outDir = getFuchsiaBuildDirectory();
     final String appName = fuchsiaProject.project.manifest.appName;
     final String fsRoot = fuchsiaProject.project.directory.path;
     final String relativePackagesFile =
         fs.path.relative(packagesFile, from: fsRoot);
-    final String manifestPath = fs.path.join(outDir, '$appName.dilpmanifest');
+    final String manifestPath = fs.path.join(outputRoot, '$appName.dilpmanifest');
     List<String> flags = <String>[
       // https://github.com/dart-lang/sdk/issues/36639:
       // Remove when new constant eval supports dilp files.
@@ -50,7 +50,7 @@ class FuchsiaKernelCompiler {
       '--filesystem-scheme', 'main-root',
       '--filesystem-root', fsRoot,
       '--packages', '$multiRootScheme:///$relativePackagesFile',
-      '--output', fs.path.join(outDir, '$appName.dil'),
+      '--output', fs.path.join(outputRoot, '$appName.dil'),
       '--no-link-platform',
       '--split-output-by-packages',
       '--manifest', manifestPath,

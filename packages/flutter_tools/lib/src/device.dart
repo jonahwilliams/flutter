@@ -484,6 +484,7 @@ class DebuggingOptions {
     this.useTestFonts = false,
     this.verboseSystemLogs = false,
     this.observatoryPort,
+    this.isManagedBuild = false,
    }) : debuggingEnabled = true;
 
   DebuggingOptions.disabled(this.buildInfo)
@@ -498,6 +499,7 @@ class DebuggingOptions {
       traceSystrace = false,
       dumpSkpOnShaderCompilation = false,
       verboseSystemLogs = false,
+      isManagedBuild = false,
       observatoryPort = null;
 
   final bool debuggingEnabled;
@@ -514,6 +516,7 @@ class DebuggingOptions {
   final bool useTestFonts;
   final bool verboseSystemLogs;
   final int observatoryPort;
+  final bool isManagedBuild;
 
   bool get hasObservatoryPort => observatoryPort != null;
 }

@@ -45,6 +45,7 @@ abstract class RunCommandBase extends FlutterCommand with DeviceBasedDevelopment
       ..addOption('route',
         help: 'Which route to load when running the app.',
       );
+    argParser.addFlag('managed-build', hide: true);
     usesTargetOption();
     usesPortOptions();
     usesIpv6Flag();
@@ -302,6 +303,7 @@ class RunCommand extends RunCommandBase {
         dumpSkpOnShaderCompilation: argResults['dump-skp-on-shader-compilation'],
         observatoryPort: observatoryPort,
         verboseSystemLogs: argResults['verbose-system-logs'],
+        isManagedBuild: argResults['managed-build'],
       );
     }
   }

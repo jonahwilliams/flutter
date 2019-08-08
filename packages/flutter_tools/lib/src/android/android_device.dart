@@ -18,12 +18,13 @@ import '../base/platform.dart';
 import '../base/process.dart';
 import '../base/process_manager.dart';
 import '../build_info.dart';
+import '../build_system/build_system.dart';
+import '../build_system/targets/android.dart';
 import '../convert.dart';
 import '../device.dart';
 import '../globals.dart';
 import '../project.dart';
 import '../protocol_discovery.dart';
-
 import 'adb.dart';
 import 'android.dart';
 import 'android_console.dart';
@@ -478,6 +479,19 @@ class AndroidDevice extends Device {
       default:
         printError('Android platforms are only supported.');
         return LaunchResult.failed();
+    }
+
+    if (debuggingOptions.isManagedBuild) {
+      final Environment environment = Environment(
+        projectDir: fs.currentDirectory,
+        defines: <String, String>{
+          'BuildMode': 'debug',
+          'DemoKey': 'foobar',
+        }
+      );
+      await const BuildSystem().build(const ZipAlignApkTarget(), environment);
+      package = AndroidApk.fromApk(environment.buildDir.childFile('stump.apk'));
+      prebuiltApplication = true;
     }
 
     if (!prebuiltApplication || androidSdk.licensesAvailable && androidSdk.latestVersion == null) {

@@ -8,6 +8,7 @@ import '../base/common.dart';
 import '../base/context.dart';
 import '../base/file_system.dart';
 import '../build_system/build_system.dart';
+import '../build_system/targets/android.dart';
 import '../build_system/targets/assets.dart';
 import '../build_system/targets/dart.dart';
 import '../build_system/targets/ios.dart';
@@ -35,6 +36,7 @@ const List<Target> _kDefaultTargets = <Target>[
   DebugMacOSApplication(),
   ProfileMacOSApplication(),
   ReleaseMacOSApplication(),
+  ZipAlignApkTarget(),
 ];
 
 /// Assemble provides a low level API to interact with the flutter tool build

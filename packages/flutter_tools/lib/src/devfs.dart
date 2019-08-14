@@ -427,6 +427,7 @@ class DevFS {
     @required String pathToReload,
     @required List<Uri> invalidatedFiles,
   }) async {
+    Stopwatch stopwatch = Stopwatch()..start();
     assert(trackWidgetCreation != null);
     assert(generator != null);
 
@@ -500,6 +501,7 @@ class DevFS {
       }
     }
     printTrace('DevFS: Sync finished');
+    print("COMPILE TOOK: ${stopwatch.elapsedMilliseconds}");
     return UpdateFSReport(success: true, syncedBytes: syncedBytes,
          invalidatedSourcesCount: invalidatedFiles.length);
   }

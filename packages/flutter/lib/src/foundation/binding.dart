@@ -249,8 +249,11 @@ abstract class BindingBase {
   ///
   /// Subclasses (binding classes) should override [performReassemble] to react
   /// to this method being called. This method itself should not be overridden.
-  Future<void> reassembleApplication() {
-    return lockEvents(performReassemble);
+  Future<void> reassembleApplication() async {
+    Stopwatch sw = Stopwatch()..start();
+    final result = await lockEvents(performReassemble);
+    print('Reassemble Took: ${sw.elapsedMilliseconds}');
+    return result;
   }
 
   /// This method is called by [reassembleApplication] to actually cause the

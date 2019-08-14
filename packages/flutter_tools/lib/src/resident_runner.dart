@@ -215,6 +215,7 @@ class FlutterDevice {
   }) {
     final Uri deviceEntryUri = devFS.baseUri.resolveUri(fs.path.toUri(entryPath));
     final Uri devicePackagesUri = devFS.baseUri.resolve('.packages');
+    final List<Future<Object>> futures = <Future<Object>>[];
     final List<Future<Map<String, dynamic>>> reports = <Future<Map<String, dynamic>>>[];
     for (FlutterView view in views) {
       final Future<Map<String, dynamic>> report = view.uiIsolate.reloadSources(
@@ -222,6 +223,8 @@ class FlutterDevice {
         rootLibUri: deviceEntryUri,
         packagesUri: devicePackagesUri,
       );
+      futures.add(view.uiIsolate.flutterReassemble());
+      futures.add(report);
       reports.add(report);
     }
     return reports;

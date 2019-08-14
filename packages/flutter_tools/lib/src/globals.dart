@@ -29,15 +29,15 @@ void printError(
   int hangingIndent,
   bool wrap,
 }) {
-  logger.printError(
-    message,
-    stackTrace: stackTrace,
-    emphasis: emphasis ?? false,
-    color: color,
-    indent: indent,
-    hangingIndent: hangingIndent,
-    wrap: wrap,
-  );
+  // logger.printError(
+  //   message,
+  //   stackTrace: stackTrace,
+  //   emphasis: emphasis ?? false,
+  //   color: color,
+  //   indent: indent,
+  //   hangingIndent: hangingIndent,
+  //   wrap: wrap,
+  // );
 }
 
 /// Display normal output of the command. This should be used for things like
@@ -58,17 +58,18 @@ void printStatus(
   int hangingIndent,
   bool wrap,
 }) {
-  logger.printStatus(
-    message,
-    emphasis: emphasis ?? false,
-    color: color,
-    newline: newline ?? true,
-    indent: indent,
-    hangingIndent: hangingIndent,
-    wrap: wrap,
-  );
+  print(message);
+  // logger.printStatus(
+  //   message,
+  //   emphasis: emphasis ?? false,
+  //   color: color,
+  //   newline: newline ?? true,
+  //   indent: indent,
+  //   hangingIndent: hangingIndent,
+  //   wrap: wrap,
+  // );
 }
 
 /// Use this for verbose tracing output. Users can turn this output on in order
 /// to help diagnose issues with the toolchain or with their setup.
-void printTrace(String message) => logger.printTrace(message);
+void printTrace(String message) {}//logger.printTrace(message);

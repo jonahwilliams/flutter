@@ -693,7 +693,7 @@ class HotRunner extends ResidentRunner {
         if (_runningFromSnapshot) {
           // Asset directory has to be set only once when we switch from
           // running from snapshot to running from uploaded files.
-          await device.resetAssetDirectory();
+          //await device.resetAssetDirectory();
         }
         final Completer<DeviceReloadReport> completer = Completer<DeviceReloadReport>();
         allReportsFutures.add(completer.future);
@@ -762,109 +762,110 @@ class HotRunner extends ResidentRunner {
     }
     // Record time it took for the VM to reload the sources.
     _addBenchmarkData('hotReloadVMReloadMilliseconds', vmReloadTimer.elapsed.inMilliseconds);
-    final Stopwatch reassembleTimer = Stopwatch()..start();
+    //final Stopwatch reassembleTimer = Stopwatch()..start();
     // Reload the isolate.
-    final List<Future<void>> allDevices = <Future<void>>[];
-    for (FlutterDevice device in flutterDevices) {
-      printTrace('Sending reload events to ${device.device.name}');
-      final List<Future<ServiceObject>> futuresViews = <Future<ServiceObject>>[];
-      for (FlutterView view in device.views) {
-        printTrace('Sending reload event to "${view.uiIsolate.name}"');
-        futuresViews.add(view.uiIsolate.reload());
-      }
-      final Completer<void> deviceCompleter = Completer<void>();
-      unawaited(Future.wait(futuresViews).whenComplete(() {
-        deviceCompleter.complete(device.refreshViews());
-      }));
-      allDevices.add(deviceCompleter.future);
-    }
-    await Future.wait(allDevices);
+    // final List<Future<void>> allDevices = <Future<void>>[];
+    // for (FlutterDevice device in flutterDevices) {
+    //   printTrace('Sending reload events to ${device.device.name}');
+    //   final List<Future<Object>> futuresViews = <Future<Object>>[];
+    //   for (FlutterView view in device.views) {
+    //     printTrace('Sending reload event to "${view.uiIsolate.name}"');
+    //     futuresViews.add(view.uiIsolate.flutterReassemble());
+    //   }
+    //   final Completer<void> deviceCompleter = Completer<void>();
+    //   unawaited(Future.wait(futuresViews).whenComplete(() {
+    //     deviceCompleter.complete(device.refreshViews());
+    //   }));
+    //   allDevices.add(deviceCompleter.future);
+    // }
+    // await Future.wait(allDevices);
     // We are now running from source.
     _runningFromSnapshot = false;
+    return OperationResult(0, '');
     // Check if any isolates are paused.
-    final List<FlutterView> reassembleViews = <FlutterView>[];
-    String serviceEventKind;
-    int pausedIsolatesFound = 0;
-    for (FlutterDevice device in flutterDevices) {
-      for (FlutterView view in device.views) {
-        // Check if the isolate is paused, and if so, don't reassemble. Ignore the
-        // PostPauseEvent event - the client requesting the pause will resume the app.
-        final ServiceEvent pauseEvent = view.uiIsolate.pauseEvent;
-        if (pauseEvent != null && pauseEvent.isPauseEvent && pauseEvent.kind != ServiceEvent.kPausePostRequest) {
-          pausedIsolatesFound += 1;
-          if (serviceEventKind == null) {
-            serviceEventKind = pauseEvent.kind;
-          } else if (serviceEventKind != pauseEvent.kind) {
-            serviceEventKind = ''; // many kinds
-          }
-        } else {
-          reassembleViews.add(view);
-        }
-      }
-    }
-    if (pausedIsolatesFound > 0) {
-      if (onSlow != null)
-        onSlow('${_describePausedIsolates(pausedIsolatesFound, serviceEventKind)}; interface might not update.');
-      if (reassembleViews.isEmpty) {
-        printTrace('Skipping reassemble because all isolates are paused.');
-        return OperationResult(OperationResult.ok.code, reloadMessage);
-      }
-    }
-    printTrace('Evicting dirty assets');
-    await _evictDirtyAssets();
-    assert(reassembleViews.isNotEmpty);
-    printTrace('Reassembling application');
-    bool failedReassemble = false;
-    final List<Future<void>> futures = <Future<void>>[];
-    for (FlutterView view in reassembleViews) {
-      futures.add(() async {
-        try {
-          await view.uiIsolate.flutterReassemble();
-        } catch (error) {
-          failedReassemble = true;
-          printError('Reassembling ${view.uiIsolate.name} failed: $error');
-          return;
-        }
-      }());
-    }
-    final Future<void> reassembleFuture = Future.wait<void>(futures).then<void>((List<void> values) { });
-    await reassembleFuture.timeout(
-      const Duration(seconds: 2),
-      onTimeout: () async {
-        if (pausedIsolatesFound > 0) {
-          shouldReportReloadTime = false;
-          return; // probably no point waiting, they're probably deadlocked and we've already warned.
-        }
-        // Check if any isolate is newly paused.
-        printTrace('This is taking a long time; will now check for paused isolates.');
-        int postReloadPausedIsolatesFound = 0;
-        String serviceEventKind;
-        for (FlutterView view in reassembleViews) {
-          await view.uiIsolate.reload();
-          final ServiceEvent pauseEvent = view.uiIsolate.pauseEvent;
-          if (pauseEvent != null && pauseEvent.isPauseEvent) {
-            postReloadPausedIsolatesFound += 1;
-            if (serviceEventKind == null) {
-              serviceEventKind = pauseEvent.kind;
-            } else if (serviceEventKind != pauseEvent.kind) {
-              serviceEventKind = ''; // many kinds
-            }
-          }
-        }
-        printTrace('Found $postReloadPausedIsolatesFound newly paused isolate(s).');
-        if (postReloadPausedIsolatesFound == 0) {
-          await reassembleFuture; // must just be taking a long time... keep waiting!
-          return;
-        }
-        shouldReportReloadTime = false;
-        if (onSlow != null)
-          onSlow('${_describePausedIsolates(postReloadPausedIsolatesFound, serviceEventKind)}.');
-      },
-    );
+    //final List<FlutterView> reassembleViews = <FlutterView>[];
+    // String serviceEventKind;
+    // int pausedIsolatesFound = 0;
+    // for (FlutterDevice device in flutterDevices) {
+    //   for (FlutterView view in device.views) {
+    //     // Check if the isolate is paused, and if so, don't reassemble. Ignore the
+    //     // PostPauseEvent event - the client requesting the pause will resume the app.
+    //     final ServiceEvent pauseEvent = view.uiIsolate.pauseEvent;
+    //     if (pauseEvent != null && pauseEvent.isPauseEvent && pauseEvent.kind != ServiceEvent.kPausePostRequest) {
+    //       pausedIsolatesFound += 1;
+    //       if (serviceEventKind == null) {
+    //         serviceEventKind = pauseEvent.kind;
+    //       } else if (serviceEventKind != pauseEvent.kind) {
+    //         serviceEventKind = ''; // many kinds
+    //       }
+    //     } else {
+    //       reassembleViews.add(view);
+    //     }
+    //   }
+    // }
+    // if (pausedIsolatesFound > 0) {
+    //   if (onSlow != null)
+    //     onSlow('${_describePausedIsolates(pausedIsolatesFound, serviceEventKind)}; interface might not update.');
+    //   if (reassembleViews.isEmpty) {
+    //     printTrace('Skipping reassemble because all isolates are paused.');
+    //     return OperationResult(OperationResult.ok.code, reloadMessage);
+    //   }
+    // }
+    //printTrace('Evicting dirty assets');
+    //await _evictDirtyAssets();
+    // assert(reassembleViews.isNotEmpty);
+    // printTrace('Reassembling application');
+    // bool failedReassemble = false;
+    // final List<Future<void>> futures = <Future<void>>[];
+    // for (FlutterView view in reassembleViews) {
+    //   futures.add(() async {
+    //     try {
+    //       await view.uiIsolate.flutterReassemble();
+    //     } catch (error) {
+    //       failedReassemble = true;
+    //       printError('Reassembling ${view.uiIsolate.name} failed: $error');
+    //       return;
+    //     }
+    //   }());
+    // }
+    // final Future<void> reassembleFuture = Future.wait<void>(futures).then<void>((List<void> values) { });
+    // await reassembleFuture.timeout(
+    //   const Duration(seconds: 2),
+    //   onTimeout: () async {
+    //     if (pausedIsolatesFound > 0) {
+    //       shouldReportReloadTime = false;
+    //       return; // probably no point waiting, they're probably deadlocked and we've already warned.
+    //     }
+    //     // Check if any isolate is newly paused.
+    //     printTrace('This is taking a long time; will now check for paused isolates.');
+    //     int postReloadPausedIsolatesFound = 0;
+    //     String serviceEventKind;
+    //     for (FlutterView view in reassembleViews) {
+    //       await view.uiIsolate.reload();
+    //       final ServiceEvent pauseEvent = view.uiIsolate.pauseEvent;
+    //       if (pauseEvent != null && pauseEvent.isPauseEvent) {
+    //         postReloadPausedIsolatesFound += 1;
+    //         if (serviceEventKind == null) {
+    //           serviceEventKind = pauseEvent.kind;
+    //         } else if (serviceEventKind != pauseEvent.kind) {
+    //           serviceEventKind = ''; // many kinds
+    //         }
+    //       }
+    //     }
+    //     printTrace('Found $postReloadPausedIsolatesFound newly paused isolate(s).');
+    //     if (postReloadPausedIsolatesFound == 0) {
+    //       await reassembleFuture; // must just be taking a long time... keep waiting!
+    //       return;
+    //     }
+    //     shouldReportReloadTime = false;
+    //     if (onSlow != null)
+    //       onSlow('${_describePausedIsolates(postReloadPausedIsolatesFound, serviceEventKind)}.');
+    //   },
+    // );
     // Record time it took for Flutter to reassemble the application.
-    _addBenchmarkData('hotReloadFlutterReassembleMilliseconds', reassembleTimer.elapsed.inMilliseconds);
+    //_addBenchmarkData('hotReloadFlutterReassembleMilliseconds', reassembleTimer.elapsed.inMilliseconds);
 
-    reloadTimer.stop();
+    //reloadTimer.stop();
     final Duration reloadDuration = reloadTimer.elapsed;
     final int reloadInMs = reloadDuration.inMilliseconds;
 
@@ -895,12 +896,12 @@ class HotRunner extends ResidentRunner {
       _addBenchmarkData('hotReloadMillisecondsToFrame', reloadInMs);
     }
     // Only report timings if we reloaded a single view without any errors.
-    if ((reassembleViews.length == 1) && !failedReassemble && shouldReportReloadTime)
-      flutterUsage.sendTiming('hot', 'reload', reloadDuration);
-    return OperationResult(
-      failedReassemble ? 1 : OperationResult.ok.code,
-      reloadMessage,
-    );
+    // if ((reassembleViews.length == 1) && !failedReassemble && shouldReportReloadTime)
+    //   flutterUsage.sendTiming('hot', 'reload', reloadDuration);
+    // return OperationResult(
+    //   failedReassemble ? 1 : OperationResult.ok.code,
+    //   reloadMessage,
+    // );
   }
 
   String _describePausedIsolates(int pausedIsolatesFound, String serviceEventKind) {

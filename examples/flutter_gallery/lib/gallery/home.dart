@@ -323,6 +323,8 @@ class _GalleryHomeState extends State<GalleryHome> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
+    // HACK
+    WidgetsBinding.instance.hackGrabElement = (context as StatefulElement);
     final ThemeData theme = Theme.of(context);
     final bool isDark = theme.brightness == Brightness.dark;
     final MediaQueryData media = MediaQuery.of(context);
@@ -363,7 +365,7 @@ class _GalleryHomeState extends State<GalleryHome> with SingleTickerProviderStat
             frontTitle: AnimatedSwitcher(
               duration: _kFrontLayerSwitchDuration,
               child: _category == null
-                ? const Text('Flutter gallery')
+                ? const Text('Clutter gallery')
                 : Text(_category.name),
             ),
             frontHeading: widget.testMode ? null : Container(height: 24.0),

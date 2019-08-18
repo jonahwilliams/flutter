@@ -221,6 +221,7 @@ class ServiceProtocolDevFSOperations implements DevFSOperations {
   @override
   Future<Uri> create(String fsName) async {
     final Map<String, dynamic> response = await vmService.vm.createDevFS(fsName);
+    print(response['uri']);
     return Uri.parse(response['uri']);
   }
 

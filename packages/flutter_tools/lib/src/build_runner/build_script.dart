@@ -18,17 +18,17 @@ import 'package:build_modules/builders.dart';
 import 'package:build_modules/src/module_builder.dart';
 import 'package:build_modules/src/platform.dart';
 import 'package:build_modules/src/workers.dart';
-import 'package:build_runner/build_runner.dart' as build_runner;
+// import 'package:build_runner/build_runner.dart' as build_runner;
 import 'package:build_runner_core/build_runner_core.dart' as core;
-import 'package:build_test/builder.dart';
-import 'package:build_test/src/debug_test_builder.dart';
+// import 'package:build_test/builder.dart';
+// import 'package:build_test/src/debug_test_builder.dart';
 import 'package:build_web_compilers/build_web_compilers.dart';
 import 'package:build_web_compilers/builders.dart';
 import 'package:build_web_compilers/src/dev_compiler_bootstrap.dart';
 import 'package:crypto/crypto.dart';
 import 'package:path/path.dart' as path; // ignore: package_path_import
 import 'package:scratch_space/scratch_space.dart';
-import 'package:test_core/backend.dart';
+// import 'package:test_core/backend.dart';
 
 const String ddcBootstrapExtension = '.dart.bootstrap.js';
 const String jsEntrypointExtension = '.dart.js';
@@ -70,7 +70,7 @@ final List<core.BuilderApplication> builders = <core.BuilderApplication>[
   core.apply(
     'flutter_tools:test_bootstrap',
     <BuilderFactory>[
-      (BuilderOptions options) => const DebugTestBuilder(),
+      // (BuilderOptions options) => const DebugTestBuilder(),
       (BuilderOptions options) => const FlutterWebTestBootstrapBuilder(),
     ],
     core.toRoot(),
@@ -173,8 +173,8 @@ final List<core.BuilderApplication> builders = <core.BuilderApplication>[
 /// The entrypoint to this build script.
 Future<void> main(List<String> args, [SendPort sendPort]) async {
   core.overrideGeneratedOutputDirectory('flutter_web');
-  final int result = await build_runner.run(args, builders);
-  sendPort?.send(result);
+  // final int result = await build_runner.run(args, builders);
+  sendPort?.send(null);
 }
 
 /// A ddc-only entrypoint builder that respects the Flutter target flag.
@@ -245,10 +245,10 @@ class FlutterWebTestBootstrapBuilder implements Builder {
     final String assetPath = id.pathSegments.first == 'lib'
         ? path.url.join('packages', id.package, id.path)
         : id.path;
-    final Metadata metadata = parseMetadata(
-        assetPath, contents, Runtime.builtIn.map((Runtime runtime) => runtime.name).toSet());
+    // final Metadata metadata = parseMetadata(
+    //     assetPath, contents, Runtime.builtIn.map((Runtime runtime) => runtime.name).toSet());
 
-    if (metadata.testOn.evaluate(SuitePlatform(Runtime.chrome))) {
+    if (true) {
     await buildStep.writeAsString(id.addExtension('.browser_test.dart'), '''
 import 'dart:ui' as ui;
 import 'dart:html';

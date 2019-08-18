@@ -39,6 +39,7 @@ import 'src/commands/precache.dart';
 import 'src/commands/run.dart';
 import 'src/commands/screenshot.dart';
 import 'src/commands/shell_completion.dart';
+import 'src/commands/spicy_reload.dart';
 import 'src/commands/test.dart';
 import 'src/commands/train.dart';
 import 'src/commands/unpack.dart';
@@ -94,6 +95,7 @@ Future<void> main(List<String> args) async {
     UpdatePackagesCommand(hidden: !verboseHelp),
     UpgradeCommand(),
     VersionCommand(),
+    SpicyReloadCommand(),
   ], verbose: verbose,
      muteCommandLogging: muteCommandLogging,
      verboseHelp: verboseHelp,

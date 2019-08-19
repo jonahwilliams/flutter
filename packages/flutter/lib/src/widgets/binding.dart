@@ -801,8 +801,14 @@ mixin WidgetsBinding on BindingBase, SchedulerBinding, GestureBinding, RendererB
   /// is called in the context of a [TestWidgetsFlutterBinding]).
   bool get isRootWidgetAttached => _renderViewElement != null;
 
+  Element hackElement;
+
   @override
   Future<void> performReassemble() {
+    if (hackElement != null) {
+      hackElement.markNeedsBuild();
+      return Future.value();
+    }
     assert(() {
       WidgetInspectorService.instance.performReassemble();
       return true;

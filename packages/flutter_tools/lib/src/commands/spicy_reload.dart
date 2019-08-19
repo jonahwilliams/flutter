@@ -4,9 +4,10 @@
 
 // ignore_for_file: implementation_imports
 import 'dart:async';
-import 'dart:developer';
 import 'dart:io';
+import 'dart:math';
 
+import 'package:flutter_tools/src/base/common.dart';
 import 'package:flutter_tools/src/build_info.dart';
 import 'package:flutter_tools/src/dart/package_map.dart';
 import 'package:front_end/src/api_prototype/compiler_options.dart'
@@ -35,14 +36,15 @@ import '../convert.dart';
 import '../globals.dart';
 import '../runner/flutter_command.dart';
 import '../vmservice.dart';
-
-const String spicyReload = 'spicy_reload';
+int color = 0xFFAA0F00;
+const String spicyReload = 'hello_world';
 
 class SpicyReloadCommand extends FlutterCommand {
   SpicyReloadCommand() {
     this.argParser.addOption('invalidated');
     this.argParser.addOption('vmservice');
     this.argParser.addOption('target');
+    this.argParser.addOption('class');
   }
 
   @override
@@ -53,13 +55,13 @@ class SpicyReloadCommand extends FlutterCommand {
 
   final Completer<void> done = Completer<void>();
   Uri mainUri;
-  Uri fileUri;
   Uri deviceUri;
+  String className;
   VMService vmService;
   HttpClient httpClient;
   FrontendCompiler frontendCompiler;
   FlutterView flutterView;
-  Component component;
+  Component partialComponent;
 
   Future<void> _reloadSourcesService(
     String isolateId, {
@@ -70,10 +72,10 @@ class SpicyReloadCommand extends FlutterCommand {
   @override
   Future<FlutterCommandResult> runCommand() async {
     // Initialize arguments.
-    final String target = argResults['target'];
+    final String target = 'package:hello_world/main.dart';
     final Uri observatoryUri = Uri.parse(argResults['vmservice']);
-    mainUri = File(target).absolute.uri;
-    fileUri = File(argResults['invalidated']).absolute.uri;
+    className = argResults['class'];
+    mainUri = Uri.parse(target);
     // Connect to vm service.
     vmService = await VMService.connect(observatoryUri,
         reloadSources: _reloadSourcesService);
@@ -86,7 +88,7 @@ class SpicyReloadCommand extends FlutterCommand {
 
     // Create in memory kernel compiler.
     frontendCompiler = FrontendCompiler();
-    component = await frontendCompiler.compile(
+    await frontendCompiler.compile(
       mainUri,
       packagesUri: File(PackageMap.globalPackagesPath).absolute.uri,
       sdkRoot: File(artifacts.getArtifactPath(Artifact.flutterPatchedSdkPath,
@@ -95,6 +97,7 @@ class SpicyReloadCommand extends FlutterCommand {
           .absolute
           .uri,
     );
+    frontendCompiler.acceptLastDelta();
 
     // Initialize dev_fs.
     Map<String, Object> response;
@@ -105,78 +108,78 @@ class SpicyReloadCommand extends FlutterCommand {
       response = await vmService.vm.createDevFS(spicyReload);
     }
     deviceUri = Uri.parse(response['uri']);
-    print('Ready...');
-    terminal.singleCharMode = true;
-    terminal.keystrokes.listen(processTerminalInput);
-    await done.future;
-    return null;
+    print('Starting spicy reload on $mainUri and $className...');
+    while (true) {
+      await processTerminalInput();
+    }
   }
 
-  Future<void> processTerminalInput(String code) async {
-    final TimelineTask task = TimelineTask();
-    if (code == 'Q' || code == 'q') {
-      done.complete();
-    }
-    if (code != 'r') {
-      return;
-    }
+  Future<void> processTerminalInput() async {
+    print('>>>>>>>>>>');
+    final Stopwatch total = Stopwatch()..start();
     final Stopwatch stopwatch = Stopwatch()..start();
+    final String newString = String.fromCharCode(Random().nextInt(225) + 25);
+
     // Recompille kernel.
-    task.start('invalidate');
     final StringSmasher smasher =
-        StringSmasher(fileUri, '_GalleryHomeState', 'build');
-    component.transformChildren(smasher);
-    final Component partialComponent = Component(libraries: <Library>[
-      if (smasher.currentLibrary != null) smasher.currentLibrary
-    ]);
+        StringSmasher(File('lib/main.dart').absolute.uri, className, 'build', newString);
+    if (partialComponent == null) {
+      frontendCompiler.invalidate(Uri.base.resolveUri(mainUri));
+      partialComponent = await frontendCompiler.recompileDelta();
+      partialComponent.libraries.sort((Library l1, Library l2) {
+        return '${l1.fileUri}'.compareTo('${l2.fileUri}');
+      });
+      partialComponent.computeCanonicalNames();
+      for (Library library in partialComponent.libraries) {
+        library.additionalExports.sort((Reference r1, Reference r2) {
+          return '${r1.canonicalName}'.compareTo('${r2.canonicalName}');
+        });
+      }
+      partialComponent.transformChildren(smasher);
+      frontendCompiler.acceptLastDelta();
+    } else {
+      partialComponent.transformChildren(smasher);
+    }
     print('mutate took ${stopwatch.elapsedMilliseconds}');
     stopwatch..reset();
 
     final IOSink sink = File('app.incremental.dill').openWrite();
     final BinaryPrinter printer = BinaryPrinterFactory().newBinaryPrinter(sink);
-    partialComponent.libraries.sort((Library l1, Library l2) {
-      return '${l1.fileUri}'.compareTo('${l2.fileUri}');
-    });
-    partialComponent.computeCanonicalNames();
-    for (Library library in partialComponent.libraries) {
-      library.additionalExports.sort((Reference r1, Reference r2) {
-        return '${r1.canonicalName}'.compareTo('${r2.canonicalName}');
-      });
-    }
     printer.writeComponentFile(partialComponent);
     await sink.close();
 
     // Send dill to device.
-    task.start('encode');
-    final HttpClientRequest request =
-        await httpClient.putUrl(vmService.httpAddress);
-    request.headers.removeAll(HttpHeaders.acceptEncodingHeader);
-    request.headers.add('dev_fs_name', spicyReload);
-    request.headers
-        .add('dev_fs_uri_b64', base64.encode(utf8.encode('$deviceUri')));
-    request.add(gzip.encode(File('app.incremental.dill').readAsBytesSync()));
-    final HttpClientResponse response = await request.close();
-    await response.drain<void>();
+    try {
+      final HttpClientRequest request =
+          await httpClient.putUrl(vmService.httpAddress);
+      request.headers.removeAll(HttpHeaders.acceptEncodingHeader);
+      request.headers.add('dev_fs_name', spicyReload);
+      request.headers
+          .add('dev_fs_uri_b64', base64.encode(utf8.encode('${deviceUri}lib/main.dart.incremental.dill')));
+
+      request.add(gzip.encode(File('app.incremental.dill').readAsBytesSync()));
+      await request.close();
+    } catch (err) {
+      print('DONE!');
+      throwToolExit('EXIT');
+    }
     print('send took ${stopwatch.elapsedMilliseconds}');
     stopwatch..reset();
-    task.finish();
 
     // Tell vmservice to reload and then reassemble.
-    task.start('reload');
-    final Object result = await flutterView.uiIsolate.reloadSources(
+    await flutterView.uiIsolate.reloadSources(
       pause: false,
       rootLibUri: Uri.parse('${deviceUri}lib/main.dart.incremental.dill'),
       packagesUri: Uri.parse('$deviceUri.packages'),
     );
-    print(result);
-    task.finish();
-
-    task.start('reassemble');
-    final Object result2 = await flutterView.uiIsolate.flutterReassemble();
-    print(result2);
-    task.finish();
+    print('reloadSources took ${stopwatch.elapsedMilliseconds}');
+    stopwatch..reset();
+    await flutterView.uiIsolate.flutterReassemble();
 
     print('reassemble took ${stopwatch.elapsedMilliseconds}');
+    print('!!!!!!!');
+    print('TOTAL: ${total.elapsedMilliseconds}');
+    print('!!!!!!!');
   }
 }
 
@@ -230,6 +233,9 @@ class FrontendCompiler {
     _compilerOptions = compilerOptions;
     setVMEnvironmentDefines(environmentDefines, _compilerOptions);
     _compilerOptions.omitPlatform = false;
+    _compilerOptions.onDiagnostic = (DiagnosticMessage message) {
+      print(message.plainTextFormatted);
+    };
     _generator = generator ?? _createGenerator();
     final Component component =
         await _generator.compile(entryPoint: _mainSource);
@@ -263,39 +269,11 @@ class FrontendCompiler {
     await sink.close();
   }
 
-  Future<void> recompileDelta() async {
+  Future<Component> recompileDelta() async {
     errors.clear();
     final Component deltaProgram =
         await _generator.compile(entryPoint: _mainSource);
-
-    if (deltaProgram != null && transformer != null) {
-      transformer.transform(deltaProgram);
-    }
-    await writeDillFile(deltaProgram, _kernelBinaryFilename);
-    _kernelBinaryFilename = _kernelBinaryFilenameIncremental;
-  }
-
-  Future<void> compileExpression(
-      String expression,
-      List<String> definitions,
-      List<String> typeDefinitions,
-      String libraryUri,
-      String klass,
-      bool isStatic) async {
-    final Procedure procedure = await _generator.compileExpression(
-        expression, definitions, typeDefinitions, libraryUri, klass, isStatic);
-    if (procedure != null) {
-      final Component component =
-          createExpressionEvaluationComponent(procedure);
-      final IOSink sink = File(_kernelBinaryFilename).openWrite();
-      sink.add(serializeComponent(component));
-      await sink.close();
-      _kernelBinaryFilename = _kernelBinaryFilenameIncremental;
-    }
-  }
-
-  void reportError(String msg) {
-    printError(msg);
+    return deltaProgram;
   }
 
   void acceptLastDelta() {
@@ -332,18 +310,17 @@ class FlutterVisitor extends RecursiveVisitor<dynamic> {
 }
 
 class StringSmasher extends Transformer {
-  StringSmasher(this.fileUri, this.dartClass, this.dartMethod);
+  StringSmasher(this.fileUri, this.dartClass, this.dartMethod, this.newString);
 
-  Library currentLibrary;
   final Uri fileUri;
   final String dartClass;
   final String dartMethod;
+  final String newString;
 
   @override
   Library visitLibrary(Library node) {
     if (node.fileUri.toString() == fileUri.toString()) {
-      currentLibrary = node;
-      return node.transformChildren(this);
+      node.transformChildren(this);
     }
     return node;
   }
@@ -351,7 +328,7 @@ class StringSmasher extends Transformer {
   @override
   Procedure visitProcedure(Procedure node) {
     if (node.name.name == dartMethod) {
-      return node.transformChildren(this);
+      node.transformChildren(this);
     }
     return node;
   }
@@ -359,7 +336,7 @@ class StringSmasher extends Transformer {
   @override
   Class visitClass(Class node) {
     if (node.name == dartClass) {
-      return node.transformChildren(this);
+      node.transformChildren(this);
     }
     return node;
   }
@@ -369,16 +346,22 @@ class StringSmasher extends Transformer {
     node.transformChildren(this);
     final Constructor constructor = node.target;
     final Class constructedClass = constructor.enclosingClass;
-    if (constructedClass.name == 'Text') {
-      print('CHANGE TEXT VALUE');
-      _changeTextValue(node, constructor.function, constructedClass);
+    if (constructedClass.name == 'Color') {
+      changeColorValue(node, constructor.function, constructedClass);
     }
     return node;
   }
 
+  void changeColorValue(InvocationExpression node, FunctionNode function,
+      Class constructedClass) {
+        color += 4;
+        print('changing color to $color');
+      node.arguments.positional[0] = IntConstant(color).asExpression();
+    }
+
   void _changeTextValue(InvocationExpression node, FunctionNode function,
       Class constructedClass) {
     node.arguments.positional[0] =
-        StringConstant('DO YOU BELIEVE IN MAGIC').asExpression();
+        StringConstant(newString).asExpression();
   }
 }

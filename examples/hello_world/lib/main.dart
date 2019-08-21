@@ -4,4 +4,8 @@
 
 import 'package:flutter/widgets.dart';
 
-void main() => runApp(const Center(child: Text('Hello, world!', textDirection: TextDirection.ltr)));
+import 'a.dart'
+  if (dart.library.io) 'b.dart'
+  if (dart.library.html) 'c.dart';
+
+void main() => runApp(Center(child: Text(value, textDirection: TextDirection.ltr)));

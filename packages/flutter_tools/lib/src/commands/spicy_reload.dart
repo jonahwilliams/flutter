@@ -114,6 +114,8 @@ class SpicyReloadCommand extends FlutterCommand {
     }
   }
 
+  Future<void> latch = Future.value();
+
   Future<void> processTerminalInput() async {
     print('>>>>>>>>>>');
     final Stopwatch total = Stopwatch()..start();
@@ -160,11 +162,13 @@ class SpicyReloadCommand extends FlutterCommand {
       request.add(gzip.encode(File('app.incremental.dill').readAsBytesSync()));
       await request.close();
     } catch (err) {
-      print('DONE!');
       throwToolExit('EXIT');
     }
     print('send took ${stopwatch.elapsedMilliseconds}');
     stopwatch..reset();
+
+    // await previous frame.
+    await latch;
 
     // Tell vmservice to reload and then reassemble.
     await flutterView.uiIsolate.reloadSources(
@@ -174,12 +178,12 @@ class SpicyReloadCommand extends FlutterCommand {
     );
     print('reloadSources took ${stopwatch.elapsedMilliseconds}');
     stopwatch..reset();
-    await flutterView.uiIsolate.flutterReassemble();
-
-    print('reassemble took ${stopwatch.elapsedMilliseconds}');
-    print('!!!!!!!');
     print('TOTAL: ${total.elapsedMilliseconds}');
-    print('!!!!!!!');
+    final Completer<void> completer = Completer();
+    latch = completer.future;
+    unawaited(flutterView.uiIsolate.flutterReassemble().then((_) {
+      completer.complete();
+    }));
   }
 }
 

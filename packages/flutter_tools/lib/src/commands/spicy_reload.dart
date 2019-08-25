@@ -36,7 +36,7 @@ import '../convert.dart';
 import '../globals.dart';
 import '../runner/flutter_command.dart';
 import '../vmservice.dart';
-int color = 0xFFAA0F00;
+double angle = 0;
 const String spicyReload = 'hello_world';
 
 class SpicyReloadCommand extends FlutterCommand {
@@ -350,17 +350,19 @@ class StringSmasher extends Transformer {
     node.transformChildren(this);
     final Constructor constructor = node.target;
     final Class constructedClass = constructor.enclosingClass;
-    if (constructedClass.name == 'Color') {
-      changeColorValue(node, constructor.function, constructedClass);
+    if (constructedClass.name == 'Transform') {
+      changeAngleValue(node, constructor.function, constructedClass);
     }
     return node;
   }
 
-  void changeColorValue(InvocationExpression node, FunctionNode function,
+  void changeAngleValue(InvocationExpression node, FunctionNode function,
       Class constructedClass) {
-        color += 4;
-        print('changing color to $color');
-      node.arguments.positional[0] = IntConstant(color).asExpression();
+        angle += 2 * 3.14 / 36 ;
+      final int index = node.arguments.named.indexWhere((NamedExpression expr) {
+        return expr.name == 'angle';
+      });
+      node.arguments.named[index] = NamedExpression('angle', DoubleConstant(angle).asExpression());
     }
 
   void _changeTextValue(InvocationExpression node, FunctionNode function,

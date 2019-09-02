@@ -15,9 +15,11 @@ import '../base/platform.dart';
 import '../cache.dart';
 import '../convert.dart';
 import '../globals.dart';
+import 'action_registry.dart';
 import 'exceptions.dart';
 import 'file_hash_store.dart';
 import 'source.dart';
+import 'targets/build_actions.dart';
 
 export 'source.dart';
 
@@ -31,6 +33,163 @@ class BuildSystemConfig {
   /// If not provided, defaults to [platform.numberOfProcessors].
   final int resourcePoolSize;
 }
+
+/// A node represents a single step during a flutter build.
+class Node {
+  const Node(this.name, this._buildAction, this.inputs, this.outputs, this.dependencies);
+
+  final String name;
+  final List<File> inputs;
+  final List<File> outputs;
+  final List<Node> dependencies;
+  final BuildAction _buildAction;
+
+  FutureOr<void> buildAction(Environment environment) async {
+    return _buildAction(environment);
+  }
+
+  /// Collect hashes for all inputs to determine if any have changed.
+  ///
+  /// Returns whether this target can be skipped.
+  Future<_ChangeResult> _computeChanges(
+    List<File> inputs,
+    Environment environment,
+    FileHashStore fileHashStore,
+  ) async {
+    final File stamp = _findStampFile(environment);
+    final Set<String> previousInputs = <String>{};
+    final List<String> previousOutputs = <String>[];
+    bool canSkip = true;
+
+    // If the stamp file doesn't exist, we haven't run this step before and
+    // all inputs were added.
+    if (stamp.existsSync()) {
+      final String content = stamp.readAsStringSync();
+      // Something went wrong writing the stamp file.
+      if (content == null || content.isEmpty) {
+        stamp.deleteSync();
+        // Malformed stamp file, not safe to skip.
+        canSkip = false;
+      } else {
+        final Map<String, Object> values = json.decode(content);
+        final List<Object> inputs = values['inputs'];
+        final List<Object> outputs = values['outputs'];
+        inputs.cast<String>().forEach(previousInputs.add);
+        outputs.cast<String>().forEach(previousOutputs.add);
+      }
+    } else {
+      // No stamp file, not safe to skip.
+      canSkip = false;
+    }
+
+    // Check for removed output files.
+    final Set<String> outputPaths = <String>{
+      for (File file in outputs) file.path,
+    };
+    for (String previousOutput in previousOutputs) {
+      if (!outputPaths.contains(previousOutput)) {
+        // Set of output files changed.
+        canSkip = false;
+      }
+    }
+
+    // For each input, first determine if we've already computed the hash
+    // for it. Then collect it to be sent off for hashing as a group.
+    final List<File> sourcesToHash = <File>[];
+    final List<File> missingInputs = <File>[];
+    for (File file in inputs) {
+      if (!file.existsSync()) {
+        missingInputs.add(file);
+        continue;
+      }
+
+      final String absolutePath = file.path;
+      final String previousHash = fileHashStore.previousHashes[absolutePath];
+      if (fileHashStore.currentHashes.containsKey(absolutePath)) {
+        final String currentHash = fileHashStore.currentHashes[absolutePath];
+        if (currentHash != previousHash) {
+          canSkip = false;
+        }
+      } else {
+        sourcesToHash.add(file);
+      }
+    }
+
+    // For each output, first determine if we've already computed the hash
+    // for it. Then collect it to be sent off for hashing as a group.
+    for (String previousOutput in previousOutputs) {
+      final File file = fs.file(previousOutput);
+      if (!file.existsSync()) {
+        canSkip = false;
+        continue;
+      }
+      final String absolutePath = file.path;
+      final String previousHash = fileHashStore.previousHashes[absolutePath];
+      if (fileHashStore.currentHashes.containsKey(absolutePath)) {
+        final String currentHash = fileHashStore.currentHashes[absolutePath];
+        if (currentHash != previousHash) {
+          canSkip = false;
+        }
+      } else {
+        sourcesToHash.add(file);
+      }
+    }
+
+    // If we depend on a file that doesnt exist on disk, kill the build.
+    if (missingInputs.isNotEmpty) {
+      throw MissingInputException(missingInputs, name);
+    }
+
+    // If we have files to hash, compute them asynchronously and then
+    // update the result.
+    if (sourcesToHash.isNotEmpty) {
+      final List<File> dirty = await fileHashStore.hashFiles(sourcesToHash);
+      if (dirty.isNotEmpty) {
+        canSkip = false;
+      }
+    }
+    return _ChangeResult(previousOutputs, canSkip);
+  }
+
+  /// Invoke to remove the stamp file if the [buildAction] threw an exception;
+  void clearStamp(Environment environment) {
+    final File stamp = _findStampFile(environment);
+    if (stamp.existsSync()) {
+      stamp.deleteSync();
+    }
+  }
+
+  /// Locate the stamp file for a particular target name and environment.
+  File _findStampFile(Environment environment) {
+    final String fileName = '$name.stamp';
+    return environment.buildDir.childFile(fileName);
+  }
+}
+
+class CopyNode implements Node {
+  CopyNode(this.name, this.inputs, this.outputs, this.dependencies);
+
+  @override
+  final String name;
+
+  @override
+  final List<File> inputs;
+
+  @override
+  final List<File> outputs;
+
+  @override
+  final List<Node> dependencies;
+
+  @override
+  final BuildAction _buildAction = null;
+
+  @override
+  FutureOr<void> buildAction(Environment environment) async {
+    await copy(environment, inputs, outputs);
+  }
+}
+
 
 /// A Target describes a single step during a flutter build.
 ///
@@ -113,7 +272,7 @@ abstract class Target {
   List<Source> get outputs;
 
   /// The action which performs this build step.
-  Future<void> build(List<File> inputFiles, Environment environment);
+  FutureOr<void> build(Environment environment);
 
   /// Collect hashes for all inputs to determine if any have changed.
   ///
@@ -163,7 +322,7 @@ abstract class Target {
         continue;
       }
 
-      final String absolutePath = file.resolveSymbolicLinksSync();
+      final String absolutePath = file.path;
       final String previousHash = fileHashStore.previousHashes[absolutePath];
       if (fileHashStore.currentHashes.containsKey(absolutePath)) {
         final String currentHash = fileHashStore.currentHashes[absolutePath];
@@ -183,7 +342,7 @@ abstract class Target {
         canSkip = false;
         continue;
       }
-      final String absolutePath = file.resolveSymbolicLinksSync();
+      final String absolutePath = file.path;
       final String previousHash = fileHashStore.previousHashes[absolutePath];
       if (fileHashStore.currentHashes.containsKey(absolutePath)) {
         final String currentHash = fileHashStore.currentHashes[absolutePath];
@@ -227,11 +386,11 @@ abstract class Target {
     final File stamp = _findStampFile(environment);
     final List<String> inputPaths = <String>[];
     for (File input in inputs) {
-      inputPaths.add(input.resolveSymbolicLinksSync());
+      inputPaths.add(input.path);
     }
     final List<String> outputPaths = <String>[];
     for (File output in outputs) {
-      outputPaths.add(output.resolveSymbolicLinksSync());
+      outputPaths.add(output.path);
     }
     final Map<String, Object> result = <String, Object>{
       'inputs': inputPaths,
@@ -283,7 +442,7 @@ abstract class Target {
       'name': name,
       'dependencies': dependencies.map((Target target) => target.name).toList(),
       'inputs': resolveInputs(environment)
-          .map((File file) => file.resolveSymbolicLinksSync())
+          .map((File file) => file.path)
           .toList(),
       'outputs': resolveOutputs(environment, implicit: false)
           .map((File file) => file.path)
@@ -356,6 +515,7 @@ class Environment {
     @required Directory outputDir,
     Directory buildDir,
     Map<String, String> defines = const <String, String>{},
+    Map<String, Object> dynamicValues = const <String, String>{},
   }) {
     // Compute a unique hash of this build's particular environment.
     // Sort the keys by key so that the result is stable. We always
@@ -383,6 +543,7 @@ class Environment {
       cacheDir: Cache.instance.getRoot(),
       defines: defines,
       flutterRootDir: fs.directory(Cache.flutterRoot),
+      dynamicValues: dynamicValues,
     );
   }
 
@@ -394,6 +555,7 @@ class Environment {
     @required this.cacheDir,
     @required this.defines,
     @required this.flutterRootDir,
+    @required this.dynamicValues,
   });
 
   /// The [Source] value which is substituted with the path to [projectDir].
@@ -447,6 +609,12 @@ class Environment {
 
   /// The root build directory shared by all builds.
   final Directory rootBuildDir;
+
+  /// Dynamic values the are passed to the rule.
+  ///
+  /// Unlike defines, these are not project level configurations and do not induce
+  /// a new build directory when used.
+  Map<String, Object> dynamicValues;
 }
 
 /// The result information from the build system.
@@ -471,6 +639,57 @@ class BuildResult {
 /// The build system is responsible for invoking and ordering [Target]s.
 class BuildSystem {
   const BuildSystem();
+
+  /// Build `node` and all of its dependencies.
+  Future<BuildResult> build2(
+    Node node,
+    Environment environment,
+    { BuildSystemConfig buildSystemConfig = const BuildSystemConfig() }
+  ) async {
+    environment.buildDir.createSync(recursive: true);
+    environment.outputDir.createSync(recursive: true);
+
+    // Load file hash store from previous builds.
+    final FileHashStore fileCache = FileHashStore(environment)
+      ..initialize();
+
+    final _BuildInstance buildInstance = _BuildInstance(environment, fileCache, buildSystemConfig);
+    bool passed = true;
+    try {
+      passed = await buildInstance.invokeNode(node);
+    } finally {
+      // Always persist the file cache to disk.
+      fileCache.persist();
+    }
+    // TODO(jonahwilliams): this is a bit of a hack, due to various parts of
+    // the flutter tool writing these files unconditionally. Since Xcode uses
+    // timestamps to track files, this leads to unnecessary rebuilds if they
+    // are included. Once all the places that write these files have been
+    // tracked down and moved into assemble, these checks should be removable.
+    // We also remove files under .dart_tool, since these are intermediaries
+    // and don't need to be tracked by external systems.
+    {
+      buildInstance.inputFiles.removeWhere((String path, File file) {
+        return path.contains('.flutter-plugins') ||
+                       path.contains('xcconfig') ||
+                     path.contains('.dart_tool');
+      });
+      buildInstance.outputFiles.removeWhere((String path, File file) {
+        return path.contains('.flutter-plugins') ||
+                       path.contains('xcconfig') ||
+                     path.contains('.dart_tool');
+      });
+    }
+    return BuildResult(
+      success: passed,
+      exceptions: buildInstance.exceptionMeasurements,
+      performance: buildInstance.stepTimings,
+      inputFiles: buildInstance.inputFiles.values.toList()
+          ..sort((File a, File b) => a.path.compareTo(b.path)),
+      outputFiles: buildInstance.outputFiles.values.toList()
+          ..sort((File a, File b) => a.path.compareTo(b.path)),
+    );
+  }
 
   /// Build `target` and all of its dependencies.
   Future<BuildResult> build(
@@ -547,6 +766,80 @@ class _BuildInstance {
   // Exceptions caught during the build process.
   final Map<String, ExceptionMeasurement> exceptionMeasurements = <String, ExceptionMeasurement>{};
 
+  Future<bool> invokeNode(Node node) async {
+    final List<bool> results = await Future.wait(node.dependencies.map(invokeNode));
+    if (results.any((bool result) => !result)) {
+      return false;
+    }
+    final AsyncMemoizer<bool> memoizer = pending[node.name] ??= AsyncMemoizer<bool>();
+    return memoizer.runOnce(() => _invokeNodeInternal(node));
+  }
+
+  Future<bool> _invokeNodeInternal(Node node) async {
+    final PoolResource resource = await resourcePool.request();
+    final Stopwatch stopwatch = Stopwatch()..start();
+    bool passed = true;
+    bool skipped = false;
+    try {
+      final List<File> inputs = node.inputs;
+      final _ChangeResult changeResult = await node._computeChanges(inputs, environment, fileCache);
+      for (File input in inputs) {
+        // The build system should produce a list of aggregate input and output
+        // files for the overall build. The goal is to provide this to a hosting
+        // build system, such as Xcode, to configure logic for when to skip the
+        // rule/phase which contains the flutter build. When looking at the
+        // inputs and outputs for the individual rules, we need to be careful to
+        // remove inputs that were actually output from previous build steps.
+        // This indicates that the file is actual an output or intermediary. If
+        // these files are included as both inputs and outputs then it isn't
+        // possible to construct a DAG describing the build.
+        final String resolvedPath = input.path;
+        if (outputFiles.containsKey(resolvedPath)) {
+          continue;
+        }
+        inputFiles[resolvedPath] = input;
+      }
+      if (changeResult.canSkip) {
+        skipped = true;
+        printStatus('Skipping target: ${node.name}');
+        final List<File> outputs = node.outputs;
+        for (File output in outputs) {
+          outputFiles[output.path] = output;
+        }
+      } else {
+        printStatus('${node.name}: Starting');
+        await node.build(environment);
+        printStatus('${node.name}: Complete');
+
+        final List<File> outputs = node.outputs;
+        // Update hashes for output files.
+        await fileCache.hashFiles(outputs);
+        node._writeStamp(inputs, outputs, environment);
+        for (File output in outputs) {
+          outputFiles[output.resolveSymbolicLinksSync()] = output;
+        }
+        // Delete outputs from previous stages that are no longer a part of the build.
+        for (String previousOutput in changeResult.previousOutputs) {
+          if (!outputFiles.containsKey(previousOutput)) {
+            fs.file(previousOutput).deleteSync();
+          }
+        }
+      }
+    } catch (exception, stackTrace) {
+      node.clearStamp(environment);
+      passed = false;
+      skipped = false;
+      exceptionMeasurements[node.name] = ExceptionMeasurement(
+          node.name, exception, stackTrace);
+    } finally {
+      resource.release();
+      stopwatch.stop();
+      stepTimings[node.name] = PerformanceMeasurement(
+          node.name, stopwatch.elapsedMilliseconds, skipped, passed);
+    }
+    return passed;
+  }
+
   Future<bool> invokeTarget(Target target) async {
     final List<bool> results = await Future.wait(target.dependencies.map(invokeTarget));
     if (results.any((bool result) => !result)) {
@@ -589,7 +882,7 @@ class _BuildInstance {
         }
       } else {
         printStatus('${target.name}: Starting');
-        await target.build(inputs, environment);
+        await target.build(environment);
         printStatus('${target.name}: Complete');
 
         final List<File> outputs = target.resolveOutputs(environment, implicit: true);

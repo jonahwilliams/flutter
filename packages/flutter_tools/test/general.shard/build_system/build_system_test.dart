@@ -40,7 +40,7 @@ void main() {
     when(mockPlatform.isWindows).thenReturn(false);
 
     /// Create various testing targets.
-    fooTarget = TestTarget((List<File> inputFiles, Environment environment) async {
+    fooTarget = TestTarget((Environment environment) async {
       environment
         .buildDir
         .childFile('out')
@@ -56,7 +56,7 @@ void main() {
         Source.pattern('{BUILD_DIR}/out'),
       ]
       ..dependencies = <Target>[];
-    barTarget = TestTarget((List<File> inputFiles, Environment environment) async {
+    barTarget = TestTarget((Environment environment) async {
       environment.buildDir
         .childFile('bar')
         ..createSync(recursive: true)
@@ -71,7 +71,7 @@ void main() {
         Source.pattern('{BUILD_DIR}/bar'),
       ]
       ..dependencies = <Target>[];
-    fizzTarget = TestTarget((List<File> inputFiles, Environment environment) async {
+    fizzTarget = TestTarget((Environment environment) async {
       throw Exception('something bad happens');
     })
       ..name = 'fizz'
@@ -82,7 +82,7 @@ void main() {
         Source.pattern('{BUILD_DIR}/fizz'),
       ]
       ..dependencies = <Target>[fooTarget];
-    sharedTarget = TestTarget((List<File> inputFiles, Environment environment) async {
+    sharedTarget = TestTarget((Environment environment) async {
       shared += 1;
     })
       ..name = 'shared'
@@ -116,7 +116,7 @@ void main() {
   }));
 
   test('Throws exception if it does not produce a specified output', () => testbed.run(() async {
-    final Target badTarget = TestTarget((List<File> inputFiles, Environment environment) async {})
+    final Target badTarget = TestTarget((Environment environment) async {})
       ..inputs = const <Source>[
         Source.pattern('{PROJECT_DIR}/foo.dart'),
       ]
@@ -219,7 +219,7 @@ void main() {
     // A concrete example of this failure is the requirement to update the contents
     // of the source file below. It should be expected that only changing the defined
     // output is sufficient to trigger a rerun.
-    final TestTarget testTarget = TestTarget((List<File> inputs, Environment envionment) async {
+    final TestTarget testTarget = TestTarget((Environment envionment) async {
       environment.buildDir.childFile('foo.out').createSync();
     })
       ..inputs = const <Source>[Source.pattern('{PROJECT_DIR}/foo.dart')]
@@ -231,7 +231,7 @@ void main() {
     expect(environment.buildDir.childFile('foo.out').existsSync(), true);
 
     fs.file('foo.dart').writeAsStringSync('abc');
-    final TestTarget testTarget2 = TestTarget((List<File> inputs, Environment envionment) async {
+    final TestTarget testTarget2 = TestTarget((Environment envionment) async {
       environment.buildDir.childFile('bar.out').createSync();
     })
       ..inputs = const <Source>[Source.pattern('{PROJECT_DIR}/foo.dart')]
@@ -283,10 +283,10 @@ T nonconst<T>(T input) => input;
 class TestTarget extends Target {
   TestTarget([this._build]);
 
-  final Future<void> Function(List<File> inputFiles, Environment environment) _build;
+  final Future<void> Function(Environment environment) _build;
 
   @override
-  Future<void> build(List<File> inputFiles, Environment environment) => _build(inputFiles, environment);
+  Future<void> build(Environment environment) => _build(environment);
 
   @override
   List<Target> dependencies = <Target>[];

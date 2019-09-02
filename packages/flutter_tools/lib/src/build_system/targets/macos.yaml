@@ -1,0 +1,58 @@
+targets:
+  # Copies macOS prebuilt engine to oupuy directory.
+  unpack_macos:
+    type: copy
+    inputs:
+      - Artifact(flutterMacOSFramework)
+    outputs:
+      - Source({OUTPUT_DIR}/FlutterMacOS.framework/FlutterMacOS)
+      - Source({OUTPUT_DIR}/FlutterMacOS.framework/Headers/FlutterDartProject.h)
+      - Source({OUTPUT_DIR}/FlutterMacOS.framework/Headers/FlutterEngine.h)
+      - Source({OUTPUT_DIR}/FlutterMacOS.framework/Headers/FlutterViewController.h)
+      - Source({OUTPUT_DIR}/FlutterMacOS.framework/Headers/FlutterBinaryMessenger.h)
+      - Source({OUTPUT_DIR}/FlutterMacOS.framework/Headers/FlutterChannels.h)
+      - Source({OUTPUT_DIR}/FlutterMacOS.framework/Headers/FlutterCodecs.h)
+      - Source({OUTPUT_DIR}/FlutterMacOS.framework/Headers/FlutterMacros.h)
+      - Source({OUTPUT_DIR}/FlutterMacOS.framework/Headers/FlutterPluginMacOS.h)
+      - Source({OUTPUT_DIR}/FlutterMacOS.framework/Headers/FlutterPluginRegistrarMacOS.h)
+      - Source({OUTPUT_DIR}/FlutterMacOS.framework/Headers/FlutterMacOS.h)
+      - Source({OUTPUT_DIR}/FlutterMacOS.framework/Modules/module.modulemap)
+      - Source({OUTPUT_DIR}/FlutterMacOS.framework/Resources/icudtl.dat)
+      - Source({OUTPUT_DIR}/FlutterMacOS.framework/Resources/Info.plist)
+  # Compiles applcation to dynamic framework.
+  macos_framework:
+    type: dart
+    inputs:
+      - Source({BUILD_DIR}/app.dill)
+      - Artifact(genSnapshot)
+    outputs:
+      - Source({BUILD_DIR}/App.framework/App)
+    dependencies:
+      - kernel_snapshot
+  # Copies assets into framework
+  macos_assets:
+    type: dart
+    inputs:
+      - ForEach($assets, {file_path})
+    outpus:
+      - ForEach($assets, {OUTPUT_DIR}/App.framework/Versions/A/Resources/flutter_assets/{file_path})
+      - Source({OUTPUT_DIR}/App.framework/Versions/A/Resources/flutter_assets/AssetManifest.json)
+      - Source({OUTPUT_DIR}/App.framework/Versions/A/Resources/flutter_assets/FontManifest.json)
+      - Source({OUTPUT_DIR}/App.framework/Versions/A/Resources/flutter_assets/LICENSE)
+  # Bundles framework and creates framework structure.
+  macos_bundle:
+    type: dart
+    inputs:
+      - Source({PROJECT_DIR}/pubspec.yaml)
+    outputs:
+      - Source({OUTPUT_DIR}/App.framework/Versions/A/App)
+      - Source({OUTPUT_DIR}/App.framework/Versions/A/Resources/Info.plist)
+    dependencies:
+      - macos_framework
+
+definitions:
+  macos_application:
+    - macos_bundle
+    - macos_assets
+    - unpack_macos
+

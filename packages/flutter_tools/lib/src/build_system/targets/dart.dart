@@ -7,12 +7,10 @@ import '../../base/build.dart';
 import '../../base/file_system.dart';
 import '../../base/platform.dart';
 import '../../build_info.dart';
-import '../../compile.dart';
 import '../../dart/package_map.dart';
-import '../../globals.dart';
-import '../../project.dart';
 import '../build_system.dart';
 import '../exceptions.dart';
+import 'build_actions.dart';
 
 /// The define to pass a [BuildMode].
 const String kBuildMode= 'BuildMode';
@@ -81,35 +79,7 @@ class KernelSnapshot extends Target {
   List<Target> get dependencies => <Target>[];
 
   @override
-  Future<void> build(List<File> inputFiles, Environment environment) async {
-    final KernelCompiler compiler = await kernelCompilerFactory.create(
-      FlutterProject.fromDirectory(environment.projectDir),
-    );
-    if (environment.defines[kBuildMode] == null) {
-      throw MissingDefineException(kBuildMode, 'kernel_snapshot');
-    }
-    final BuildMode buildMode = getBuildModeForName(environment.defines[kBuildMode]);
-    final String targetFile = environment.defines[kTargetFile] ?? fs.path.join('lib', 'main.dart');
-    final String packagesPath = environment.projectDir.childFile('.packages').path;
-    final PackageUriMapper packageUriMapper = PackageUriMapper(targetFile,
-        packagesPath, null, null);
-
-    final CompilerOutput output = await compiler.compile(
-      sdkRoot: artifacts.getArtifactPath(Artifact.flutterPatchedSdkPath, mode: buildMode),
-      aot: buildMode != BuildMode.debug,
-      trackWidgetCreation: buildMode == BuildMode.debug,
-      targetModel: TargetModel.flutter,
-      targetProductVm: buildMode == BuildMode.release,
-      outputFilePath: environment.buildDir.childFile('app.dill').path,
-      depFilePath: null,
-      packagesPath: packagesPath,
-      linkPlatformKernelIn: buildMode == BuildMode.release,
-      mainPath: packageUriMapper.map(targetFile)?.toString() ?? targetFile,
-    );
-    if (output.errorCount != 0) {
-      throw Exception('Errors during snapshot creation: $output');
-    }
-  }
+  Future<void> build(Environment environment) => kernelSnapshot(environment);
 }
 
 
@@ -118,7 +88,7 @@ abstract class AotElfBase extends Target {
   const AotElfBase();
 
   @override
-  Future<void> build(List<File> inputFiles, Environment environment) async {
+  Future<void> build(Environment environment) async {
     final AOTSnapshotter snapshotter = AOTSnapshotter(reportTimings: false);
     final String outputPath = environment.buildDir.path;
     if (environment.defines[kBuildMode] == null) {

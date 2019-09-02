@@ -11,9 +11,7 @@ import '../build_system/build_system.dart';
 import '../build_system/targets/assets.dart';
 import '../build_system/targets/dart.dart';
 import '../build_system/targets/ios.dart';
-import '../build_system/targets/linux.dart';
 import '../build_system/targets/macos.dart';
-import '../build_system/targets/windows.dart';
 import '../globals.dart';
 import '../project.dart';
 import '../runner/flutter_command.dart';
@@ -23,18 +21,15 @@ BuildSystem get buildSystem => context.get<BuildSystem>();
 
 /// All currently implemented targets.
 const List<Target> _kDefaultTargets = <Target>[
-  UnpackLinux(),
-  UnpackWindows(),
   CopyAssets(),
   KernelSnapshot(),
   AotElfProfile(),
   AotElfRelease(),
   AotAssemblyProfile(),
   AotAssemblyRelease(),
-  DebugMacOSFramework(),
-  DebugMacOSBundleFlutterAssets(),
-  ProfileMacOSBundleFlutterAssets(),
-  ReleaseMacOSBundleFlutterAssets(),
+  DebugMacOSBundle(),
+  ProfileMacOSBundle(),
+  ReleaseMacOSBundle(),
 ];
 
 /// Assemble provides a low level API to interact with the flutter tool build
@@ -102,6 +97,11 @@ class AssembleCommand extends FlutterCommand {
           .childDirectory('flutter_build'),
       projectDir: flutterProject.directory,
       defines: _parseDefines(argResults['define']),
+      dynamicValues: <String, Object>{
+        '\$dart_sources': _listDartSources(),
+        '\$plugins': _listPlugins(),
+        '\$assets': _parseAssets(),
+      }
     );
     return result;
   }
@@ -118,6 +118,18 @@ class AssembleCommand extends FlutterCommand {
       results[key] = value;
     }
     return results;
+  }
+
+  static List<String> _parseAssets() {
+
+  }
+
+  static List<String> _listPlugins() {
+
+  }
+
+  static List<String> _listDartSources() {
+
   }
 
   @override

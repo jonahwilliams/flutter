@@ -1,0 +1,12 @@
+targets:
+  # Compile dart source to kernel file.
+  kernel_snapshot:
+    action: kernel_snapshot
+    inputs:
+      - Source({PROJECT_DIR}/.packages),
+      - ForEach($dart_sources, {source_file})
+      - Artifact(platformKernelDill)
+      - Artifact(engineDartBinary)
+      - Artifact(frontendServerSnapshotForEngineDartSdk)
+    outputs:
+      - Source({BUILD_DIR}/app.dill)

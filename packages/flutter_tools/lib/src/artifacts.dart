@@ -58,6 +58,72 @@ enum Artifact {
   flutterMacOSPodspec,
 }
 
+/// Return the [Artifact] with name [value].
+Artifact getArtifactForName(String value) {
+  switch (value) {
+    case 'genSnapshot':
+      return Artifact.genSnapshot;
+    case 'flutterTester':
+      return Artifact.flutterTester;
+    case 'snapshotDart':
+      return Artifact.snapshotDart;
+    case 'flutterFramework':
+      return Artifact.flutterFramework;
+    case 'flutterMacOSFramework':
+      return Artifact.flutterMacOSFramework;
+    case 'vmSnapshotData':
+      return Artifact.vmSnapshotData;
+    case 'isolateSnapshotData':
+      return Artifact.isolateSnapshotData;
+    case 'platformKernelDill':
+      return Artifact.platformKernelDill;
+    case 'platformLibrariesJson':
+      return Artifact.platformLibrariesJson;
+    case 'flutterPatchedSdkPath':
+      return Artifact.flutterPatchedSdkPath;
+    case 'frontendServerSnapshotForEngineDartSdk':
+      return Artifact.frontendServerSnapshotForEngineDartSdk;
+    case 'engineDartSdkPath':
+      return Artifact.engineDartSdkPath;
+    case 'engineDartBinary':
+      return Artifact.engineDartBinary;
+    case 'dart2jsSnapshot':
+      return Artifact.dart2jsSnapshot;
+    case 'dartdevcSnapshot':
+      return Artifact.dartdevcSnapshot;
+    case 'kernelWorkerSnapshot':
+      return Artifact.kernelWorkerSnapshot;
+    case 'flutterWebSdk':
+      return Artifact.flutterWebSdk;
+    case 'iosDeploy':
+      return Artifact.iosDeploy;
+    case 'ideviceinfo':
+      return Artifact.ideviceinfo;
+    case 'ideviceId':
+      return Artifact.ideviceId;
+    case 'idevicename':
+      return Artifact.idevicename;
+    case 'idevicesyslog':
+      return Artifact.idevicesyslog;
+    case 'idevicescreenshot':
+      return Artifact.idevicescreenshot;
+    case 'ideviceinstaller':
+      return Artifact.ideviceinstaller;
+    case 'iproxy':
+      return Artifact.iproxy;
+    case 'linuxDesktopPath':
+      return Artifact.linuxDesktopPath;
+    case 'windowsDesktopPath':
+      return Artifact.windowsDesktopPath;
+    case 'skyEnginePath':
+      return Artifact.skyEnginePath;
+    case 'flutterMacOSPodspec':
+      return Artifact.flutterMacOSPodspec;
+  }
+  assert(false);
+  return null;
+}
+
 String _artifactToFileName(Artifact artifact, [ TargetPlatform platform, BuildMode mode ]) {
   switch (artifact) {
     case Artifact.genSnapshot:

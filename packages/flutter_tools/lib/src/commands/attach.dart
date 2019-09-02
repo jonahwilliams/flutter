@@ -268,12 +268,11 @@ class AttachCommand extends FlutterCommand {
         buildMode: getBuildMode(),
       );
       flutterDevice.observatoryUris = <Uri>[ observatoryUri ];
-      final List<FlutterDevice> flutterDevices =  <FlutterDevice>[flutterDevice];
       final DebuggingOptions debuggingOptions = DebuggingOptions.enabled(getBuildInfo());
       terminal.usesTerminalUi = daemon == null;
       final ResidentRunner runner = useHot ?
           hotRunnerFactory.build(
-            flutterDevices,
+            flutterDevice,
             target: targetFile,
             debuggingOptions: debuggingOptions,
             packagesFilePath: globalResults['packages'],
@@ -283,7 +282,7 @@ class AttachCommand extends FlutterCommand {
             flutterProject: flutterProject,
           )
         : ColdRunner(
-            flutterDevices,
+            flutterDevice,
             target: targetFile,
             debuggingOptions: debuggingOptions,
             ipv6: usesIpv6,
@@ -313,12 +312,12 @@ class AttachCommand extends FlutterCommand {
       } else {
         final Completer<void> onAppStart = Completer<void>.sync();
         unawaited(onAppStart.future.whenComplete(() {
-          TerminalHandler(runner)
+          TerminalHandler(<ResidentRunner>[runner])
             ..setupTerminal()
             ..registerSignalHandlers();
         }));
         result = await runner.attach(
-          appStartedCompleter: onAppStart,
+          onAppStarted: onAppStart.complete,
         );
         assert(result != null);
       }
@@ -354,7 +353,7 @@ class AttachCommand extends FlutterCommand {
 
 class HotRunnerFactory {
   HotRunner build(
-    List<FlutterDevice> devices, {
+    FlutterDevice flutterDevice, {
     String target,
     DebuggingOptions debuggingOptions,
     bool benchmarkMode = false,
@@ -367,7 +366,7 @@ class HotRunnerFactory {
     bool ipv6 = false,
     FlutterProject flutterProject,
   }) => HotRunner(
-    devices,
+    flutterDevice,
     target: target,
     debuggingOptions: debuggingOptions,
     benchmarkMode: benchmarkMode,

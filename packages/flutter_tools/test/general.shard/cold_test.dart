@@ -36,14 +36,12 @@ void main() {
       when(mockDevice.targetPlatform).thenAnswer((Invocation _) async => TargetPlatform.tester);
       when(mockDevice.sdkNameAndVersion).thenAnswer((Invocation _) async => 'Android 10');
 
-      final List<FlutterDevice> devices = <FlutterDevice>[
-        TestFlutterDevice(
-          device: mockDevice,
-          generator: residentCompiler,
-          exception: const HttpException('Connection closed before full header was received, '
-              'uri = http://127.0.0.1:63394/5ZmLv8A59xY=/ws')
-        ),
-      ];
+      final FlutterDevice devices = TestFlutterDevice(
+        device: mockDevice,
+        generator: residentCompiler,
+        exception: const HttpException('Connection closed before full header was received, '
+            'uri = http://127.0.0.1:63394/5ZmLv8A59xY=/ws')
+      );
 
       final int exitCode = await ColdRunner(devices,
         debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
@@ -64,15 +62,13 @@ void main() {
       when(mockDevice.targetPlatform).thenAnswer((Invocation _) async => TargetPlatform.tester);
       when(mockDevice.sdkNameAndVersion).thenAnswer((Invocation _) async => 'Android 10');
 
-      final List<FlutterDevice> devices = <FlutterDevice>[
-        TestFlutterDevice(
-          device: mockDevice,
-          generator: residentCompiler,
-          exception: const HttpException(', uri = http://127.0.0.1:63394/5ZmLv8A59xY=/ws')
-        ),
-      ];
+      final FlutterDevice flutterDevice = TestFlutterDevice(
+        device: mockDevice,
+        generator: residentCompiler,
+        exception: const HttpException(', uri = http://127.0.0.1:63394/5ZmLv8A59xY=/ws')
+      );
 
-      final int exitCode = await ColdRunner(devices,
+      final int exitCode = await ColdRunner(flutterDevice,
         debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
       ).attach();
       expect(exitCode, 2);

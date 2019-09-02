@@ -515,12 +515,10 @@ class FlutterDevice {
 final RegExp kAndroidQHttpConnectionClosedExp = RegExp(r'^HttpException\:.+\, uri \=.+$');
 
 /// Returns `true` if any of the devices is running Android Q.
-Future<bool> hasDeviceRunningAndroidQ(List<FlutterDevice> flutterDevices) async {
-  for (FlutterDevice flutterDevice in flutterDevices) {
-    final String sdkNameAndVersion = await flutterDevice.device.sdkNameAndVersion;
-    if (sdkNameAndVersion != null && sdkNameAndVersion.startsWith('Android 10')) {
-      return true;
-    }
+Future<bool> hasDeviceRunningAndroidQ(FlutterDevice flutterDevice) async {
+  final String sdkNameAndVersion = await flutterDevice.device.sdkNameAndVersion;
+  if (sdkNameAndVersion != null && sdkNameAndVersion.startsWith('Android 10')) {
+    return true;
   }
   return false;
 }
@@ -528,7 +526,7 @@ Future<bool> hasDeviceRunningAndroidQ(List<FlutterDevice> flutterDevices) async 
 // Shared code between different resident application runners.
 abstract class ResidentRunner {
   ResidentRunner(
-    this.flutterDevices, {
+    this.flutterDevice, {
     this.target,
     this.debuggingOptions,
     String projectRootPath,
@@ -557,7 +555,7 @@ abstract class ResidentRunner {
 
   @protected
   @visibleForTesting
-  final List<FlutterDevice> flutterDevices;
+  final FlutterDevice flutterDevice;
   final String target;
   final DebuggingOptions debuggingOptions;
   final bool stayResident;
@@ -583,11 +581,7 @@ abstract class ResidentRunner {
   /// To prevent scenarios where only a subset of devices are hot restarted,
   /// the runner requires that all attached devices can support hot restart
   /// before enabling it.
-  bool get canHotRestart {
-    return flutterDevices.every((FlutterDevice device) {
-      return device.device.supportsHotRestart;
-    });
-  }
+  bool get canHotRestart => flutterDevice.device.supportsHotRestart;
 
   /// Invoke an RPC extension method on the first attached ui isolate of the first device.
   // TODO(jonahwilliams): Update/Remove this method when refactoring the resident
@@ -596,7 +590,7 @@ abstract class ResidentRunner {
     String method, {
     Map<String, dynamic> params,
   }) {
-    return flutterDevices.first.views.first.uiIsolate
+    return flutterDevice.views.first.uiIsolate
         .invokeFlutterExtensionRpcRaw(method, params: params);
   }
 
@@ -609,13 +603,13 @@ abstract class ResidentRunner {
   /// for success, 1 for user error (e.g. bad arguments), 2 for other failures.
   Future<int> run({
     Completer<DebugConnectionInfo> connectionInfoCompleter,
-    Completer<void> appStartedCompleter,
+    void Function() onAppStarted,
     String route,
   });
 
   Future<int> attach({
     Completer<DebugConnectionInfo> connectionInfoCompleter,
-    Completer<void> appStartedCompleter,
+    void Function() onAppStarted,
   });
 
   bool get supportsRestart => false;
@@ -640,88 +634,74 @@ abstract class ResidentRunner {
   }
 
   Future<void> refreshViews() async {
-    final List<Future<void>> futures = <Future<void>>[];
-    for (FlutterDevice device in flutterDevices)
-      futures.add(device.refreshViews());
-    await Future.wait(futures);
+    await flutterDevice.refreshViews();
   }
 
   Future<void> debugDumpApp() async {
     await refreshViews();
-    for (FlutterDevice device in flutterDevices)
-      await device.debugDumpApp();
+    await flutterDevice.debugDumpApp();
   }
 
   Future<void> debugDumpRenderTree() async {
     await refreshViews();
-    for (FlutterDevice device in flutterDevices)
-      await device.debugDumpRenderTree();
+    await flutterDevice.debugDumpRenderTree();
   }
 
   Future<void> debugDumpLayerTree() async {
     await refreshViews();
-    for (FlutterDevice device in flutterDevices)
-      await device.debugDumpLayerTree();
+    await flutterDevice.debugDumpLayerTree();
   }
 
   Future<void> debugDumpSemanticsTreeInTraversalOrder() async {
     await refreshViews();
-    for (FlutterDevice device in flutterDevices)
-      await device.debugDumpSemanticsTreeInTraversalOrder();
+    await flutterDevice.debugDumpSemanticsTreeInTraversalOrder();
   }
 
   Future<void> debugDumpSemanticsTreeInInverseHitTestOrder() async {
     await refreshViews();
-    for (FlutterDevice device in flutterDevices)
-      await device.debugDumpSemanticsTreeInInverseHitTestOrder();
+    await flutterDevice.debugDumpSemanticsTreeInInverseHitTestOrder();
   }
 
   Future<void> debugToggleDebugPaintSizeEnabled() async {
     await refreshViews();
-    for (FlutterDevice device in flutterDevices)
-      await device.toggleDebugPaintSizeEnabled();
+    await flutterDevice.toggleDebugPaintSizeEnabled();
   }
 
   Future<void> debugToggleDebugCheckElevationsEnabled() async {
     await refreshViews();
-    for (FlutterDevice device in flutterDevices)
-      await device.toggleDebugCheckElevationsEnabled();
+    await flutterDevice.toggleDebugCheckElevationsEnabled();
   }
 
   Future<void> debugTogglePerformanceOverlayOverride() async {
     await refreshViews();
-    for (FlutterDevice device in flutterDevices)
-      await device.debugTogglePerformanceOverlayOverride();
+    await flutterDevice.debugTogglePerformanceOverlayOverride();
   }
 
   Future<void> debugToggleWidgetInspector() async {
     await refreshViews();
-    for (FlutterDevice device in flutterDevices)
-      await device.toggleWidgetInspector();
+    await flutterDevice.toggleWidgetInspector();
   }
 
   Future<void> debugToggleProfileWidgetBuilds() async {
     await refreshViews();
-    for (FlutterDevice device in flutterDevices) {
-      await device.toggleProfileWidgetBuilds();
-    }
+    await flutterDevice.toggleProfileWidgetBuilds();
   }
 
-  /// Take a screenshot on the provided [device].
+  /// Take a screenshot on the attached device.
   ///
   /// If the device has a connected vmservice, this method will attempt to hide
   /// and restore the debug banner before taking the screenshot.
   ///
   /// Throws an [AssertionError] if [Devce.supportsScreenshot] is not true.
-  Future<void> screenshot(FlutterDevice device) async {
-    assert(device.device.supportsScreenshot);
-    final Status status = logger.startProgress('Taking screenshot for ${device.device.name}...', timeout: timeoutConfiguration.fastOperation);
+  Future<void> screenshot() async {
+    assert(flutterDevice.device.supportsScreenshot);
+    final Status status = logger.startProgress('Taking screenshot for ${flutterDevice.device.name}...', timeout: timeoutConfiguration.fastOperation);
     final File outputFile = getUniqueFile(fs.currentDirectory, 'flutter', 'png');
     try {
       if (supportsServiceProtocol && isRunningDebug) {
-        await device.refreshViews();
+        await flutterDevice.refreshViews();
         try {
-          for (FlutterView view in device.views)
+          for (FlutterView view in flutterDevice.views)
             await view.uiIsolate.flutterDebugAllowBanner(false);
         } catch (error) {
           status.cancel();
@@ -730,11 +710,11 @@ abstract class ResidentRunner {
         }
       }
       try {
-        await device.device.takeScreenshot(outputFile);
+        await flutterDevice.device.takeScreenshot(outputFile);
       } finally {
         if (supportsServiceProtocol && isRunningDebug) {
           try {
-            for (FlutterView view in device.views)
+            for (FlutterView view in flutterDevice.views)
               await view.uiIsolate.flutterDebugAllowBanner(true);
           } catch (error) {
             status.cancel();
@@ -754,17 +734,13 @@ abstract class ResidentRunner {
 
   Future<void> debugTogglePlatform() async {
     await refreshViews();
-    final String from = await flutterDevices[0].views[0].uiIsolate.flutterPlatformOverride();
-    String to;
-    for (FlutterDevice device in flutterDevices)
-      to = await device.togglePlatform(from: from);
+    final String from = await flutterDevice.views[0].uiIsolate.flutterPlatformOverride();
+    final String to = await flutterDevice.togglePlatform(from: from);
     printStatus('Switched operating system to $to');
   }
 
   Future<void> stopEchoingDeviceLog() async {
-    await Future.wait<void>(
-      flutterDevices.map<Future<void>>((FlutterDevice device) => device.stopEchoingDeviceLog())
-    );
+    await flutterDevice.stopEchoingDeviceLog();
   }
 
   /// If the [reloadSources] parameter is not null the 'reloadSources' service
@@ -782,35 +758,29 @@ abstract class ResidentRunner {
       throw 'The service protocol is not enabled.';
 
     bool viewFound = false;
-    for (FlutterDevice device in flutterDevices) {
-      await device.connect(
-        reloadSources: reloadSources,
-        restart: restart,
-        compileExpression: compileExpression,
-      );
-      await device.getVMs();
-      await device.refreshViews();
-      if (device.views.isNotEmpty)
-        viewFound = true;
+    await flutterDevice.connect(
+      reloadSources: reloadSources,
+      restart: restart,
+      compileExpression: compileExpression,
+    );
+    await flutterDevice.getVMs();
+    await flutterDevice.refreshViews();
+    if (flutterDevice.views.isNotEmpty) {
+      viewFound = true;
     }
     if (!viewFound) {
-      if (flutterDevices.length == 1)
-        throw 'No Flutter view is available on ${flutterDevices.first.device.name}.';
-      throw 'No Flutter view is available on any device '
-            '(${flutterDevices.map<String>((FlutterDevice device) => device.device.name).join(', ')}).';
+      throw 'No Flutter view is available on ${flutterDevice.device.name}.';
     }
 
     // Listen for service protocol connection to close.
-    for (FlutterDevice device in flutterDevices) {
-      for (VMService service in device.vmServices) {
-        // This hooks up callbacks for when the connection stops in the future.
-        // We don't want to wait for them. We don't handle errors in those callbacks'
-        // futures either because they just print to logger and is not critical.
-        unawaited(service.done.then<void>(
-          _serviceProtocolDone,
-          onError: _serviceProtocolError,
-        ).whenComplete(_serviceDisconnected));
-      }
+    for (VMService service in flutterDevice.vmServices) {
+      // This hooks up callbacks for when the connection stops in the future.
+      // We don't want to wait for them. We don't handle errors in those callbacks'
+      // futures either because they just print to logger and is not critical.
+      unawaited(service.done.then<void>(
+        _serviceProtocolDone,
+        onError: _serviceProtocolError,
+      ).whenComplete(_serviceDisconnected));
     }
   }
 
@@ -852,10 +822,7 @@ abstract class ResidentRunner {
   Future<void> preExit() async { }
 
   Future<void> exitApp() async {
-    final List<Future<void>> futures = <Future<void>>[];
-    for (FlutterDevice device in flutterDevices)
-      futures.add(device.exitApps());
-    await Future.wait(futures);
+    await flutterDevice.exitApps();
     appFinished();
   }
 
@@ -878,7 +845,7 @@ abstract class ResidentRunner {
       printStatus('To display the performance overlay (WidgetsApp.showPerformanceOverlay), press "P".');
       printStatus('To enable timeline events for all widget build methods, (debugProfileWidgetBuilds), press "a"');
     }
-    if (flutterDevices.any((FlutterDevice d) => d.device.supportsScreenshot)) {
+    if (flutterDevice.device.supportsScreenshot) {
       printStatus('To save a screenshot to flutter.png, press "s".');
     }
   }
@@ -935,10 +902,15 @@ Future<String> getMissingPackageHintForPlatform(TargetPlatform platform) async {
 }
 
 /// Redirects terminal commands to the correct resident runner methods.
+///
+/// If there is more than one resident runner attached, then the behavior of
+/// each terminal command is treated differently. Commands like debugDumpApp
+/// and printHelp are only run on the first device. Commands like detach and
+/// hotReload are run on every device.
 class TerminalHandler {
-  TerminalHandler(this.residentRunner);
+  TerminalHandler(this.residentRunners);
 
-  final ResidentRunner residentRunner;
+  final List<ResidentRunner> residentRunners;
   bool _processingUserRequest = false;
   StreamSubscription<void> subscription;
 
@@ -948,14 +920,18 @@ class TerminalHandler {
   void setupTerminal() {
     if (!logger.quiet) {
       printStatus('');
-      residentRunner.printHelp(details: false);
+      residentRunners.first.printHelp(details: false);
     }
     terminal.singleCharMode = true;
     subscription = terminal.keystrokes.listen(processTerminalInput);
   }
 
+  /// Registers signal handlers.
+  ///
+  /// If more than on resident runner is attached, the hot reload/restart
+  /// signal handlers are skipped.
   void registerSignalHandlers() {
-    assert(residentRunner.stayResident);
+    assert(residentRunners.first.stayResident);
     io.ProcessSignal.SIGINT.watch().listen((io.ProcessSignal signal) {
       _cleanUp(signal);
       io.exit(0);
@@ -964,8 +940,11 @@ class TerminalHandler {
       _cleanUp(signal);
       io.exit(0);
     });
-    if (!residentRunner.supportsServiceProtocol || !residentRunner.supportsRestart)
+    if (residentRunners.length > 1 ||
+       !residentRunners.single.supportsServiceProtocol ||
+       !residentRunners.single.supportsRestart) {
       return;
+    }
     io.ProcessSignal.SIGUSR1.watch().listen(_handleSignal);
     io.ProcessSignal.SIGUSR2.watch().listen(_handleSignal);
   }
@@ -973,128 +952,165 @@ class TerminalHandler {
   /// Returns [true] if the input has been handled by this function.
   Future<bool> _commonTerminalInputHandler(String character) async {
     printStatus(''); // the key the user tapped might be on this line
+    bool consumed = false;
     switch(character) {
       case 'a':
-        if (residentRunner.supportsServiceProtocol) {
-          await residentRunner.debugToggleProfileWidgetBuilds();
-          return true;
+        for (ResidentRunner residentRunner in residentRunners) {
+          if (residentRunner.supportsServiceProtocol) {
+            await residentRunner.debugToggleProfileWidgetBuilds();
+            consumed = true;
+          }
         }
-        return false;
+        return consumed;
       case 'd':
       case 'D':
-        await residentRunner.detach();
+        await Future.wait(<Future<void>>[
+          for (ResidentRunner residentRunner in residentRunners) residentRunner.detach()
+        ]);
         return true;
       case 'h':
       case 'H':
       case '?':
         // help
-        residentRunner.printHelp(details: true);
+        residentRunners.first.printHelp(details: true);
         return true;
       case 'i':
       case 'I':
-        if (residentRunner.supportsServiceProtocol) {
-          await residentRunner.debugToggleWidgetInspector();
-          return true;
+        for (ResidentRunner residentRunner in residentRunners) {
+          if (residentRunner.supportsServiceProtocol) {
+            await residentRunner.debugToggleWidgetInspector();
+            consumed = true;
+          }
         }
-        return false;
+        return consumed;
       case 'l':
-        final List<FlutterView> views = residentRunner.flutterDevices
-            .expand((FlutterDevice d) => d.views).toList();
+        final List<FlutterView> views = <FlutterView>[
+          for (ResidentRunner residentRunner in residentRunners)
+            for (FlutterView view in residentRunner.flutterDevice.views)
+              view
+        ];
         printStatus('Connected ${pluralize('view', views.length)}:');
         for (FlutterView v in views) {
           printStatus('${v.uiIsolate.name} (${v.uiIsolate.id})', indent: 2);
         }
         return true;
       case 'L':
-        if (residentRunner.supportsServiceProtocol) {
-          await residentRunner.debugDumpLayerTree();
+        if (residentRunners.first.supportsServiceProtocol) {
+          await residentRunners.first.debugDumpLayerTree();
           return true;
         }
         return false;
       case 'o':
       case 'O':
-        if (residentRunner.supportsServiceProtocol && residentRunner.isRunningDebug) {
-          await residentRunner.debugTogglePlatform();
-          return true;
+        for (ResidentRunner residentRunner in residentRunners) {
+          if (residentRunner.supportsServiceProtocol && residentRunner.isRunningDebug) {
+            await residentRunner.debugTogglePlatform();
+            consumed = true;
+          }
         }
-        return false;
+        return consumed;
       case 'p':
-        if (residentRunner.supportsServiceProtocol && residentRunner.isRunningDebug) {
-          await residentRunner.debugToggleDebugPaintSizeEnabled();
-          return true;
+        for (ResidentRunner residentRunner in residentRunners) {
+          if (residentRunner.supportsServiceProtocol && residentRunner.isRunningDebug) {
+            await residentRunner.debugToggleDebugPaintSizeEnabled();
+            consumed = true;
+          }
         }
-        return false;
+        return consumed;
       case 'P':
-        if (residentRunner.supportsServiceProtocol) {
-          await residentRunner.debugTogglePerformanceOverlayOverride();
-          return true;
+        for (ResidentRunner residentRunner in residentRunners) {
+          if (residentRunner.supportsServiceProtocol) {
+            await residentRunner.debugTogglePerformanceOverlayOverride();
+            consumed = true;
+          }
         }
         return false;
       case 'q':
       case 'Q':
         // exit
-        await residentRunner.exit();
+        await Future.wait(<Future<void>>[
+          for (ResidentRunner residentRunner in residentRunners) residentRunner.exit()
+        ]);
         return true;
       case 's':
-        for (FlutterDevice device in residentRunner.flutterDevices) {
-          if (device.device.supportsScreenshot)
-            await residentRunner.screenshot(device);
-        }
+        await Future.wait(<Future<void>>[
+          for (ResidentRunner residentRunner in residentRunners) residentRunner.screenshot()
+        ]);
         return true;
       case 'r':
-        if (!residentRunner.canHotReload) {
+        final List<OperationResult> results = await Future.wait(<Future<OperationResult>>[
+          for (ResidentRunner residentRunner in residentRunners)
+            if (residentRunner.canHotReload)
+              residentRunner.restart(fullRestart: false)
+        ]);
+        if (results.isEmpty) {
+          // no devices could hot reload.
           return false;
         }
-        final OperationResult result = await residentRunner.restart(fullRestart: false);
-        if (result.fatal) {
-          throwToolExit(result.message);
-        }
-        if (!result.isOk) {
-          printStatus('Try again after fixing the above error(s).', emphasis: true);
+        bool printedError = false;
+        for (OperationResult result in results) {
+          if (result.fatal) {
+            throwToolExit(result.message);
+          }
+          if (!result.isOk && !printedError) {
+            printedError = true;
+            printStatus('Try again after fixing the above error(s).', emphasis: true);
+          }
         }
         return true;
       case 'R':
-        // If hot restart is not supported for all devices, ignore the command.
-        if (!residentRunner.canHotRestart || !residentRunner.hotMode) {
+        final List<OperationResult> results = await Future.wait(<Future<OperationResult>>[
+          for (ResidentRunner residentRunner in residentRunners)
+            if (residentRunner.canHotRestart && residentRunner.hotMode)
+              residentRunner.restart(fullRestart: true)
+        ]);
+        if (results.isEmpty) {
+          // no devices could hot restart.
           return false;
         }
-        final OperationResult result = await residentRunner.restart(fullRestart: true);
-        if (result.fatal) {
-          throwToolExit(result.message);
-        }
-        if (!result.isOk) {
-          printStatus('Try again after fixing the above error(s).', emphasis: true);
+        bool printedError = false;
+        for (OperationResult result in results) {
+          if (result.fatal) {
+            throwToolExit(result.message);
+          }
+          if (!result.isOk && !printedError) {
+            printedError = true;
+            printStatus('Try again after fixing the above error(s).', emphasis: true);
+          }
         }
         return true;
       case 'S':
-        if (residentRunner.supportsServiceProtocol) {
-          await residentRunner.debugDumpSemanticsTreeInTraversalOrder();
+        if (residentRunners.first.supportsServiceProtocol) {
+          await residentRunners.first.debugDumpSemanticsTreeInTraversalOrder();
           return true;
         }
         return false;
       case 't':
       case 'T':
-        if (residentRunner.supportsServiceProtocol) {
-          await residentRunner.debugDumpRenderTree();
+        if (residentRunners.first.supportsServiceProtocol) {
+          await residentRunners.first.debugDumpRenderTree();
           return true;
         }
         return false;
       case 'U':
-        if (residentRunner.supportsServiceProtocol) {
-          await residentRunner.debugDumpSemanticsTreeInInverseHitTestOrder();
+        if (residentRunners.first.supportsServiceProtocol) {
+          await residentRunners.first.debugDumpSemanticsTreeInInverseHitTestOrder();
           return true;
         }
         return false;
       case 'w':
       case 'W':
-        if (residentRunner.supportsServiceProtocol) {
-          await residentRunner.debugDumpApp();
+        if (residentRunners.first.supportsServiceProtocol) {
+          await residentRunners.first.debugDumpApp();
           return true;
         }
         return false;
       case 'z':
       case 'Z':
-        await residentRunner.debugToggleDebugCheckElevationsEnabled();
+        await Future.wait(<Future<void>>[
+          for (ResidentRunner residentRunner in residentRunners)
+            residentRunner.debugToggleDebugCheckElevationsEnabled()
+        ]);
         return true;
     }
     return false;
@@ -1133,7 +1149,7 @@ class TerminalHandler {
     final bool fullRestart = signal == io.ProcessSignal.SIGUSR2;
 
     try {
-      await residentRunner.restart(fullRestart: fullRestart);
+      await residentRunners.single.restart(fullRestart: fullRestart);
     } finally {
       _processingUserRequest = false;
     }
@@ -1142,7 +1158,10 @@ class TerminalHandler {
   Future<void> _cleanUp(io.ProcessSignal signal) async {
     terminal.singleCharMode = false;
     await subscription?.cancel();
-    await residentRunner.cleanupAfterSignal();
+    await Future.wait(<Future<void>>[
+      for (ResidentRunner residentRunner in residentRunners)
+        residentRunner.cleanupAfterSignal()
+    ]);
   }
 }
 

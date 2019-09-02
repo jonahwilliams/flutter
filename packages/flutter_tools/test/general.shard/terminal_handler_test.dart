@@ -20,14 +20,14 @@ void main() {
     // TODO(jacobr): make these tests run with `trackWidgetCreation: true` as
     // well as the default flags.
     return TestRunner(
-      <FlutterDevice>[FlutterDevice(MockDevice(), trackWidgetCreation: false, buildMode: BuildMode.debug)],
+      FlutterDevice(MockDevice(), trackWidgetCreation: false, buildMode: BuildMode.debug),
     );
   }
 
   group('keyboard input handling', () {
     testUsingContext('single help character', () async {
       final TestRunner testRunner = createTestRunner();
-      final TerminalHandler terminalHandler = TerminalHandler(testRunner);
+      final TerminalHandler terminalHandler = TerminalHandler(<ResidentRunner>[testRunner]);
       expect(testRunner.hasHelpBeenPrinted, false);
       await terminalHandler.processTerminalInput('h');
       expect(testRunner.hasHelpBeenPrinted, true);
@@ -35,7 +35,7 @@ void main() {
 
     testUsingContext('help character surrounded with newlines', () async {
       final TestRunner testRunner = createTestRunner();
-      final TerminalHandler terminalHandler = TerminalHandler(testRunner);
+      final TerminalHandler terminalHandler = TerminalHandler(<ResidentRunner>[testRunner]);
       expect(testRunner.hasHelpBeenPrinted, false);
       await terminalHandler.processTerminalInput('\nh\n');
       expect(testRunner.hasHelpBeenPrinted, true);
@@ -48,7 +48,7 @@ void main() {
 
     setUp(() {
       mockResidentRunner = MockResidentRunner();
-      terminalHandler = TerminalHandler(mockResidentRunner);
+      terminalHandler = TerminalHandler(<ResidentRunner>[mockResidentRunner]);
       when(mockResidentRunner.supportsServiceProtocol).thenReturn(true);
     });
 
@@ -118,7 +118,7 @@ void main() {
     testUsingContext('l - list flutter views', () async {
       final MockFlutterDevice mockFlutterDevice = MockFlutterDevice();
       when(mockResidentRunner.isRunningDebug).thenReturn(true);
-      when(mockResidentRunner.flutterDevices).thenReturn(<FlutterDevice>[mockFlutterDevice]);
+      when(mockResidentRunner.flutterDevice).thenReturn(mockFlutterDevice);
       when(mockFlutterDevice.views).thenReturn(<FlutterView>[]);
 
       await terminalHandler.processTerminalInput('l');
@@ -212,13 +212,13 @@ void main() {
       final MockDevice mockDevice = MockDevice();
       final MockFlutterDevice mockFlutterDevice = MockFlutterDevice();
       when(mockResidentRunner.isRunningDebug).thenReturn(true);
-      when(mockResidentRunner.flutterDevices).thenReturn(<FlutterDevice>[mockFlutterDevice]);
+      when(mockResidentRunner.flutterDevice).thenReturn(mockFlutterDevice);
       when(mockFlutterDevice.device).thenReturn(mockDevice);
       when(mockDevice.supportsScreenshot).thenReturn(true);
 
       await terminalHandler.processTerminalInput('s');
 
-      verify(mockResidentRunner.screenshot(mockFlutterDevice)).called(1);
+      verify(mockResidentRunner.screenshot()).called(1);
     });
 
     testUsingContext('r - hotReload supported and succeeds', () async {
@@ -394,8 +394,8 @@ class MockResidentRunner extends Mock implements ResidentRunner {}
 class MockFlutterDevice extends Mock implements FlutterDevice {}
 
 class TestRunner extends ResidentRunner {
-  TestRunner(List<FlutterDevice> devices)
-    : super(devices);
+  TestRunner(FlutterDevice flutterDevice)
+    : super(flutterDevice);
 
   bool hasHelpBeenPrinted = false;
   String receivedCommand;
@@ -414,13 +414,13 @@ class TestRunner extends ResidentRunner {
   @override
   Future<int> run({
     Completer<DebugConnectionInfo> connectionInfoCompleter,
-    Completer<void> appStartedCompleter,
+    void Function() onAppStarted,
     String route,
   }) async => null;
 
   @override
   Future<int> attach({
     Completer<DebugConnectionInfo> connectionInfoCompleter,
-    Completer<void> appStartedCompleter,
+    void Function() onAppStarted,
   }) async => null;
 }

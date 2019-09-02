@@ -359,7 +359,7 @@ class DaemonDomain extends Domain {
 
 typedef _RunOrAttach = Future<void> Function({
   Completer<DebugConnectionInfo> connectionInfoCompleter,
-  Completer<void> appStartedCompleter,
+  void Function() onAppStarted,
 });
 
 /// This domain responds to methods like [start] and [stop].
@@ -423,7 +423,7 @@ class AppDomain extends Domain {
       );
     } else if (enableHotReload) {
       runner = HotRunner(
-        <FlutterDevice>[flutterDevice],
+        flutterDevice,
         target: target,
         debuggingOptions: options,
         applicationBinary: applicationBinary,
@@ -435,7 +435,7 @@ class AppDomain extends Domain {
       );
     } else {
       runner = ColdRunner(
-        <FlutterDevice>[flutterDevice],
+        flutterDevice,
         target: target,
         debuggingOptions: options,
         applicationBinary: applicationBinary,
@@ -447,11 +447,11 @@ class AppDomain extends Domain {
       runner,
       ({
         Completer<DebugConnectionInfo> connectionInfoCompleter,
-        Completer<void> appStartedCompleter,
+        void Function() onAppStarted,
       }) {
         return runner.run(
           connectionInfoCompleter: connectionInfoCompleter,
-          appStartedCompleter: appStartedCompleter,
+          onAppStarted: onAppStarted,
           route: route,
         );
       },
@@ -507,12 +507,14 @@ class AppDomain extends Domain {
     unawaited(appStartedCompleter.future.then<void>((void value) {
       _sendAppEvent(app, 'started');
     }));
-
+    void onAppStarted() {
+      appStartedCompleter.complete();
+    }
     await app._runInZone<void>(this, () async {
       try {
         await runOrAttach(
           connectionInfoCompleter: connectionInfoCompleter,
-          appStartedCompleter: appStartedCompleter,
+          onAppStarted: onAppStarted,
         );
         _sendAppEvent(app, 'stop');
       } catch (error, trace) {

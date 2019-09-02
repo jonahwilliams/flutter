@@ -168,15 +168,14 @@ class DeviceManager {
   Future<List<Device>> findTargetDevices(FlutterProject flutterProject) async {
     List<Device> devices = await getDevices().toList();
 
-    // Always remove web and fuchsia devices from `--all`. This setting
+    // Always remove fuchsia devices from `--all`. This setting
     // currently requires devices to share a frontend_server and resident
-    // runnner instance. Both web and fuchsia require differently configured
-    // compilers, and web requires an entirely different resident runner.
+    // runnner instance. Fuchsia requires a differently configured
+    // compiler.
     if (hasSpecifiedAllDevices) {
       devices = <Device>[
         for (Device device in devices)
-          if (await device.targetPlatform != TargetPlatform.fuchsia &&
-              await device.targetPlatform != TargetPlatform.web_javascript)
+          if (await device.targetPlatform != TargetPlatform.fuchsia)
             device
       ];
     }

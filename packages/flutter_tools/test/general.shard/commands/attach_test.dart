@@ -135,7 +135,7 @@ void main() {
         const String outputDill = '/tmp/output.dill';
 
         final MockHotRunner mockHotRunner = MockHotRunner();
-        when(mockHotRunner.attach(appStartedCompleter: anyNamed('appStartedCompleter')))
+        when(mockHotRunner.attach(onAppStarted: anyNamed('onAppStarted')))
             .thenAnswer((_) async => 0);
 
         final MockHotRunnerFactory mockHotRunnerFactory = MockHotRunnerFactory();
@@ -260,7 +260,7 @@ void main() {
         .thenReturn(<ForwardedPort>[ForwardedPort(hostPort, devicePort)]);
       when(portForwarder.unforward(any))
         .thenAnswer((_) async => null);
-      when(mockHotRunner.attach(appStartedCompleter: anyNamed('appStartedCompleter')))
+      when(mockHotRunner.attach(onAppStarted: anyNamed('onAppStarted')))
           .thenAnswer((_) async => 0);
       when(mockHotRunnerFactory.build(
         any,

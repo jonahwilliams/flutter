@@ -36,9 +36,7 @@ void main() {
   setUp(() {
     testbed = Testbed(setup: () {
       residentRunner = HotRunner(
-        <FlutterDevice>[
-          mockFlutterDevice,
-        ],
+        mockFlutterDevice,
         stayResident: false,
         debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
       );
@@ -133,8 +131,11 @@ void main() {
   test('ResidentRunner can attach to device successfully', () => testbed.run(() async {
     final Completer<DebugConnectionInfo> onConnectionInfo = Completer<DebugConnectionInfo>.sync();
     final Completer<void> onAppStart = Completer<void>.sync();
+    void onAppStarted() {
+      onAppStart.complete();
+    }
     final Future<int> result = residentRunner.attach(
-      appStartedCompleter: onAppStart,
+      onAppStarted: onAppStarted,
       connectionInfoCompleter: onConnectionInfo,
     );
     final Future<DebugConnectionInfo> connectionInfo = onConnectionInfo.future;
@@ -160,8 +161,11 @@ void main() {
     });
     final Completer<DebugConnectionInfo> onConnectionInfo = Completer<DebugConnectionInfo>.sync();
     final Completer<void> onAppStart = Completer<void>.sync();
+    void onAppStarted() {
+      onAppStart.complete();
+    }
     unawaited(residentRunner.attach(
-      appStartedCompleter: onAppStart,
+      onAppStarted: onAppStarted,
       connectionInfoCompleter: onConnectionInfo,
     ));
     await onAppStart.future;
@@ -205,8 +209,11 @@ void main() {
     });
     final Completer<DebugConnectionInfo> onConnectionInfo = Completer<DebugConnectionInfo>.sync();
     final Completer<void> onAppStart = Completer<void>.sync();
+    void onAppStarted() {
+      onAppStart.complete();
+    }
     unawaited(residentRunner.attach(
-      appStartedCompleter: onAppStart,
+      onAppStarted: onAppStarted,
       connectionInfoCompleter: onConnectionInfo,
     ));
 
@@ -235,8 +242,11 @@ void main() {
     when(mockDevice.supportsHotRestart).thenReturn(true);
     final Completer<DebugConnectionInfo> onConnectionInfo = Completer<DebugConnectionInfo>.sync();
     final Completer<void> onAppStart = Completer<void>.sync();
+    void onAppStarted() {
+      onAppStart.complete();
+    }
     unawaited(residentRunner.attach(
-      appStartedCompleter: onAppStart,
+      onAppStarted: onAppStarted,
       connectionInfoCompleter: onConnectionInfo,
     ));
 
@@ -265,8 +275,11 @@ void main() {
     when(mockDevice.supportsHotRestart).thenReturn(true);
     final Completer<DebugConnectionInfo> onConnectionInfo = Completer<DebugConnectionInfo>.sync();
     final Completer<void> onAppStart = Completer<void>.sync();
+    void onAppStarted() {
+      onAppStart.complete();
+    }
     unawaited(residentRunner.attach(
-      appStartedCompleter: onAppStart,
+      onAppStarted: onAppStarted,
       connectionInfoCompleter: onConnectionInfo,
     ));
     await onAppStart.future;
@@ -333,7 +346,7 @@ void main() {
     });
     final BufferLogger bufferLogger = context.get<Logger>();
 
-    await residentRunner.screenshot(mockFlutterDevice);
+    await residentRunner.screenshot();
 
     // disables debug banner.
     verify(mockIsolate.flutterDebugAllowBanner(false)).called(1);
@@ -347,7 +360,7 @@ void main() {
     when(mockIsolate.flutterDebugAllowBanner(false)).thenThrow(Exception());
     final BufferLogger bufferLogger = context.get<Logger>();
 
-    await residentRunner.screenshot(mockFlutterDevice);
+    await residentRunner.screenshot();
 
     expect(bufferLogger.errorText, contains('Error'));
   }));
@@ -357,7 +370,7 @@ void main() {
     when(mockIsolate.flutterDebugAllowBanner(true)).thenThrow(Exception());
     final BufferLogger bufferLogger = context.get<Logger>();
 
-    await residentRunner.screenshot(mockFlutterDevice);
+    await residentRunner.screenshot();
 
     expect(bufferLogger.errorText, contains('Error'));
   }));
@@ -367,7 +380,7 @@ void main() {
     when(mockDevice.takeScreenshot(any)).thenThrow(Exception());
     final BufferLogger bufferLogger = context.get<Logger>();
 
-    await residentRunner.screenshot(mockFlutterDevice);
+    await residentRunner.screenshot();
 
     expect(bufferLogger.errorText, contains('Error'));
   }));
@@ -375,15 +388,13 @@ void main() {
   test('ResidentRunner can\'t take screenshot on device without support', () => testbed.run(() {
     when(mockDevice.supportsScreenshot).thenReturn(false);
 
-    expect(() => residentRunner.screenshot(mockFlutterDevice),
+    expect(() => residentRunner.screenshot(),
         throwsA(isInstanceOf<AssertionError>()));
   }));
 
   test('ResidentRunner does not toggle banner in non-debug mode', () => testbed.run(() async {
     residentRunner = HotRunner(
-      <FlutterDevice>[
-        mockFlutterDevice,
-      ],
+      mockFlutterDevice,
       stayResident: false,
       debuggingOptions: DebuggingOptions.disabled(BuildInfo.release),
     );
@@ -395,7 +406,7 @@ void main() {
     });
     final BufferLogger bufferLogger = context.get<Logger>();
 
-    await residentRunner.screenshot(mockFlutterDevice);
+    await residentRunner.screenshot();
 
     // doesn't disabled debug banner.
     verifyNever(mockIsolate.flutterDebugAllowBanner(false));

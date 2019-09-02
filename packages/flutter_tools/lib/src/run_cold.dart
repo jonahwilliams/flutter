@@ -16,7 +16,7 @@ import 'vmservice.dart';
 // TODO(mklim): Test this, flutter/flutter#23031.
 class ColdRunner extends ResidentRunner {
   ColdRunner(
-    List<FlutterDevice> devices, {
+    FlutterDevice flutterDevice, {
     String target,
     DebuggingOptions debuggingOptions,
     this.traceStartup = false,
@@ -24,7 +24,7 @@ class ColdRunner extends ResidentRunner {
     this.applicationBinary,
     bool ipv6 = false,
     bool stayResident = true,
-  }) : super(devices,
+  }) : super(flutterDevice,
              target: target,
              debuggingOptions: debuggingOptions,
              hotMode: false,
@@ -45,7 +45,7 @@ class ColdRunner extends ResidentRunner {
   @override
   Future<int> run({
     Completer<DebugConnectionInfo> connectionInfoCompleter,
-    Completer<void> appStartedCompleter,
+    void Function() onAppStarted,
     String route,
   }) async {
     final bool prebuiltMode = applicationBinary != null;
@@ -59,13 +59,12 @@ class ColdRunner extends ResidentRunner {
       }
     }
 
-    for (FlutterDevice device in flutterDevices) {
-      final int result = await device.runCold(
-        coldRunner: this,
-        route: route,
-      );
-      if (result != 0)
-        return result;
+    final int result = await flutterDevice.runCold(
+      coldRunner: this,
+      route: route,
+    );
+    if (result != 0) {
+      return result;
     }
 
     // Connect to observatory.
@@ -78,38 +77,37 @@ class ColdRunner extends ResidentRunner {
       }
     }
 
-    if (flutterDevices.first.observatoryUris != null) {
+    if (flutterDevice.observatoryUris != null) {
       // For now, only support one debugger connection.
       connectionInfoCompleter?.complete(DebugConnectionInfo(
-        httpUri: flutterDevices.first.observatoryUris.first,
-        wsUri: flutterDevices.first.vmServices.first.wsAddress,
+        httpUri: flutterDevice.observatoryUris.first,
+        wsUri: flutterDevice.vmServices.first.wsAddress,
       ));
     }
 
     printTrace('Application running.');
 
-    for (FlutterDevice device in flutterDevices) {
-      if (device.vmServices == null)
-        continue;
-      device.initLogReader();
-      await device.refreshViews();
-      printTrace('Connected to ${device.device.name}');
+    if (flutterDevice.vmServices != null) {
+      flutterDevice.initLogReader();
+      await flutterDevice.refreshViews();
+      printTrace('Connected to ${flutterDevice.device.name}');
     }
 
     if (traceStartup) {
       // Only trace startup for the first device.
-      final FlutterDevice device = flutterDevices.first;
-      if (device.vmServices != null && device.vmServices.isNotEmpty) {
-        printStatus('Tracing startup on ${device.device.name}.');
+      if (flutterDevice.vmServices != null && flutterDevice.vmServices.isNotEmpty) {
+        printStatus('Tracing startup on ${flutterDevice.device.name}.');
         await downloadStartupTrace(
-          device.vmServices.first,
+          flutterDevice.vmServices.first,
           awaitFirstFrame: awaitFirstFrameWhenTracing,
         );
       }
       appFinished();
     }
 
-    appStartedCompleter?.complete();
+    if (onAppStarted != null) {
+      onAppStarted();
+    }
 
     if (stayResident && !traceStartup)
       return waitForAppToFinish();
@@ -120,7 +118,7 @@ class ColdRunner extends ResidentRunner {
   @override
   Future<int> attach({
     Completer<DebugConnectionInfo> connectionInfoCompleter,
-    Completer<void> appStartedCompleter,
+    void Function() onAppStarted,
   }) async {
     _didAttach = true;
     try {
@@ -129,23 +127,21 @@ class ColdRunner extends ResidentRunner {
       printError('Error connecting to the service protocol: $error');
       // https://github.com/flutter/flutter/issues/33050
       // TODO(blasten): Remove this check once https://issuetracker.google.com/issues/132325318 has been fixed.
-      if (await hasDeviceRunningAndroidQ(flutterDevices) &&
+      if (await hasDeviceRunningAndroidQ(flutterDevice) &&
           error.toString().contains(kAndroidQHttpConnectionClosedExp)) {
         printStatus('🔨 If you are using an emulator running Android Q Beta, consider using an emulator running API level 29 or lower.');
         printStatus('Learn more about the status of this issue on https://issuetracker.google.com/issues/132325318');
       }
       return 2;
     }
-    for (FlutterDevice device in flutterDevices) {
-      device.initLogReader();
-    }
+    flutterDevice.initLogReader();
     await refreshViews();
-    for (FlutterDevice device in flutterDevices) {
-      for (FlutterView view in device.views) {
-        printTrace('Connected to $view.');
-      }
+    for (FlutterView view in flutterDevice.views) {
+      printTrace('Connected to $view.');
     }
-    appStartedCompleter?.complete();
+    if (onAppStarted != null) {
+      onAppStarted();
+    }
     if (stayResident) {
       return waitForAppToFinish();
     }
@@ -171,13 +167,11 @@ class ColdRunner extends ResidentRunner {
   void printHelp({ @required bool details }) {
     bool haveDetails = false;
     bool haveAnything = false;
-    for (FlutterDevice device in flutterDevices) {
-      final String dname = device.device.name;
-      if (device.observatoryUris != null) {
-        for (Uri uri in device.observatoryUris) {
-          printStatus('An Observatory debugger and profiler on $dname is available at $uri');
-          haveAnything = true;
-        }
+    final String dname = flutterDevice.device.name;
+    if (flutterDevice.observatoryUris != null) {
+      for (Uri uri in flutterDevice.observatoryUris) {
+        printStatus('An Observatory debugger and profiler on $dname is available at $uri');
+        haveAnything = true;
       }
     }
     if (supportsServiceProtocol) {
@@ -201,10 +195,9 @@ class ColdRunner extends ResidentRunner {
 
   @override
   Future<void> preExit() async {
-    for (FlutterDevice device in flutterDevices) {
-      // If we're running in release mode, stop the app using the device logic.
-      if (device.vmServices == null || device.vmServices.isEmpty)
-        await device.device.stopApp(device.package);
+    // If we're running in release mode, stop the app using the device logic.
+    if (flutterDevice.vmServices == null || flutterDevice.vmServices.isEmpty) {
+      await flutterDevice.device.stopApp(flutterDevice.package);
     }
   }
 }

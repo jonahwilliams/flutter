@@ -14,7 +14,6 @@ import '../base/utils.dart';
 import '../build_info.dart';
 import '../cache.dart';
 import '../device.dart';
-import '../features.dart';
 import '../globals.dart';
 import '../project.dart';
 import '../reporting/reporting.dart';
@@ -341,8 +340,124 @@ class RunCommand extends RunCommandBase {
       throw UsageException('--dart-flags is not available on the stable '
                            'channel.', null);
     }
+    await _validateDevice(hotMode);
 
+    List<String> expFlags;
+    if (argParser.options.containsKey(FlutterOptions.kEnableExperiment) &&
+        argResults[FlutterOptions.kEnableExperiment].isNotEmpty) {
+      expFlags = argResults[FlutterOptions.kEnableExperiment];
+    }
+    final FlutterProject flutterProject = FlutterProject.current();
+    final List<ResidentRunner> residentRunners = <ResidentRunner>[];
+    final String applicationBinaryPath = argResults['use-application-binary'];
     for (Device device in devices) {
+      if (await device.targetPlatform == TargetPlatform.web_javascript) {
+        residentRunners.add(webRunnerFactory.createWebRunner(
+          device,
+          target: targetFile,
+          flutterProject: flutterProject,
+          ipv6: ipv6,
+          debuggingOptions: _createDebuggingOptions(),
+        ));
+        continue;
+      }
+      final FlutterDevice flutterDevice = await FlutterDevice.create(
+        device,
+        flutterProject: flutterProject,
+        trackWidgetCreation: argResults['track-widget-creation'],
+        fileSystemRoots: argResults['filesystem-root'],
+        fileSystemScheme: argResults['filesystem-scheme'],
+        viewFilter: argResults['isolate-filter'],
+        experimentalFlags: expFlags,
+        target: argResults['target'],
+        buildMode: getBuildMode(),
+      );
+
+      if (hotMode) {
+        residentRunners.add(HotRunner(
+          flutterDevice,
+          target: targetFile,
+          debuggingOptions: _createDebuggingOptions(),
+          benchmarkMode: argResults['benchmark'],
+          applicationBinary: applicationBinaryPath == null
+              ? null
+              : fs.file(applicationBinaryPath),
+          projectRootPath: argResults['project-root'],
+          packagesFilePath: globalResults['packages'],
+          dillOutputPath: argResults['output-dill'],
+          stayResident: stayResident,
+          ipv6: ipv6,
+        ));
+      } else {
+        residentRunners.add(ColdRunner(
+          flutterDevice,
+          target: targetFile,
+          debuggingOptions: _createDebuggingOptions(),
+          traceStartup: traceStartup,
+          awaitFirstFrameWhenTracing: awaitFirstFrameWhenTracing,
+          applicationBinary: applicationBinaryPath == null
+              ? null
+              : fs.file(applicationBinaryPath),
+          ipv6: ipv6,
+          stayResident: stayResident,
+        ));
+      }
+    }
+    DateTime appStartedTime;
+    // Sync completer so the completing agent attaching to the resident doesn't
+    // need to know about analytics.
+    //
+    // Do not add more operations to the future.
+    final Completer<void> appStartedTimeRecorder = Completer<void>.sync();
+    // This callback can't throw.
+    unawaited(appStartedTimeRecorder.future.then<void>(
+      (_) {
+        appStartedTime = systemClock.now();
+        if (stayResident) {
+          TerminalHandler(residentRunners)
+            ..setupTerminal()
+            ..registerSignalHandlers();
+        }
+      }
+    ));
+    int started = 0;
+    void onAppStarted() {
+      started += 1;
+      if (started == residentRunners.length) {
+        appStartedTimeRecorder.complete();
+      }
+    }
+    final List<int> results = await Future.wait(<Future<int>>[
+      for (ResidentRunner runner in residentRunners)
+        runner.run(
+          onAppStarted: onAppStarted,
+          route: route,
+        )
+    ]);
+    for (int result in results) {
+      if (result != 0) {
+        throwToolExit(null, exitCode: result);
+      }
+    }
+    return FlutterCommandResult(
+      ExitStatus.success,
+      timingLabelParts: <String>[
+        hotMode ? 'hot' : 'cold',
+        getModeName(getBuildMode()),
+        devices.length == 1
+            ? getNameForTargetPlatform(await devices[0].targetPlatform)
+            : 'multiple',
+        devices.length == 1 && await devices[0].isLocalEmulator ? 'emulator' : null,
+      ],
+      endTimeOverride: appStartedTime,
+    );
+  }
+
+  Future<void> _validateDevice(bool hotMode) async {
+    for (Device device in devices) {
+      if (hotMode && !device.supportsHotReload && !device.supportsHotRestart) {
+        throwToolExit('Hot reload is not supported by ${device.name}. Run with --no-hot.');
+      }
       if (await device.isLocalEmulator) {
         if (await device.supportsHardwareRendering) {
           final bool enableSoftwareRendering = argResults['enable-software-rendering'] == true;
@@ -358,123 +473,10 @@ class RunCommand extends RunCommandBase {
             );
           }
         }
-
         if (!isEmulatorBuildMode(getBuildMode())) {
           throwToolExit('${toTitleCase(getFriendlyModeName(getBuildMode()))} mode is not supported for emulators.');
         }
       }
     }
-
-    if (hotMode) {
-      for (Device device in devices) {
-        if (!device.supportsHotReload)
-          throwToolExit('Hot reload is not supported by ${device.name}. Run with --no-hot.');
-      }
-    }
-
-    List<String> expFlags;
-    if (argParser.options.containsKey(FlutterOptions.kEnableExperiment) &&
-        argResults[FlutterOptions.kEnableExperiment].isNotEmpty) {
-      expFlags = argResults[FlutterOptions.kEnableExperiment];
-    }
-    final List<FlutterDevice> flutterDevices = <FlutterDevice>[];
-    final FlutterProject flutterProject = FlutterProject.current();
-    for (Device device in devices) {
-      final FlutterDevice flutterDevice = await FlutterDevice.create(
-        device,
-        flutterProject: flutterProject,
-        trackWidgetCreation: argResults['track-widget-creation'],
-        fileSystemRoots: argResults['filesystem-root'],
-        fileSystemScheme: argResults['filesystem-scheme'],
-        viewFilter: argResults['isolate-filter'],
-        experimentalFlags: expFlags,
-        target: argResults['target'],
-        buildMode: getBuildMode(),
-      );
-      flutterDevices.add(flutterDevice);
-    }
-    // Only support "web mode" with a single web device due to resident runner
-    // refactoring required otherwise.
-    final bool webMode = featureFlags.isWebEnabled &&
-                         devices.length == 1  &&
-                         await devices.single.targetPlatform == TargetPlatform.web_javascript;
-
-    ResidentRunner runner;
-    final String applicationBinaryPath = argResults['use-application-binary'];
-    if (hotMode && !webMode) {
-      runner = HotRunner(
-        flutterDevices,
-        target: targetFile,
-        debuggingOptions: _createDebuggingOptions(),
-        benchmarkMode: argResults['benchmark'],
-        applicationBinary: applicationBinaryPath == null
-            ? null
-            : fs.file(applicationBinaryPath),
-        projectRootPath: argResults['project-root'],
-        packagesFilePath: globalResults['packages'],
-        dillOutputPath: argResults['output-dill'],
-        stayResident: stayResident,
-        ipv6: ipv6,
-      );
-    } else if (webMode) {
-      runner = webRunnerFactory.createWebRunner(
-        devices.single,
-        target: targetFile,
-        flutterProject: flutterProject,
-        ipv6: ipv6,
-        debuggingOptions: _createDebuggingOptions(),
-      );
-    } else {
-      runner = ColdRunner(
-        flutterDevices,
-        target: targetFile,
-        debuggingOptions: _createDebuggingOptions(),
-        traceStartup: traceStartup,
-        awaitFirstFrameWhenTracing: awaitFirstFrameWhenTracing,
-        applicationBinary: applicationBinaryPath == null
-            ? null
-            : fs.file(applicationBinaryPath),
-        ipv6: ipv6,
-        stayResident: stayResident,
-      );
-    }
-
-    DateTime appStartedTime;
-    // Sync completer so the completing agent attaching to the resident doesn't
-    // need to know about analytics.
-    //
-    // Do not add more operations to the future.
-    final Completer<void> appStartedTimeRecorder = Completer<void>.sync();
-    // This callback can't throw.
-    unawaited(appStartedTimeRecorder.future.then<void>(
-      (_) {
-        appStartedTime = systemClock.now();
-        if (stayResident) {
-          TerminalHandler(runner)
-            ..setupTerminal()
-            ..registerSignalHandlers();
-        }
-      }
-    ));
-
-    final int result = await runner.run(
-      appStartedCompleter: appStartedTimeRecorder,
-      route: route,
-    );
-    if (result != 0) {
-      throwToolExit(null, exitCode: result);
-    }
-    return FlutterCommandResult(
-      ExitStatus.success,
-      timingLabelParts: <String>[
-        hotMode ? 'hot' : 'cold',
-        getModeName(getBuildMode()),
-        devices.length == 1
-            ? getNameForTargetPlatform(await devices[0].targetPlatform)
-            : 'multiple',
-        devices.length == 1 && await devices[0].isLocalEmulator ? 'emulator' : null,
-      ],
-      endTimeOverride: appStartedTime,
-    );
   }
 }

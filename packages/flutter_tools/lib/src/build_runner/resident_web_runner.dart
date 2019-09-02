@@ -56,7 +56,7 @@ class ResidentWebRunner extends ResidentRunner {
     @required bool ipv6,
     @required DebuggingOptions debuggingOptions,
   }) : super(
-          <FlutterDevice>[],
+          null,
           target: target,
           debuggingOptions: debuggingOptions,
           ipv6: ipv6,
@@ -100,10 +100,31 @@ class ResidentWebRunner extends ResidentRunner {
     await _cleanup();
   }
 
+  @override
+  Future<void> exitApp() async {
+    await _cleanup();
+  }
+
+  @override
+  Future<void> stopEchoingDeviceLog() async { }
+
   Future<void> _cleanup() async {
-    await _debugConnection?.close();
-    await _stdOutSub?.cancel();
-    await _webFs?.stop();
+    try {
+      await _debugConnection?.close();
+    } finally {
+      _debugConnection = null;
+    }
+    try {
+      await _stdOutSub?.cancel();
+    } finally {
+      _stdOutSub = null;
+    }
+    try {
+      await _webFs?.stop();
+    } finally {
+      _webFs = null;
+    }
+    appFinished();
   }
 
   @override
@@ -132,7 +153,7 @@ class ResidentWebRunner extends ResidentRunner {
   @override
   Future<int> run({
     Completer<DebugConnectionInfo> connectionInfoCompleter,
-    Completer<void> appStartedCompleter,
+    void Function() onAppStarted,
     String route,
   }) async {
     final ApplicationPackage package = await ApplicationPackageFactory.instance.getPackageForPlatform(
@@ -172,17 +193,19 @@ class ResidentWebRunner extends ResidentRunner {
     } finally {
       buildStatus.stop();
     }
-    appStartedCompleter?.complete();
+    if (onAppStarted != null) {
+      onAppStarted();
+    }
     return attach(
       connectionInfoCompleter: connectionInfoCompleter,
-      appStartedCompleter: appStartedCompleter,
+      onAppStarted: onAppStarted,
     );
   }
 
   @override
   Future<int> attach({
     Completer<DebugConnectionInfo> connectionInfoCompleter,
-    Completer<void> appStartedCompleter,
+    void Function() onAppStarted,
   }) async {
     // Cleanup old subscriptions. These will throw if there isn't anything
     // listening, which is fine because that is what we want to ensure.

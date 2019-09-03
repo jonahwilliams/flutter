@@ -73,6 +73,7 @@ class ResidentWebRunner extends ResidentRunner {
   WebFs _webFs;
   DebugConnection _debugConnection;
   StreamSubscription<vmservice.Event> _stdOutSub;
+  bool _exited = false;
 
   vmservice.VmService get _vmService => _debugConnection.vmService;
 
@@ -109,22 +110,13 @@ class ResidentWebRunner extends ResidentRunner {
   Future<void> stopEchoingDeviceLog() async { }
 
   Future<void> _cleanup() async {
-    try {
-      await _debugConnection?.close();
-    } finally {
-      _debugConnection = null;
+    if (_exited) {
+      return;
     }
-    try {
-      await _stdOutSub?.cancel();
-    } finally {
-      _stdOutSub = null;
-    }
-    try {
-      await _webFs?.stop();
-    } finally {
-      _webFs = null;
-    }
-    appFinished();
+    await _debugConnection?.close();
+    await _stdOutSub?.cancel();
+    await _webFs?.stop();
+    _exited = true;
   }
 
   @override
@@ -162,7 +154,7 @@ class ResidentWebRunner extends ResidentRunner {
     );
     if (package == null) {
       printError('No application found for TargetPlatform.web_javascript.');
-      printError('To add web support to a project, run `flutter create --web .`.');
+      printError('To add web support to a project, run `flutter create .`.');
       return 1;
     }
     if (!fs.isFileSync(mainPath)) {

@@ -191,6 +191,7 @@ class TextFormFieldDemoState extends State<TextFormFieldDemo> {
                 children: <Widget>[
                   const SizedBox(height: 24.0),
                   TextFormField(
+                    key: const ValueKey('-1'),
                     textCapitalization: TextCapitalization.words,
                     decoration: const InputDecoration(
                       border: UnderlineInputBorder(),
@@ -204,6 +205,7 @@ class TextFormFieldDemoState extends State<TextFormFieldDemo> {
                   ),
                   const SizedBox(height: 24.0),
                   TextFormField(
+                    key: const ValueKey('0'),
                     decoration: const InputDecoration(
                       border: UnderlineInputBorder(),
                       filled: true,
@@ -224,6 +226,7 @@ class TextFormFieldDemoState extends State<TextFormFieldDemo> {
                   ),
                   const SizedBox(height: 24.0),
                   TextFormField(
+                    key: const ValueKey('1'),
                     decoration: const InputDecoration(
                       border: UnderlineInputBorder(),
                       filled: true,
@@ -236,6 +239,7 @@ class TextFormFieldDemoState extends State<TextFormFieldDemo> {
                   ),
                   const SizedBox(height: 24.0),
                   TextFormField(
+                    key: const ValueKey('2'),
                     decoration: const InputDecoration(
                       border: OutlineInputBorder(),
                       hintText: 'Tell us about yourself (e.g., write down what you do or what hobbies you have)',

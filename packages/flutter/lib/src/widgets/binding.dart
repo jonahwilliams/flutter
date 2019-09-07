@@ -3,7 +3,9 @@
 // found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer' as developer;
+import 'dart:io';
 import 'dart:ui' show AppLifecycleState, Locale, AccessibilityFeatures, FrameTiming, TimingsCallback;
 
 import 'package:flutter/foundation.dart';
@@ -261,6 +263,17 @@ mixin WidgetsBinding on BindingBase, SchedulerBinding, GestureBinding, RendererB
     SystemChannels.navigation.setMethodCallHandler(_handleNavigationInvocation);
     SystemChannels.system.setMessageHandler(_handleSystemMessage);
     FlutterErrorDetails.propertiesTransformers.add(transformDebugCreator);
+    try {
+      print('READING : ${'${Directory.systemTemp.path}/settings'}');
+      _cache = json.decode(File('${Directory.systemTemp.path}/settings').readAsStringSync());
+      print('READ: $_cache');
+    } on FormatException {
+      print('FAILED TO DECODE CACHE');
+      _cache = <String, Object>{};
+    } on FileSystemException {
+      print('FAILED TO DECODE CACHE');
+      _cache = <String, Object>{};
+    }
   }
 
   /// The current [WidgetsBinding], if one has been created.
@@ -270,6 +283,29 @@ mixin WidgetsBinding on BindingBase, SchedulerBinding, GestureBinding, RendererB
   /// `WidgetsFlutterBinding.ensureInitialized()` function.
   static WidgetsBinding get instance => _instance;
   static WidgetsBinding _instance;
+
+  // TODO: limit size of cache by clear out values that are not restored
+  // after first frame.
+  bool _cacheDirty = false;
+  Map<String, Object> _cache;
+
+  void save(Object data, String key) {
+    assert(data is String || data is int || data is bool || data is double || data == null || data is Map || data is List);
+    _cache[key] = data;
+    if (!_cacheDirty) {
+      addPostFrameCallback((Duration duration) {
+        print('WRITING: $_cache to ${Directory.systemTemp.path}/settings');
+        File('${Directory.systemTemp.path}/settings')
+          .writeAsString(json.encode(_cache));
+        _cacheDirty = false;
+      });
+    }
+    _cacheDirty = true;
+  }
+
+  T /* ? */ restore<T>(Object key) {
+    return _cache.remove(key);
+  }
 
   @override
   void initServiceExtensions() {

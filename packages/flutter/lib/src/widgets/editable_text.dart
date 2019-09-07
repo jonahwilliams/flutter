@@ -1049,6 +1049,12 @@ class EditableTextState extends State<EditableText> with AutomaticKeepAliveClien
   @override
   void initState() {
     super.initState();
+    // STATE RESTORATION.
+    final String restoredText = restoreState<String>();
+    if (restoredText != null) {
+      widget.controller.value = TextEditingValue(text: restoredText);
+    }
+    //
     widget.controller.addListener(_didChangeTextEditingValue);
     _focusAttachment = widget.focusNode.attach(context);
     widget.focusNode.addListener(_handleFocusChanged);
@@ -1149,6 +1155,7 @@ class EditableTextState extends State<EditableText> with AutomaticKeepAliveClien
     // cursor timer every time a new character is typed.
     _stopCursorTimer(resetCharTicks: false);
     _startCursorTimer();
+    saveState(data: value.text);
   }
 
   @override

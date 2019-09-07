@@ -31,6 +31,9 @@ abstract class Key {
   /// constructor shadows the implicit constructor.
   @protected
   const Key.empty();
+
+  /// Returns a value that can be serialized to and from a String.
+  String toSerializableValue() => null;
 }
 
 /// A key that is not a [GlobalKey].
@@ -83,6 +86,9 @@ class ValueKey<T> extends LocalKey {
       return '[$valueString]';
     return '[$T $valueString]';
   }
+
+  @override
+  String toSerializableValue() => value.toString();
 }
 
 class _TypeLiteral<T> {

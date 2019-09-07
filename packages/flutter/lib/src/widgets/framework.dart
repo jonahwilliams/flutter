@@ -9,6 +9,7 @@ import 'dart:developer';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 
+import 'binding.dart';
 import 'debug.dart';
 import 'focus_manager.dart';
 
@@ -78,6 +79,9 @@ class ObjectKey extends LocalKey {
       return '[${describeIdentity(value)}]';
     return '[$runtimeType ${describeIdentity(value)}]';
   }
+
+  @override
+  String toSerializableValue() => value.toString();
 }
 
 /// A key that is unique across the entire app.
@@ -1330,6 +1334,24 @@ abstract class State<T extends StatefulWidget> extends Diagnosticable {
   @protected
   @mustCallSuper
   void didChangeDependencies() { }
+
+  /// Restore a value previously persisted on this State.
+  @protected
+  T /* ? */ restoreState<T>() {
+    final String cacheKey = widget.key?.toSerializableValue()
+        ?? '${_element.depth}.${widget.runtimeType}';
+    return WidgetsBinding.instance.restore(cacheKey);
+  }
+
+  /// Save a serialiable [data].
+  @protected
+  void saveState({
+    @required Object data,
+  }) {
+    final String cacheKey = widget.key?.toSerializableValue()
+        ?? '${_element.depth}.${widget.runtimeType}';
+    WidgetsBinding.instance.save(data, cacheKey);
+  }
 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {

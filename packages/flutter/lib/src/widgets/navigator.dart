@@ -1520,7 +1520,10 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin {
       assert(observer.navigator == null);
       observer._navigator = this;
     }
-    String initialRouteName = widget.initialRoute ?? Navigator.defaultRouteName;
+    // prioritize restored route.
+    final String cachedRoute = restoreState<String>();
+    print('RESOTRED: $cachedRoute');
+    String initialRouteName = cachedRoute ?? widget.initialRoute ?? Navigator.defaultRouteName;
     if (initialRouteName.startsWith('/') && initialRouteName.length > 1) {
       initialRouteName = initialRouteName.substring(1); // strip leading '/'
       assert(Navigator.defaultRouteName == '/');
@@ -1812,6 +1815,7 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin {
           'name': settings.name,
           'isInitialRoute': settings.isInitialRoute,
         };
+        saveState(data: settings.name);
         if (settings.arguments != null) {
           settingsJsonable['arguments'] = jsonEncode(
             settings.arguments,

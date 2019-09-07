@@ -113,7 +113,7 @@ abstract class Target {
   List<Source> get outputs;
 
   /// The action which performs this build step.
-  Future<void> build(Environment environment);
+  FutureOr<void> build(Environment environment);
 
   /// Collect hashes for all inputs to determine if any have changed.
   ///

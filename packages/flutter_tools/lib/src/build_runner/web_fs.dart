@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:build_daemon/client.dart';
 import 'package:build_daemon/constants.dart';
@@ -12,11 +13,13 @@ import 'package:build_daemon/data/build_status.dart';
 import 'package:build_daemon/data/build_target.dart';
 import 'package:build_daemon/data/server_log.dart';
 import 'package:dwds/dwds.dart';
+import 'package:flutter_tools/src/compile.dart';
+import 'package:flutter_tools/src/resident_runner.dart';
+import 'package:flutter_tools/src/run_hot.dart';
 import 'package:http_multi_server/http_multi_server.dart';
 import 'package:meta/meta.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
-import 'package:shelf_proxy/shelf_proxy.dart';
 
 import '../artifacts.dart';
 import '../asset.dart';
@@ -29,12 +32,10 @@ import '../base/platform.dart';
 import '../build_info.dart';
 import '../bundle.dart';
 import '../cache.dart';
+import '../convert.dart';
 import '../dart/package_map.dart';
 import '../globals.dart';
-import '../platform_plugins.dart';
-import '../plugins.dart';
 import '../project.dart';
-import '../web/chrome.dart';
 
 /// The name of the built web project.
 const String kBuildTargetName = 'web';
@@ -84,56 +85,59 @@ typedef WebFsFactory = Future<WebFs> Function({
 class WebFs {
   @visibleForTesting
   WebFs(
-    this._client,
     this._server,
-    this._dwds,
+    this._generator,
+    this._mainUri,
+    this._filesystem,
     this.uri,
   );
 
   /// The server uri.
   final String uri;
 
+  final String _mainUri;
   final HttpServer _server;
-  final Dwds _dwds;
-  final BuildDaemonClient _client;
+  final ResidentCompiler _generator;
+  final Map<String, Uint8List> _filesystem;
   StreamSubscription<void> _connectedApps;
+  List<Uri> _sourcesToMonitor = <Uri>[];
+  DateTime lastCompiled;
 
   static const String _kHostName = 'localhost';
 
   Future<void> stop() async {
-    await _client.close();
-    await _dwds?.stop();
     await _server.close(force: true);
     await _connectedApps?.cancel();
-  }
-
-  /// Retrieve the [DebugConnection] for the current application
-  Future<DebugConnection> runAndDebug() {
-    final Completer<DebugConnection> firstConnection = Completer<DebugConnection>();
-    _connectedApps = _dwds.connectedApps.listen((AppConnection appConnection) async {
-      appConnection.runMain();
-      final DebugConnection debugConnection = await _dwds.debugConnection(appConnection);
-      if (!firstConnection.isCompleted) {
-        firstConnection.complete(debugConnection);
-      }
-    });
-    return firstConnection.future;
+    await _generator.shutdown();
   }
 
   /// Recompile the web application and return whether this was successful.
   Future<bool> recompile() async {
-    _client.startBuild();
-    await for (BuildResults results in _client.buildResults) {
-      final BuildResult result = results.results.firstWhere((BuildResult result) {
-        return result.target == 'web';
-      });
-      if (result.status == BuildStatus.failed) {
-        return false;
-      }
-      if (result.status == BuildStatus.succeeded) {
-        return true;
-      }
+    final List<Uri> invalidated = ProjectFileInvalidator.findInvalidated(
+      packagesPath: PackageMap.globalPackagesPath,
+      lastCompiled: lastCompiled,
+      urisToMonitor: _sourcesToMonitor,
+    );
+    final CompilerOutput compilerOutput = await _generator.recompile(
+      _mainUri,
+      invalidated,
+      outputPath: 'build/app.dill',
+    );
+    if (compilerOutput.errorCount > 0) {
+      await _generator.reject();
+      return false;
     }
+    _sourcesToMonitor = compilerOutput.sources;
+    lastCompiled = DateTime.now();
+    final Map<String, Object> fileIndex = json.decode(fs.file('build/app.incremental.dill.json').readAsStringSync());
+    final Uint8List sourcesBuffer = fs.file('build/app.dill.incremental.sources').readAsBytesSync();
+    for (String filename in fileIndex.keys) {
+      final List<Object> indexes = fileIndex[filename];
+      final int start = indexes[0];
+      final int end = indexes[1];
+      _filesystem[filename] = Uint8List.view(sourcesBuffer.buffer, start, end - start);
+    }
+    _generator.accept();
     return true;
   }
 
@@ -142,33 +146,26 @@ class WebFs {
     @required String target,
     @required FlutterProject flutterProject,
     @required BuildInfo buildInfo,
-    @required bool skipDwds,
-    @required bool initializePlatform,
     @required String hostname,
     @required String port,
+    @required FlutterDevice device,
   }) async {
-    // workaround for https://github.com/flutter/flutter/issues/38290
-    if (!flutterProject.dartTool.existsSync()) {
-      flutterProject.dartTool.createSync(recursive: true);
+    await device.generator.recompile(target, <Uri>[], outputPath: 'build/app.dill', packagesFilePath: PackageMap.globalPackagesPath);
+    device.generator.accept();
+
+    final Map<String, Object> fileIndex = json.decode(fs.file('build/app.dill.json').readAsStringSync());
+    final Uint8List sourcesBuffer = fs.file('build/app.dill.sources').readAsBytesSync();
+    final Map<String, Uint8List> filesystem = <String, Uint8List>{};
+    for (String filename in fileIndex.keys) {
+      final List<Object> indexes = fileIndex[filename];
+      final int start = indexes[0];
+      final int end = indexes[1];
+      if (end > sourcesBuffer.lengthInBytes) {
+        printError('Warning: $filename out of bounds');
+        continue;
+      }
+      filesystem[filename] = Uint8List.view(sourcesBuffer.buffer, start, end - start);
     }
-    final bool hasWebPlugins = findPlugins(flutterProject)
-        .any((Plugin p) => p.platforms.containsKey(WebPlugin.kConfigKey));
-    // Start the build daemon and run an initial build.
-    final BuildDaemonClient client = await buildDaemonCreator
-      .startBuildDaemon(fs.currentDirectory.path,
-          release: buildInfo.isRelease,
-          profile: buildInfo.isProfile,
-          hasPlugins: hasWebPlugins,
-          initializePlatform: initializePlatform,
-      );
-    client.startBuild();
-    // Only provide relevant build results
-    final Stream<BuildResult> filteredBuildResults = client.buildResults
-        .asyncMap<BuildResult>((BuildResults results) {
-          return results.results
-            .firstWhere((BuildResult result) => result.target == kBuildTargetName);
-        });
-    final int daemonAssetPort = buildDaemonCreator.assetServerPort(fs.currentDirectory);
 
     // Initialize the asset bundle.
     final AssetBundle assetBundle = AssetBundleFactory.instance.createBundle();
@@ -177,78 +174,42 @@ class WebFs {
 
     // Initialize the dwds server.
     final int hostPort = port == null ? await os.findFreePort() : int.tryParse(port);
+
     // Map the bootstrap files to the correct package directory.
-    final String targetBaseName = fs.path
-      .withoutExtension(target).replaceFirst('lib${fs.path.separator}', '');
-    final Map<String, String> mappedUrls = <String, String>{
-      'main.dart.js': 'packages/${flutterProject.manifest.appName}/'
-        '${targetBaseName}_web_entrypoint.dart.js',
-      '${targetBaseName}_web_entrypoint.dart.js.map': 'packages/${flutterProject.manifest.appName}/'
-        '${targetBaseName}_web_entrypoint.dart.js.map',
-      '${targetBaseName}_web_entrypoint.dart.bootstrap.js': 'packages/${flutterProject.manifest.appName}/'
-        '${targetBaseName}_web_entrypoint.dart.bootstrap.js',
-      '${targetBaseName}_web_entrypoint.digests': 'packages/${flutterProject.manifest.appName}/'
-        '${targetBaseName}_web_entrypoint.digests',
-    };
-    final Pipeline pipeline = const Pipeline().addMiddleware((Handler innerHandler) {
-      return (Request request) async {
-        // Redirect the main.dart.js to the target file we decided to serve.
-        if (mappedUrls.containsKey(request.url.path)) {
-          final String newPath = mappedUrls[request.url.path];
-          return innerHandler(
-            Request(
-              request.method,
-              Uri.parse(request.requestedUri.toString()
-                  .replaceFirst(request.requestedUri.path, '/$newPath')),
-              headers: request.headers,
-              url: Uri.parse(request.url.toString()
-                  .replaceFirst(request.url.path, newPath)),
-            ),
-          );
-        } else {
-          return innerHandler(request);
-        }
-      };
-    });
-    Handler handler;
-    Dwds dwds;
-    if (!skipDwds) {
-      dwds = await dwdsFactory(
-        hostname: hostname ?? _kHostName,
-        applicationPort: hostPort,
-        applicationTarget: kBuildTargetName,
-        assetServerPort: daemonAssetPort,
-        buildResults: filteredBuildResults,
-        chromeConnection: () async {
-          return (await ChromeLauncher.connectedInstance).chromeConnection;
-        },
-        reloadConfiguration: ReloadConfiguration.none,
-        serveDevTools: true,
-        verbose: false,
-        enableDebugExtension: true,
-        logWriter: (dynamic level, String message) => printTrace(message),
-      );
-      handler = pipeline.addHandler(dwds.handler);
-    } else {
-      handler = pipeline.addHandler(proxyHandler('http://localhost:$daemonAssetPort/web/'));
-    }
     Cascade cascade = Cascade();
-    cascade = cascade.add(handler);
-    cascade = cascade.add(_assetHandler(flutterProject));
+    cascade = cascade.add(_assetHandler(flutterProject, filesystem, target));
     final HttpServer server = await httpMultiServerFactory(hostname ?? _kHostName, hostPort);
     shelf_io.serveRequests(server, cascade.handler);
+
     return WebFs(
-      client,
       server,
-      dwds,
+      device.generator,
+      target,
+      filesystem,
       'http://$_kHostName:$hostPort/',
     );
   }
 
-  static Future<Response> Function(Request request) _assetHandler(FlutterProject flutterProject) {
+  static Future<Response> Function(Request request) _assetHandler(FlutterProject flutterProject, Map<String, Uint8List> filesystem, String target) {
     final PackageMap packageMap = PackageMap(PackageMap.globalPackagesPath);
     return (Request request) async {
-      if (request.url.path.contains('stack_trace_mapper')) {
+      print('Requested: ${request.url.path}');
+      final String path = request.url.path;
+      if (filesystem.containsKey(path)) {
+        return Response.ok(filesystem[path], headers: <String, String>{
+          'Content-Type': 'text/javascript',
+        });
+      } else if (request.url.path == 'main.dart.js') {
+        final String absolute = fs.path.absolute(target);
+          return Response.ok(filesystem[absolute], headers: <String, String>{
+          'Content-Type': 'text/javascript',
+        });
+      } else if (request.url.path == 'index.html' || request.url.path.isEmpty) {
+        final File file = flutterProject.web.indexFile;
+        return Response.ok(file.readAsBytesSync(), headers: <String, String>{
+          'Content-Type': 'text/html',
+        });
+      } else if (request.url.path.contains('stack_trace_mapper')) {
         final File file = fs.file(fs.path.join(
           artifacts.getArtifactPath(Artifact.engineDartSdkPath),
           'lib',

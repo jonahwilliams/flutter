@@ -52,7 +52,6 @@ class DeviceReloadReport {
   List<Map<String, dynamic>> reports; // List has one report per Flutter view.
 }
 
-// TODO(mklim): Test this, flutter/flutter#23031.
 class HotRunner extends ResidentRunner {
   HotRunner(
     List<FlutterDevice> devices, {

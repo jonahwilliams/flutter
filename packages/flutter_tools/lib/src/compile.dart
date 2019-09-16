@@ -36,8 +36,7 @@ class KernelCompilerFactory {
 
 typedef CompilerMessageConsumer = void Function(String message, { bool emphasis, TerminalColor color });
 
-/// The target model describes the set of core libraries that are available within
-/// the SDK.
+/// A description of the available core libraries and the compilation strategy.
 class TargetModel {
   /// Parse a [TargetModel] from a raw string.
   ///
@@ -51,6 +50,8 @@ class TargetModel {
         return flutterRunner;
       case 'vm':
         return vm;
+      case 'dartdevc':
+        return dartdevc;
     }
     assert(false);
     return null;
@@ -66,6 +67,9 @@ class TargetModel {
 
   /// The Dart vm.
   static const TargetModel vm = TargetModel._('vm');
+
+  /// The dart development compiler.
+  static const TargetModel dartdevc = TargetModel._('dartdevc');
 
   final String _value;
 
@@ -431,6 +435,7 @@ class ResidentCompiler {
     TargetModel targetModel = TargetModel.flutter,
     bool unsafePackageSerialization,
     List<String> experimentalFlags,
+    String platformDill,
   }) : assert(_sdkRoot != null),
        _trackWidgetCreation = trackWidgetCreation,
        _packagesPath = packagesPath,
@@ -441,6 +446,7 @@ class ResidentCompiler {
        _controller = StreamController<_CompilationRequest>(),
        _initializeFromDill = initializeFromDill,
        _unsafePackageSerialization = unsafePackageSerialization,
+       _platformDill = platformDill,
        _experimentalFlags = experimentalFlags {
     // This is a URI, not a file path, so the forward slash is correct even on Windows.
     if (!_sdkRoot.endsWith('/')) {
@@ -450,6 +456,7 @@ class ResidentCompiler {
 
   final bool _trackWidgetCreation;
   final String _packagesPath;
+  final String _platformDill;
   final TargetModel _targetModel;
   final List<String> _fileSystemRoots;
   final String _fileSystemScheme;
@@ -563,6 +570,9 @@ class ResidentCompiler {
       '--strong',
       '--target=$_targetModel',
     ];
+    if (_platformDill != null) {
+      command.addAll(<String>['--platform', _platformDill]);
+    }
     if (outputPath != null) {
       command.addAll(<String>['--output-dill', outputPath]);
     }

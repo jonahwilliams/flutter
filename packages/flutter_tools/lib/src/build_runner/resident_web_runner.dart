@@ -29,7 +29,7 @@ import 'web_fs.dart';
 class DwdsWebRunnerFactory extends WebRunnerFactory {
   @override
   ResidentRunner createWebRunner(
-    Device device, {
+    FlutterDevice device, {
     String target,
     @required FlutterProject flutterProject,
     @required bool ipv6,
@@ -53,14 +53,14 @@ class ResidentWebRunner extends ResidentRunner {
     @required bool ipv6,
     @required DebuggingOptions debuggingOptions,
   }) : super(
-          <FlutterDevice>[],
+          <FlutterDevice>[device],
           target: target ?? fs.path.join('lib', 'main.dart'),
           debuggingOptions: debuggingOptions,
           ipv6: ipv6,
           stayResident: true,
         );
 
-  final Device device;
+  final FlutterDevice device;
   final FlutterProject flutterProject;
 
   // Only the debug builds of the web support the service protocol.
@@ -108,7 +108,7 @@ class ResidentWebRunner extends ResidentRunner {
     await _debugConnection?.close();
     await _stdOutSub?.cancel();
     await _webFs?.stop();
-    await device.stopApp(null);
+    await device.device.stopApp(null);
     _exited = true;
   }
 
@@ -160,26 +160,20 @@ class ResidentWebRunner extends ResidentRunner {
       return 1;
     }
     final String modeName = debuggingOptions.buildInfo.friendlyModeName;
-    printStatus('Launching ${getDisplayPath(target)} on ${device.name} in $modeName mode...');
+    printStatus('Launching ${getDisplayPath(target)} on ${device.device.name} in $modeName mode...');
     Status buildStatus;
     try {
       buildStatus = logger.startProgress('Building application for the web...', timeout: null);
-      _webFs = await webFsFactory(
+      _webFs = await WebFs.start(
         target: target,
         flutterProject: flutterProject,
         buildInfo: debuggingOptions.buildInfo,
-        initializePlatform: debuggingOptions.initializePlatform,
         hostname: debuggingOptions.hostname,
-        port: debuggingOptions.port,
-        skipDwds: device is WebServerDevice,
+        port: debuggingOptions.port, device: device,
       );
-      await device.startApp(package, mainPath: target, debuggingOptions: debuggingOptions, platformArgs: <String, Object>{
+      await device.device.startApp(package, mainPath: target, debuggingOptions: debuggingOptions, platformArgs: <String, Object>{
         'uri': _webFs.uri
       });
-      if (supportsServiceProtocol) {
-        _debugConnection = await _webFs.runAndDebug();
-        unawaited(_debugConnection.onDone.whenComplete(exit));
-      }
     } catch (err, stackTrace) {
       printError(err.toString());
       printError(stackTrace.toString());
@@ -212,14 +206,6 @@ class ResidentWebRunner extends ResidentRunner {
       // Ignore this specific error.
     }
     Uri websocketUri;
-    if (supportsServiceProtocol) {
-      _stdOutSub = _debugConnection.vmService.onStdoutEvent.listen((vmservice.Event log) {
-        final String message = utf8.decode(base64.decode(log.bytes)).trim();
-        printStatus(message);
-      });
-      unawaited(_debugConnection.vmService.registerService('reloadSources', 'FlutterTools'));
-      websocketUri = Uri.parse(_debugConnection.uri);
-    }
     if (websocketUri != null) {
       printStatus('Debug service listening on $websocketUri');
     }
@@ -264,7 +250,7 @@ class ResidentWebRunner extends ResidentRunner {
         status.stop();
         HotEvent('restart',
           targetPlatform: getNameForTargetPlatform(TargetPlatform.web_javascript),
-          sdkName: await device.sdkNameAndVersion,
+          sdkName: await device.device.sdkNameAndVersion,
           emulator: false,
           fullRestart: true,
           reason: reason,

@@ -63,7 +63,18 @@ class FlutterDevice {
     ResidentCompiler generator,
   }) async {
     ResidentCompiler generator;
-    if (flutterProject.hasBuilders) {
+    // TODO(jonahwilliams): support both builders and web.
+    if (await device.targetPlatform == TargetPlatform.web_javascript) {
+      generator = ResidentCompiler(
+        artifacts.getArtifactPath(Artifact.flutterWebSdk),
+        trackWidgetCreation: trackWidgetCreation,
+        fileSystemRoots: fileSystemRoots,
+        fileSystemScheme: fileSystemScheme,
+        targetModel: TargetModel.dartdevc,
+        experimentalFlags: experimentalFlags,
+        platformDill: fs.path.join('kernel', 'flutter_ddc_sdk.dill'),
+      );
+    } else if (flutterProject.hasBuilders) {
       generator = await CodeGeneratingResidentCompiler.create(
         flutterProject: flutterProject,
       );

@@ -237,26 +237,6 @@ class ResidentWebRunner extends ResidentRunner {
       status.stop();
       return OperationResult(1, 'Failed to recompile application.');
     }
-    if (supportsServiceProtocol) {
-      try {
-        final vmservice.Response reloadResponse = await _vmService.callServiceExtension('hotRestart');
-        printStatus('Restarted application in ${getElapsedAsMilliseconds(timer.elapsed)}.');
-        return reloadResponse.type == 'Success'
-            ? OperationResult.ok
-            : OperationResult(1, reloadResponse.toString());
-      } on vmservice.RPCError {
-        return OperationResult(1, 'Page requires refresh.');
-      } finally {
-        status.stop();
-        HotEvent('restart',
-          targetPlatform: getNameForTargetPlatform(TargetPlatform.web_javascript),
-          sdkName: await device.device.sdkNameAndVersion,
-          emulator: false,
-          fullRestart: true,
-          reason: reason,
-        ).send();
-      }
-    }
     status.stop();
     printStatus('Recompile complete. Page requires refresh.');
     return OperationResult.ok;

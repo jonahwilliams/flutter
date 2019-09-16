@@ -5,13 +5,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'package:build_daemon/client.dart';
-import 'package:build_daemon/constants.dart';
-import 'package:build_daemon/constants.dart' hide BuildMode;
-import 'package:build_daemon/constants.dart' as daemon show BuildMode;
 import 'package:build_daemon/data/build_status.dart';
-import 'package:build_daemon/data/build_target.dart';
-import 'package:build_daemon/data/server_log.dart';
 import 'package:dwds/dwds.dart';
 import 'package:flutter_tools/src/compile.dart';
 import 'package:flutter_tools/src/resident_runner.dart';
@@ -23,7 +17,6 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 
 import '../artifacts.dart';
 import '../asset.dart';
-import '../base/common.dart';
 import '../base/context.dart';
 import '../base/file_system.dart';
 import '../base/io.dart';
@@ -31,7 +24,6 @@ import '../base/os.dart';
 import '../base/platform.dart';
 import '../build_info.dart';
 import '../bundle.dart';
-import '../cache.dart';
 import '../convert.dart';
 import '../dart/package_map.dart';
 import '../globals.dart';
@@ -42,9 +34,6 @@ const String kBuildTargetName = 'web';
 
 /// A factory for creating a [Dwds] instance.
 DwdsFactory get dwdsFactory => context.get<DwdsFactory>() ?? Dwds.start;
-
-/// The [BuildDaemonCreator] instance.
-BuildDaemonCreator get buildDaemonCreator => context.get<BuildDaemonCreator>() ?? const BuildDaemonCreator();
 
 /// A factory for creating a [WebFs] instance.
 WebFsFactory get webFsFactory => context.get<WebFsFactory>() ?? WebFs.start;
@@ -190,6 +179,296 @@ class WebFs {
     );
   }
 
+  static String _getEntrypoint(FlutterProject flutterProject, String target) {
+return r'''
+/* ENTRYPOINT_EXTENTION_MARKER */
+(function() {
+var _currentDirectory = (function () {
+  var _url;
+  var lines = new Error().stack.split('\n');
+  function lookupUrl() {
+    if (lines.length > 2) {
+      var match = lines[1].match(/^\s+at (.+):\d+:\d+$/);
+      // Chrome.
+      if (match) return match[1];
+      // Chrome nested eval case.
+      match = lines[1].match(/^\s+at eval [(](.+):\d+:\d+[)]$/);
+      if (match) return match[1];
+      // Edge.
+      match = lines[1].match(/^\s+at.+\((.+):\d+:\d+\)$/);
+      if (match) return match[1];
+      // Firefox.
+      match = lines[0].match(/[<][@](.+):\d+:\d+$/)
+      if (match) return match[1];
+    }
+    // Safari.
+    return lines[0].match(/(.+):\d+:\d+$/)[1];
+  }
+  _url = lookupUrl();
+  var lastSlash = _url.lastIndexOf('/');
+  if (lastSlash == -1) return _url;
+  var currentDirectory = _url.substring(0, lastSlash + 1);
+  return currentDirectory;
+})();
+'''
+'''
+var baseUrl = (function () {
+  // Attempt to detect --precompiled mode for tests, and set the base url
+  // appropriately, otherwise set it to '/'.
+  var pathParts = location.pathname.split("/");
+  if (pathParts[0] == "") {
+    pathParts.shift();
+  }
+  if (pathParts.length > 1 && pathParts[1] == "test") {
+    return "/" + pathParts.slice(0, 2).join("/") + "/";
+  }
+  // Attempt to detect base url using <base href> html tag
+  // base href should start and end with "/"
+  if (typeof document !== 'undefined') {
+    var el = document.getElementsByTagName('base');
+    if (el && el[0] && el[0].getAttribute("href") && el[0].getAttribute
+    ("href").startsWith("/") && el[0].getAttribute("href").endsWith("/")){
+      return el[0].getAttribute("href");
+    }
+  }
+  // return default value
+  return "/";
+}());
+
+let modulePaths = {};
+if(!window.\$dartLoader) {
+   window.\$dartLoader = {
+     appDigests: _currentDirectory + 'main_web_entrypoint.digests',
+     moduleIdToUrl: new Map(),
+     urlToModuleId: new Map(),
+     rootDirectories: new Array(),
+     // Used in package:build_runner/src/server/build_updates_client/hot_reload_client.dart
+     moduleParentsGraph: new Map(),
+     moduleLoadingErrorCallbacks: new Map(),
+     forceLoadModule: function (moduleName, callback, onError) {
+       // dartdevc only strips the final extension when adding modules to source
+       // maps, so we need to do the same.
+       if (moduleName.endsWith('.ddc')) {
+         moduleName = moduleName.substring(0, moduleName.length - 4);
+       }
+       if (typeof onError != 'undefined') {
+         var errorCallbacks = \$dartLoader.moduleLoadingErrorCallbacks;
+         if (!errorCallbacks.has(moduleName)) {
+           errorCallbacks.set(moduleName, new Set());
+         }
+         errorCallbacks.get(moduleName).add(onError);
+       }
+       requirejs.undef(moduleName);
+       requirejs([moduleName], function() {
+         if (typeof onError != 'undefined') {
+           errorCallbacks.get(moduleName).delete(onError);
+         }
+         if (typeof callback != 'undefined') {
+           callback();
+         }
+       });
+     },
+     getModuleLibraries: null, // set up by _initializeTools
+   };
+}
+let customModulePaths = {};
+window.\$dartLoader.rootDirectories.push(window.location.origin + baseUrl);
+for (let moduleName of Object.getOwnPropertyNames(modulePaths)) {
+  let modulePath = modulePaths[moduleName];
+  if (modulePath != moduleName) {
+    customModulePaths[moduleName] = modulePath;
+  }
+  var src = window.location.origin + '/' + modulePath + '.js';
+  if (window.\$dartLoader.moduleIdToUrl.has(moduleName)) {
+    continue;
+  }
+  \$dartLoader.moduleIdToUrl.set(moduleName, src);
+  \$dartLoader.urlToModuleId.set(src, moduleName);
+}
+// Whenever we fail to load a JS module, try to request the corresponding
+// `.errors` file, and log it to the console.
+(function() {
+  var oldOnError = requirejs.onError;
+  requirejs.onError = function(e) {
+    if (e.requireModules) {
+      if (e.message) {
+        // If error occurred on loading dependencies, we need to invalidate ancessor too.
+        var ancesor = e.message.match(/needed by: (.*)/);
+        if (ancesor) {
+          e.requireModules.push(ancesor[1]);
+        }
+      }
+      for (const module of e.requireModules) {
+        var errorCallbacks = \$dartLoader.moduleLoadingErrorCallbacks.get(module);
+        if (errorCallbacks) {
+          for (const callback of errorCallbacks) callback(e);
+          errorCallbacks.clear();
+        }
+      }
+    }
+    if (e.originalError && e.originalError.srcElement) {
+      var xhr = new XMLHttpRequest();
+      xhr.onreadystatechange = function() {
+        if (this.readyState == 4) {
+          var message;
+          if (this.status == 200) {
+            message = this.responseText;
+          } else {
+            message = "Unknown error loading " + e.originalError.srcElement.src;
+          }
+          console.error(message);
+          var errorEvent = new CustomEvent(
+            'dartLoadException', { detail: message });
+          window.dispatchEvent(errorEvent);
+        }
+      };
+      xhr.open("GET", e.originalError.srcElement.src + ".errors", true);
+      xhr.send();
+    }
+    // Also handle errors the normal way.
+    if (oldOnError) oldOnError(e);
+  };
+}());
+
+var baseUrl = (function () {
+  // Attempt to detect --precompiled mode for tests, and set the base url
+  // appropriately, otherwise set it to '/'.
+  var pathParts = location.pathname.split("/");
+  if (pathParts[0] == "") {
+    pathParts.shift();
+  }
+  if (pathParts.length > 1 && pathParts[1] == "test") {
+    return "/" + pathParts.slice(0, 2).join("/") + "/";
+  }
+  // Attempt to detect base url using <base href> html tag
+  // base href should start and end with "/"
+  if (typeof document !== 'undefined') {
+    var el = document.getElementsByTagName('base');
+    if (el && el[0] && el[0].getAttribute("href") && el[0].getAttribute
+    ("href").startsWith("/") && el[0].getAttribute("href").endsWith("/")){
+      return el[0].getAttribute("href");
+    }
+  }
+  // return default value
+  return "/";
+}());
+;
+
+require.config({
+    baseUrl: baseUrl,
+    waitSeconds: 0,
+    paths: customModulePaths
+});
+
+const modulesGraph = new Map();
+function getRegisteredModuleName(moduleMap) {
+  if (\$dartLoader.moduleIdToUrl.has(moduleMap.name + '.ddc')) {
+    return moduleMap.name + '.ddc';
+  }
+  return moduleMap.name;
+}
+requirejs.onResourceLoad = function (context, map, depArray) {
+  const name = getRegisteredModuleName(map);
+  const depNameArray = depArray.map(getRegisteredModuleName);
+  if (modulesGraph.has(name)) {
+    // TODO Move this logic to better place
+    var previousDeps = modulesGraph.get(name);
+    var changed = previousDeps.length != depNameArray.length;
+    changed = changed || depNameArray.some(function(depName) {
+      return !previousDeps.includes(depName);
+    });
+    if (changed) {
+      console.warn("Dependencies graph change for module '" + name + "' detected. " +
+        "Dependencies was [" + previousDeps + "], now [" +  depNameArray.map((depName) => depName) +"]. " +
+        "Page can't be hot-reloaded, firing full page reload.");
+      window.location.reload();
+    }
+  } else {
+    modulesGraph.set(name, []);
+    for (const depName of depNameArray) {
+      if (!\$dartLoader.moduleParentsGraph.has(depName)) {
+        \$dartLoader.moduleParentsGraph.set(depName, []);
+      }
+      \$dartLoader.moduleParentsGraph.get(depName).push(name);
+      modulesGraph.get(name).push(depName);
+    }
+  }
+};
+define("main_web_entrypoint.dart.bootstrap", ["${fs.path.absolute(target)}", "dart_sdk"], function(app, dart_sdk) {
+  dart_sdk.dart.setStartAsyncSynchronously(true);
+  dart_sdk._isolate_helper.startRootIsolate(() => {}, []);
+  var baseUrl = (function () {
+  // Attempt to detect --precompiled mode for tests, and set the base url
+  // appropriately, otherwise set it to '/'.
+  var pathParts = location.pathname.split("/");
+  if (pathParts[0] == "") {
+    pathParts.shift();
+  }
+  if (pathParts.length > 1 && pathParts[1] == "test") {
+    return "/" + pathParts.slice(0, 2).join("/") + "/";
+  }
+  // Attempt to detect base url using <base href> html tag
+  // base href should start and end with "/"
+  if (typeof document !== 'undefined') {
+    var el = document.getElementsByTagName('base');
+    if (el && el[0] && el[0].getAttribute("href") && el[0].getAttribute
+    ("href").startsWith("/") && el[0].getAttribute("href").endsWith("/")){
+      return el[0].getAttribute("href");
+    }
+  }
+  // return default value
+  return "/";
+}());
+
+  dart_sdk._debugger.registerDevtoolsFormatter();
+  \$dartLoader.getModuleLibraries = dart_sdk.dart.getModuleLibraries;
+  if (window.\$dartStackTraceUtility && !window.\$dartStackTraceUtility.ready) {
+    window.\$dartStackTraceUtility.ready = true;
+    let dart = dart_sdk.dart;
+    window.\$dartStackTraceUtility.setSourceMapProvider(
+      function(url) {
+        url = url.replace(baseUrl, '/');
+        var module = window.\$dartLoader.urlToModuleId.get(url);
+        if (!module) return null;
+        return dart.getSourceMap(module);
+      });
+  }
+  if (typeof document != 'undefined') {
+    window.postMessage({ type: "DDC_STATE_CHANGE", state: "start" }, "*");
+  }
+
+  /* MAIN_EXTENSION_MARKER */
+  (app.lib__main_web_entrypoint || app.main_web_entrypoint).main();
+  var bootstrap = {
+      hot\$onChildUpdate: function(childName, child) {
+        // Special handling for the multi-root scheme uris. We need to strip
+        // out the scheme and the top level directory, to match the source path
+        // that chrome sees.
+        if (childName.startsWith('org-dartlang-app:///')) {
+          childName = childName.substring('org-dartlang-app:///'.length);
+          var firstSlash = childName.indexOf('/');
+          if (firstSlash == -1) return false;
+          childName = childName.substring(firstSlash + 1);
+        }
+        if (childName === "package:hello_world/main_web_entrypoint.dart") {
+          // Clear static caches.
+          dart_sdk.dart.hotRestart();
+          child.main();
+          return true;
+        }
+      }
+    }
+  dart_sdk.dart.trackLibraries("main_web_entrypoint.dart.bootstrap", {
+    "main_web_entrypoint.dart.bootstrap": bootstrap
+  }, '');
+  return {
+    bootstrap: bootstrap
+  };
+});
+})();
+''';
+  }
+
   static Future<Response> Function(Request request) _assetHandler(FlutterProject flutterProject, Map<String, Uint8List> filesystem, String target) {
     final PackageMap packageMap = PackageMap(PackageMap.globalPackagesPath);
     return (Request request) async {
@@ -200,8 +479,7 @@ class WebFs {
           'Content-Type': 'text/javascript',
         });
       } else if (request.url.path == 'main.dart.js') {
-        final String absolute = fs.path.absolute(target);
-          return Response.ok(filesystem[absolute], headers: <String, String>{
+        return Response.ok(utf8.encode(_getEntrypoint(flutterProject, target)), headers: <String, String>{
           'Content-Type': 'text/javascript',
         });
       } else if (request.url.path == 'index.html' || request.url.path.isEmpty) {
@@ -298,121 +576,3 @@ class WebFs {
   }
 }
 
-/// A testable interface for starting a build daemon.
-class BuildDaemonCreator {
-  const BuildDaemonCreator();
-
-  // TODO(jonahwilliams): find a way to get build checks working for flutter for web.
-  static const String _ignoredLine1 = 'Warning: Interpreting this as package URI';
-  static const String _ignoredLine2 = 'build_script.dart was not found in the asset graph, incremental builds will not work';
-  static const String _ignoredLine3 = 'have your dependencies specified fully in your pubspec.yaml';
-
-  /// Start a build daemon and register the web targets.
-  ///
-  /// [initializePlatform] controls whether we should invoke [webOnlyInitializePlatform].
-  Future<BuildDaemonClient> startBuildDaemon(String workingDirectory, {
-    bool release = false,
-    bool profile = false,
-    bool hasPlugins = false,
-    bool includeTests = false,
-    bool initializePlatform = true,
-  }) async {
-    try {
-      final BuildDaemonClient client = await _connectClient(
-        workingDirectory,
-        release: release,
-        profile: profile,
-        hasPlugins: hasPlugins,
-        initializePlatform: initializePlatform,
-      );
-      _registerBuildTargets(client, includeTests);
-      return client;
-    } on OptionsSkew {
-      throwToolExit(
-        'Incompatible options with current running build daemon.\n\n'
-        'Please stop other flutter_tool instances running in this directory '
-        'before starting a new instance with these options.');
-    }
-    return null;
-  }
-
-  void _registerBuildTargets(
-    BuildDaemonClient client,
-    bool includeTests,
-  ) {
-    final OutputLocation outputLocation = OutputLocation((OutputLocationBuilder b) => b
-      ..output = ''
-      ..useSymlinks = true
-      ..hoist = false);
-    client.registerBuildTarget(DefaultBuildTarget((DefaultBuildTargetBuilder b) => b
-      ..target = 'web'
-      ..outputLocation = outputLocation?.toBuilder()));
-    if (includeTests) {
-      client.registerBuildTarget(DefaultBuildTarget((DefaultBuildTargetBuilder b) => b
-        ..target = 'test'
-        ..outputLocation = outputLocation?.toBuilder()));
-    }
-  }
-
-  Future<BuildDaemonClient> _connectClient(
-    String workingDirectory,
-    { bool release, bool profile, bool hasPlugins, bool initializePlatform }
-  ) {
-    final String flutterToolsPackages = fs.path.join(Cache.flutterRoot, 'packages', 'flutter_tools', '.packages');
-    final String buildScript = fs.path.join(Cache.flutterRoot, 'packages', 'flutter_tools', 'lib', 'src', 'build_runner', 'build_script.dart');
-    final String flutterWebSdk = artifacts.getArtifactPath(Artifact.flutterWebSdk);
-    return BuildDaemonClient.connect(
-      workingDirectory,
-      // On Windows we need to call the snapshot directly otherwise
-      // the process will start in a disjoint cmd without access to
-      // STDIO.
-      <String>[
-        artifacts.getArtifactPath(Artifact.engineDartBinary),
-        '--packages=$flutterToolsPackages',
-        buildScript,
-        'daemon',
-        '--skip-build-script-check',
-        '--define', 'flutter_tools:ddc=flutterWebSdk=$flutterWebSdk',
-        '--define', 'flutter_tools:entrypoint=flutterWebSdk=$flutterWebSdk',
-        '--define', 'flutter_tools:entrypoint=release=$release',
-        '--define', 'flutter_tools:entrypoint=profile=$profile',
-        '--define', 'flutter_tools:shell=flutterWebSdk=$flutterWebSdk',
-        '--define', 'flutter_tools:shell=hasPlugins=$hasPlugins',
-        '--define', 'flutter_tools:shell=initializePlatform=$initializePlatform'
-      ],
-      logHandler: (ServerLog serverLog) {
-        switch (serverLog.level) {
-          case Level.SEVERE:
-          case Level.SHOUT:
-            // Ignore certain non-actionable messages on startup.
-            if (serverLog.message.contains(_ignoredLine1) ||
-                serverLog.message.contains(_ignoredLine2) ||
-                serverLog.message.contains(_ignoredLine3)) {
-              return;
-            }
-            printError(serverLog.message);
-            if (serverLog.error != null) {
-              printError(serverLog.error);
-            }
-            if (serverLog.stackTrace != null) {
-              printTrace(serverLog.stackTrace);
-            }
-            break;
-          default:
-            if (serverLog.message.contains('Skipping compiling')) {
-              printError(serverLog.message);
-            } else {
-              printTrace(serverLog.message);
-            }
-        }
-      },
-      buildMode: daemon.BuildMode.Manual,
-    );
-  }
-
-  /// Retrieve the asset server port for the current daemon.
-  int assetServerPort(Directory workingDirectory) {
-    final String portFilePath = fs.path.join(daemonWorkspace(workingDirectory.path), '.asset_server_port');
-    return int.tryParse(fs.file(portFilePath).readAsStringSync());
-  }
-}

@@ -41,48 +41,48 @@ class BuildRunnerWebCompilationProxy extends WebCompilationProxy {
     final FlutterProject flutterProject = FlutterProject.fromDirectory(projectDirectory);
     final bool hasWebPlugins = findPlugins(flutterProject)
         .any((Plugin p) => p.platforms.containsKey(WebPlugin.kConfigKey));
-    final BuildDaemonClient client = await buildDaemonCreator.startBuildDaemon(
-      projectDirectory.path,
-      release: mode == BuildMode.release,
-      profile: mode == BuildMode.profile,
-      hasPlugins: hasWebPlugins,
-      includeTests: true,
-      initializePlatform: initializePlatform,
-    );
-    client.startBuild();
-    bool success = true;
-    await for (BuildResults results in client.buildResults) {
-      final BuildResult result = results.results.firstWhere((BuildResult result) {
-        return result.target == 'web';
-      });
-      if (result.status == BuildStatus.failed) {
-        success = false;
-        break;
-      }
-      if (result.status == BuildStatus.succeeded) {
-        break;
-      }
-    }
-    if (success && testOutputDir != null) {
-      final Directory rootDirectory = projectDirectory
-        .childDirectory('.dart_tool')
-        .childDirectory('build')
-        .childDirectory('flutter_web');
+    // final BuildDaemonClient client = await buildDaemonCreator.startBuildDaemon(
+    //   projectDirectory.path,
+    //   release: mode == BuildMode.release,
+    //   profile: mode == BuildMode.profile,
+    //   hasPlugins: hasWebPlugins,
+    //   includeTests: true,
+    //   initializePlatform: initializePlatform,
+    // );
+    // client.startBuild();
+    // bool success = true;
+    // await for (BuildResults results in client.buildResults) {
+    //   final BuildResult result = results.results.firstWhere((BuildResult result) {
+    //     return result.target == 'web';
+    //   });
+    //   if (result.status == BuildStatus.failed) {
+    //     success = false;
+    //     break;
+    //   }
+    //   if (result.status == BuildStatus.succeeded) {
+    //     break;
+    //   }
+    // }
+    // if (success && testOutputDir != null) {
+    //   final Directory rootDirectory = projectDirectory
+    //     .childDirectory('.dart_tool')
+    //     .childDirectory('build')
+    //     .childDirectory('flutter_web');
 
-      final Iterable<Directory> childDirectories = rootDirectory
-        .listSync()
-        .whereType<Directory>();
-      for (Directory childDirectory in childDirectories) {
-        final String path = fs.path.join(testOutputDir, 'packages',
-            fs.path.basename(childDirectory.path));
-        copyDirectorySync(childDirectory.childDirectory('lib'), fs.directory(path));
-      }
-      final Directory outputDirectory = rootDirectory
-          .childDirectory(projectName)
-          .childDirectory('test');
-      copyDirectorySync(outputDirectory, fs.directory(fs.path.join(testOutputDir)));
-    }
-    return success;
+    //   final Iterable<Directory> childDirectories = rootDirectory
+    //     .listSync()
+    //     .whereType<Directory>();
+    //   for (Directory childDirectory in childDirectories) {
+    //     final String path = fs.path.join(testOutputDir, 'packages',
+    //         fs.path.basename(childDirectory.path));
+    //     copyDirectorySync(childDirectory.childDirectory('lib'), fs.directory(path));
+    //   }
+    //   final Directory outputDirectory = rootDirectory
+    //       .childDirectory(projectName)
+    //       .childDirectory('test');
+    //   copyDirectorySync(outputDirectory, fs.directory(fs.path.join(testOutputDir)));
+    // }
+    // return success;
   }
 }
 

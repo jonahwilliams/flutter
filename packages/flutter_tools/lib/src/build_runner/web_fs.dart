@@ -206,7 +206,10 @@ require.config({
         });
       }
       if (request.url.path == 'main.dart.js') {
-        return Response.ok(utf8.encode(_getEntrypoint(flutterProject, target)), headers: <String, String>{
+        return Response.ok(utf8.encode(_appBootstrap(
+          'main_thing',
+          fs.file(target).absolute.path,
+        )), headers: <String, String>{
           'Content-Type': 'text/javascript',
         });
       } else if (request.url.path == 'index.html' || request.url.path.isEmpty) {
@@ -303,3 +306,9 @@ require.config({
   }
 }
 
+String _appBootstrap(String bootstrapModuleName, String moduleName) =>
+    '''
+define("$bootstrapModuleName", ["$moduleName", "dart_sdk"], function(app, dart_sdk) {
+  app.main();
+});
+''';

@@ -119,6 +119,7 @@ class WebFs {
     _sourcesToMonitor = compilerOutput.sources;
     lastCompiled = DateTime.now();
     try {
+      // final Map<String, String> modules = json
       final Map<String, Object> fileIndex = json.decode(fs.file('build/app.dill.incremental.dill.json').readAsStringSync());
       final Uint8List sourcesBuffer = fs.file('build/app.dill.incremental.dill.sources').readAsBytesSync();
       for (String filename in fileIndex.keys) {
@@ -189,14 +190,16 @@ class WebFs {
 
   static String _getEntrypoint(FlutterProject flutterProject, String target) {
 return '''
-import("${fs.path.absolute(target) + '.js'}").then((result) => result.main.main());
+require.config({
+  waitSeconds: 0,
+});
 ''';
   }
 
   static Future<Response> Function(Request request) _assetHandler(FlutterProject flutterProject, Map<String, Uint8List> filesystem, String target) {
     final PackageMap packageMap = PackageMap(PackageMap.globalPackagesPath);
     return (Request request) async {
-      final String modulePath = '/' + request.url.path;
+      final String modulePath = '/' + request.url.path + (request.url.path.endsWith('.js') ? '' : '.js');
       if (filesystem.containsKey(modulePath)) {
         return Response.ok(filesystem[modulePath], headers: <String, String>{
           'Content-Type': 'text/javascript',
@@ -238,7 +241,7 @@ import("${fs.path.absolute(target) + '.js'}").then((result) => result.main.main(
         final File file = fs.file(fs.path.join(
           artifacts.getArtifactPath(Artifact.flutterWebSdk),
           'kernel',
-          'es6',
+          'amd',
           'dart_sdk.js',
         ));
         return Response.ok(file.readAsBytesSync(), headers: <String, String>{

@@ -4,7 +4,6 @@
 
 import 'dart:collection';
 
-import 'package:collection/collection.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -79,7 +78,7 @@ class KeySet<T extends KeyboardKey> extends Diagnosticable {
         _keys = HashSet<T>.from(keys);
 
   /// Returns an unmodifiable view of the [KeyboardKey]s in this [KeySet].
-  Set<T> get keys => UnmodifiableSetView<T>(_keys);
+  Set<T> get keys => Set<T>.from(_keys);
   // This needs to be a hash set to be sure that the hashCode accessor returns
   // consistent results. LinkedHashSet (the default Set implementation) depends
   // upon insertion order, and HashSet does not.

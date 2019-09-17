@@ -7,7 +7,6 @@ import 'dart:collection';
 import 'dart:developer' show Flow, Timeline;
 import 'dart:ui' show AppLifecycleState, FramePhase, FrameTiming;
 
-import 'package:collection/collection.dart' show PriorityQueue, HeapPriorityQueue;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
@@ -308,7 +307,6 @@ mixin SchedulerBinding on BindingBase, ServicesBinding {
   static int _taskSorter (_TaskEntry<dynamic> e1, _TaskEntry<dynamic> e2) {
     return -e1.priority.compareTo(e2.priority);
   }
-  final PriorityQueue<_TaskEntry<dynamic>> _taskQueue = HeapPriorityQueue<_TaskEntry<dynamic>>(_taskSorter);
 
   /// Schedules the given `task` with the given `priority` and returns a
   /// [Future] that completes to the `task`'s eventual return value.
@@ -335,24 +333,18 @@ mixin SchedulerBinding on BindingBase, ServicesBinding {
     String debugLabel,
     Flow flow,
   }) {
-    final bool isFirstTask = _taskQueue.isEmpty;
     final _TaskEntry<T> entry = _TaskEntry<T>(
       task,
       priority.value,
       debugLabel,
       flow,
     );
-    _taskQueue.add(entry);
-    if (isFirstTask && !locked)
-      _ensureEventLoopCallback();
-    return entry.completer.future;
+    return null;
   }
 
   @override
   void unlocked() {
     super.unlocked();
-    if (_taskQueue.isNotEmpty)
-      _ensureEventLoopCallback();
   }
 
   // Whether this scheduler already requested to be called from the event loop.
@@ -361,7 +353,6 @@ mixin SchedulerBinding on BindingBase, ServicesBinding {
   // Ensures that the scheduler services a task scheduled by [scheduleTask].
   void _ensureEventLoopCallback() {
     assert(!locked);
-    assert(_taskQueue.isNotEmpty);
     if (_hasRequestedAnEventLoopCallback)
       return;
     _hasRequestedAnEventLoopCallback = true;
@@ -387,36 +378,8 @@ mixin SchedulerBinding on BindingBase, ServicesBinding {
   /// Also returns false if there are no tasks remaining.
   @visibleForTesting
   bool handleEventLoopCallback() {
-    if (_taskQueue.isEmpty || locked)
+    if (locked)
       return false;
-    final _TaskEntry<dynamic> entry = _taskQueue.first;
-    if (schedulingStrategy(priority: entry.priority, scheduler: this)) {
-      try {
-        _taskQueue.removeFirst();
-        entry.run();
-      } catch (exception, exceptionStack) {
-        StackTrace callbackStack;
-        assert(() {
-          callbackStack = entry.debugStack;
-          return true;
-        }());
-        FlutterError.reportError(FlutterErrorDetails(
-          exception: exception,
-          stack: exceptionStack,
-          library: 'scheduler library',
-          context: ErrorDescription('during a task callback'),
-          informationCollector: (callbackStack == null) ? null : () sync* {
-            yield DiagnosticsStackTrace(
-              '\nThis exception was thrown in the context of a scheduler callback. '
-              'When the scheduler callback was _registered_ (as opposed to when the '
-              'exception was thrown), this was the stack',
-              callbackStack,
-            );
-          },
-        ));
-      }
-      return _taskQueue.isNotEmpty;
-    }
     return false;
   }
 

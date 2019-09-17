@@ -2,9 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'package:flutter/widgets.dart';
 
-import 'fizz.dart';
-
-void main() {
-  print(value);
-}
+void main() => runApp(const Center(child: Text('aaadasd, world', textDirection: TextDirection.ltr,)));

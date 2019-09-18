@@ -5,10 +5,12 @@
 // Thanks for checking out Flutter!
 // Like what you see? Tweet us @FlutterDev
 
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import 'gallery/app.dart';
 
-void main() {
+Future<void> main() async {
+  await ui.webOnlyInitializePlatform(); // ignore: undefined_function
   runApp(const GalleryApp());
 }

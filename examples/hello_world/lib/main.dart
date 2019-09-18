@@ -2,6 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:ui' as ui;
 import 'package:flutter/widgets.dart';
 
-void main() => runApp(const Center(child: Text('hello, world', textDirection: TextDirection.ltr,)));
+Future<void> main() async {
+  await ui.webOnlyInitializePlatform(); // ignore: undefined_function
+  runApp(const Center(child: Text('hello, goodbye', textDirection: TextDirection.ltr,)));
+}

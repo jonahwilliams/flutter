@@ -10,10 +10,13 @@ import 'package:dwds/dwds.dart';
 import 'package:flutter_tools/src/compile.dart';
 import 'package:flutter_tools/src/resident_runner.dart';
 import 'package:flutter_tools/src/run_hot.dart';
+import 'package:flutter_tools/src/web/chrome.dart';
 import 'package:http_multi_server/http_multi_server.dart';
 import 'package:meta/meta.dart';
+import 'package:pedantic/pedantic.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
+import 'package:webkit_inspection_protocol/webkit_inspection_protocol.dart';
 
 import '../artifacts.dart';
 import '../asset.dart';
@@ -79,7 +82,15 @@ class WebFs {
     this._mainUri,
     this._filesystem,
     this.uri,
-  );
+  ) {
+    unawaited(ChromeLauncher.connectedInstance.then((Chrome chrome) async {
+      final ChromeTab chromeTab = await chrome.chromeConnection.getTab((ChromeTab chromeTab) {
+        return chromeTab.url.contains('localhost');
+      });
+      _debugger = WipDebugger(await chromeTab.connect());
+      print('CONNECTED');
+    }));
+  }
 
   /// The server uri.
   final String uri;
@@ -100,8 +111,11 @@ class WebFs {
     await _generator.shutdown();
   }
 
+  WipDebugger _debugger;
+
   /// Recompile the web application and return whether this was successful.
   Future<bool> recompile() async {
+    Stopwatch sw = Stopwatch()..start();
     final List<Uri> invalidated = ProjectFileInvalidator.findInvalidated(
       packagesPath: PackageMap.globalPackagesPath,
       lastCompiled: lastCompiled,
@@ -118,6 +132,7 @@ class WebFs {
     }
     _sourcesToMonitor = compilerOutput.sources;
     lastCompiled = DateTime.now();
+    print('${sw.elapsedMilliseconds}');
     try {
       // final Map<String, String> modules = json
       final Map<String, Object> fileIndex = json.decode(fs.file('build/app.dill.incremental.dill.json').readAsStringSync());
@@ -132,6 +147,11 @@ class WebFs {
         }
         _filesystem[filename + '.js'] = Uint8List.view(sourcesBuffer.buffer, start, end - start - 1);
       }
+      final String command = '\$reload([${fileIndex.keys.map((x) => '"$x"').join(',')}])';
+      await _debugger.sendCommand('Runtime.evaluate', params: <String, Object>{
+        'expression': command,
+        'awaitPromise': true,
+      });
     } on FileSystemException catch (err) {
       printError(err.toString());
     }
@@ -188,14 +208,6 @@ class WebFs {
     );
   }
 
-  static String _getEntrypoint(FlutterProject flutterProject, String target) {
-return '''
-require.config({
-  waitSeconds: 0,
-});
-''';
-  }
-
   static Future<Response> Function(Request request) _assetHandler(FlutterProject flutterProject, Map<String, Uint8List> filesystem, String target) {
     final PackageMap packageMap = PackageMap(PackageMap.globalPackagesPath);
     return (Request request) async {
@@ -207,7 +219,6 @@ require.config({
       }
       if (request.url.path == 'main.dart.js') {
         return Response.ok(utf8.encode(_appBootstrap(
-          'main_thing',
           fs.file(target).absolute.path,
         )), headers: <String, String>{
           'Content-Type': 'text/javascript',
@@ -306,9 +317,44 @@ require.config({
   }
 }
 
-String _appBootstrap(String bootstrapModuleName, String moduleName) =>
+String _appBootstrap(String moduleName) =>
     '''
-define("$bootstrapModuleName", ["$moduleName", "dart_sdk"], function(app, dart_sdk) {
-  app.main();
+define("main.dart.js", ["$moduleName", "dart_sdk"], function(app, dart_sdk) {
+  window.\$appMain = app.main.main;
+  if (window.\$afterReload == null) {
+    window.\$afterReload = function() {
+      dart_sdk.developer._extensions._get('ext.flutter.disassemble')({}, {});
+      dart_sdk.dart.hotRestart();
+      window.\$appMain();
+    }
+    app.main.main();
+  }
 });
+require.config({
+  waitSeconds: 0,
+});
+if (window.\$reload == null) {
+  window.\$reload = function(modules) {
+    if (modules == null || modules.length == 0) {
+      window.\$afterReload();
+      return;
+    }
+    console.log("Reloading " + modules);
+    var loaded = 0;
+    for (var i = 0; i < modules.length; i++) {
+      var moduleName = modules[i];
+      requirejs.undef(moduleName);
+      requirejs([moduleName], function() {
+        loaded += 1;
+        if (loaded == modules.length) {
+          requirejs.undef("main.dart.js");
+          requirejs(["main.dart.js"], function() {
+            window.\$afterReload();
+          });
+        }
+      });
+    }
+  }
+}
+requirejs(["main.dart.js"]);
 ''';

@@ -322,10 +322,11 @@ String _appBootstrap(String moduleName) =>
 define("main.dart.js", ["$moduleName", "dart_sdk"], function(app, dart_sdk) {
   window.\$appMain = app.main.main;
   if (window.\$afterReload == null) {
-    window.\$afterReload = function() {
+    window.\$afterReload = function(resolve) {
       dart_sdk.developer._extensions._get('ext.flutter.disassemble')({}, {});
       dart_sdk.dart.hotRestart();
       window.\$appMain();
+      resolve();
     }
     app.main.main();
   }
@@ -335,25 +336,27 @@ require.config({
 });
 if (window.\$reload == null) {
   window.\$reload = function(modules) {
-    if (modules == null || modules.length == 0) {
-      window.\$afterReload();
-      return;
-    }
-    console.log("Reloading " + modules);
-    var loaded = 0;
-    for (var i = 0; i < modules.length; i++) {
-      var moduleName = modules[i];
-      requirejs.undef(moduleName);
-      requirejs([moduleName], function() {
-        loaded += 1;
-        if (loaded == modules.length) {
-          requirejs.undef("main.dart.js");
-          requirejs(["main.dart.js"], function() {
-            window.\$afterReload();
-          });
-        }
-      });
-    }
+    var promise = new Promise(function(resolve, reject) {
+      if (modules == null || modules.length == 0) {
+        window.\$afterReload(resolve);
+        return;
+      }
+      var loaded = 0;
+      for (var i = 0; i < modules.length; i++) {
+        var moduleName = modules[i];
+        requirejs.undef(moduleName);
+        requirejs([moduleName], function() {
+          loaded += 1;
+          if (loaded == modules.length) {
+            requirejs.undef("main.dart.js");
+            requirejs(["main.dart.js"], function() {
+              window.\$afterReload(resolve);
+            });
+          }
+        });
+      }
+    });
+    return promise;
   }
 }
 requirejs(["main.dart.js"]);

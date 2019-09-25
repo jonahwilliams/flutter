@@ -114,7 +114,7 @@ class SpicyReloadCommand extends FlutterCommand {
     }
   }
 
-  Future<void> latch = Future.value();
+  Future<void> latch = Future<void>.value();
 
   Future<void> processTerminalInput() async {
     print('>>>>>>>>>>');

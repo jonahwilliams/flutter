@@ -92,9 +92,76 @@ enum MaterialTapTargetSize {
 
 /// Holds the color and typography values for a material design theme.
 ///
-/// Use this class to configure a [Theme] widget.
+/// Use this class to configure a [Theme] or [MaterialApp] widget.
 ///
 /// To obtain the current theme, use [Theme.of].
+///
+/// {@tool sample}
+///
+/// This sample creates a [Theme] widget that stores the `ThemeData`. The
+/// `ThemeData` can be accessed by descendant Widgets that use the correct
+/// `context`. This example uses the [Builder] widget to gain access to a
+/// descendant `context` that contains the `ThemeData`.
+///
+/// The [Container] widget uses [Theme.of] to retrieve the [primaryColor] from
+/// the `ThemeData` to draw an amber square.
+///
+/// ![](https://flutter.github.io/assets-for-api-docs/assets/material/theme_data.png)
+///
+/// ```dart
+/// Theme(
+///   data: ThemeData(primaryColor: Colors.amber),
+///   child: Builder(
+///     builder: (BuildContext context) {
+///       return Container(
+///         width: 100,
+///         height: 100,
+///         color: Theme.of(context).primaryColor,
+///       );
+///     },
+///   ),
+/// )
+/// ```
+/// {@end-tool}
+///
+/// In addition to using the [Theme] widget, you can provide `ThemeData` to a
+/// [MaterialApp]. The `ThemeData` will be used throughout the app to style
+/// material design widgets.
+///
+/// {@tool sample}
+///
+/// This sample creates a [MaterialApp] widget that stores `ThemeData` and
+/// passes the `ThemeData` to descendant widgets. The [AppBar] widget uses the
+/// [primaryColor] to create a blue background. The [Text] widget uses the
+/// [TextTheme.body1] to create purple text. The [FloatingActionButton] widget
+/// uses the [accentColor] to create a green background.
+///
+/// ![](https://flutter.github.io/assets-for-api-docs/assets/material/material_app_theme_data.png)
+///
+/// ```dart
+/// MaterialApp(
+///   theme: ThemeData(
+///     primaryColor: Colors.blue,
+///     accentColor: Colors.green,
+///     textTheme: TextTheme(body1: TextStyle(color: Colors.purple)),
+///   ),
+///   home: Scaffold(
+///     appBar: AppBar(
+///       title: const Text('ThemeData Demo'),
+///     ),
+///     floatingActionButton: FloatingActionButton(
+///       child: const Icon(Icons.add),
+///       onPressed: () {},
+///     ),
+///     body: Center(
+///       child: Text(
+///         'Button pressed 0 times',
+///       ),
+///     ),
+///   ),
+/// )
+/// ```
+/// {@end-tool}
 @immutable
 class ThemeData extends Diagnosticable {
   /// Create a [ThemeData] given a set of preferred values.
@@ -774,14 +841,26 @@ class ThemeData extends Diagnosticable {
 
   /// The platform the material widgets should adapt to target.
   ///
-  /// Defaults to the current platform. This should be used in order to style UI
-  /// elements according to platform conventions.
+  /// Defaults to the current platform, as exposed by [defaultTargetPlatform].
+  /// This should be used in order to style UI elements according to platform
+  /// conventions.
   ///
-  /// [Platform.defaultTargetPlatform] should be used directly instead only in
-  /// rare cases where it's necessary to determine behavior based on the
-  /// platform. [dart.io.Platform.environment] should be used when it's critical
+  /// Widgets from the material library should use this getter (via [Theme.of])
+  /// to determine the current platform for the purpose of emulating the
+  /// platform behavior (e.g. scrolling or haptic effects). Widgets and render
+  /// objects at lower layers that try to emulate the underlying platform
+  /// platform can depend on [defaultTargetPlatform] directly, or may require
+  /// that the target platform be provided as an argument. The
+  /// [dart.io.Platform] object should only be used directly when it's critical
   /// to actually know the current platform, without any overrides possible (for
   /// example, when a system API is about to be called).
+  ///
+  /// In a test environment, the platform returned is [TargetPlatform.android]
+  /// regardless of the host platform. (Android was chosen because the tests
+  /// were originally written assuming Android-like behavior, and we added
+  /// platform adaptations for iOS later). Tests can check iOS behavior by
+  /// setting the [platform] of the [Theme] explicitly to [TargetPlatform.iOS],
+  /// or by setting [debugDefaultTargetPlatformOverride].
   final TargetPlatform platform;
 
   /// Configures the hit test size of certain Material widgets.
@@ -1404,34 +1483,43 @@ class MaterialBasedCupertinoThemeData extends CupertinoThemeData {
   ///
   /// The [materialTheme] parameter must not be null.
   MaterialBasedCupertinoThemeData({
-    @required ThemeData materialTheme,
-  }) : assert(materialTheme != null),
-       _materialTheme = materialTheme,
-       // Pass all values to the superclass so Material-agnostic properties
-       // like barBackgroundColor can still behave like a normal
-       // CupertinoThemeData.
-       super.raw(
-         materialTheme.cupertinoOverrideTheme?.brightness,
-         materialTheme.cupertinoOverrideTheme?.primaryColor,
-         materialTheme.cupertinoOverrideTheme?.primaryContrastingColor,
-         materialTheme.cupertinoOverrideTheme?.textTheme,
-         materialTheme.cupertinoOverrideTheme?.barBackgroundColor,
-         materialTheme.cupertinoOverrideTheme?.scaffoldBackgroundColor,
-       );
+      @required ThemeData materialTheme,
+  }) : this._(
+    materialTheme,
+    (materialTheme.cupertinoOverrideTheme ?? const CupertinoThemeData()).noDefault(),
+  );
+
+  MaterialBasedCupertinoThemeData._(
+    this._materialTheme,
+    this._cupertinoOverrideTheme,
+  ) : assert(_materialTheme != null),
+      assert(_cupertinoOverrideTheme != null),
+      // Pass all values to the superclass so Material-agnostic properties
+      // like barBackgroundColor can still behave like a normal
+      // CupertinoThemeData.
+      super.raw(
+        _cupertinoOverrideTheme.brightness,
+        _cupertinoOverrideTheme.primaryColor,
+        _cupertinoOverrideTheme.primaryContrastingColor,
+        _cupertinoOverrideTheme.textTheme,
+        _cupertinoOverrideTheme.barBackgroundColor,
+        _cupertinoOverrideTheme.scaffoldBackgroundColor,
+      );
 
   final ThemeData _materialTheme;
+  final CupertinoThemeData _cupertinoOverrideTheme;
 
   @override
-  Brightness get brightness => _materialTheme.cupertinoOverrideTheme?.brightness ?? _materialTheme.brightness;
+  Brightness get brightness => _cupertinoOverrideTheme.brightness ?? _materialTheme.brightness;
 
   @override
-  Color get primaryColor => _materialTheme.cupertinoOverrideTheme?.primaryColor ?? _materialTheme.colorScheme.primary;
+  Color get primaryColor => _cupertinoOverrideTheme.primaryColor ?? _materialTheme.colorScheme.primary;
 
   @override
-  Color get primaryContrastingColor => _materialTheme.cupertinoOverrideTheme?.primaryContrastingColor ?? _materialTheme.colorScheme.onPrimary;
+  Color get primaryContrastingColor => _cupertinoOverrideTheme.primaryContrastingColor ?? _materialTheme.colorScheme.onPrimary;
 
   @override
-  Color get scaffoldBackgroundColor => _materialTheme.cupertinoOverrideTheme?.scaffoldBackgroundColor ?? _materialTheme.scaffoldBackgroundColor;
+  Color get scaffoldBackgroundColor => _cupertinoOverrideTheme.scaffoldBackgroundColor ?? _materialTheme.scaffoldBackgroundColor;
 
   /// Copies the [ThemeData]'s `cupertinoOverrideTheme`.
   ///
@@ -1445,7 +1533,7 @@ class MaterialBasedCupertinoThemeData extends CupertinoThemeData {
   /// new Material [Theme] and use `copyWith` on the Material [ThemeData]
   /// instead.
   @override
-  CupertinoThemeData copyWith({
+  MaterialBasedCupertinoThemeData copyWith({
     Brightness brightness,
     Color primaryColor,
     Color primaryContrastingColor,
@@ -1453,20 +1541,26 @@ class MaterialBasedCupertinoThemeData extends CupertinoThemeData {
     Color barBackgroundColor,
     Color scaffoldBackgroundColor,
   }) {
-    return _materialTheme.cupertinoOverrideTheme?.copyWith(
-      brightness: brightness,
-      primaryColor: primaryColor,
-      primaryContrastingColor: primaryContrastingColor,
-      textTheme: textTheme,
-      barBackgroundColor: barBackgroundColor,
-      scaffoldBackgroundColor: scaffoldBackgroundColor,
-    ) ?? CupertinoThemeData(
-      brightness: brightness,
-      primaryColor: primaryColor,
-      primaryContrastingColor: primaryContrastingColor,
-      textTheme: textTheme,
-      barBackgroundColor: barBackgroundColor,
-      scaffoldBackgroundColor: scaffoldBackgroundColor,
+    return MaterialBasedCupertinoThemeData._(
+      _materialTheme,
+      _cupertinoOverrideTheme.copyWith(
+        brightness: brightness,
+        primaryColor: primaryColor,
+        primaryContrastingColor: primaryContrastingColor,
+        textTheme: textTheme,
+        barBackgroundColor: barBackgroundColor,
+        scaffoldBackgroundColor: scaffoldBackgroundColor,
+      ),
+    );
+  }
+
+  @override
+  CupertinoThemeData resolveFrom(BuildContext context, { bool nullOk = false }) {
+    // Only the cupertino override theme part will be resolved.
+    // If the color comes from the material theme it's not resolved.
+    return MaterialBasedCupertinoThemeData._(
+      _materialTheme,
+      _cupertinoOverrideTheme.resolveFrom(context, nullOk: nullOk),
     );
   }
 }

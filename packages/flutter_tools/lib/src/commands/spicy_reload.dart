@@ -72,7 +72,7 @@ class SpicyReloadCommand extends FlutterCommand {
   @override
   Future<FlutterCommandResult> runCommand() async {
     // Initialize arguments.
-    final String target = 'package:hello_world/main.dart';
+    const String target = 'package:hello_world/main.dart';
     final Uri observatoryUri = Uri.parse(argResults['vmservice']);
     className = argResults['class'];
     mainUri = Uri.parse(target);
@@ -131,7 +131,6 @@ class SpicyReloadCommand extends FlutterCommand {
       partialComponent.libraries.sort((Library l1, Library l2) {
         return '${l1.fileUri}'.compareTo('${l2.fileUri}');
       });
-      partialComponent.computeCanonicalNames();
       for (Library library in partialComponent.libraries) {
         library.additionalExports.sort((Reference r1, Reference r2) {
           return '${r1.canonicalName}'.compareTo('${r2.canonicalName}');
@@ -148,6 +147,7 @@ class SpicyReloadCommand extends FlutterCommand {
     final IOSink sink = File('app.incremental.dill').openWrite();
     final BinaryPrinter printer = BinaryPrinterFactory().newBinaryPrinter(sink);
     printer.writeComponentFile(partialComponent);
+    partialComponent.unbindCanonicalNames();
     await sink.close();
 
     // Send dill to device.
@@ -179,7 +179,7 @@ class SpicyReloadCommand extends FlutterCommand {
     print('reloadSources took ${stopwatch.elapsedMilliseconds}');
     stopwatch..reset();
     print('TOTAL: ${total.elapsedMilliseconds}');
-    final Completer<void> completer = Completer();
+    final Completer<void> completer = Completer<void>();
     latch = completer.future;
     unawaited(flutterView.uiIsolate.flutterReassemble().then((_) {
       completer.complete();

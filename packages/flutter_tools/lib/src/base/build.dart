@@ -309,6 +309,7 @@ class AOTSnapshotter {
       extraFrontEndOptions: extraFrontEndOptions,
       linkPlatformKernelIn: true,
       aot: true,
+      enableAsserts: buildMode == BuildMode.debug,
       trackWidgetCreation: trackWidgetCreation,
       targetProductVm: buildMode == BuildMode.release,
     ));

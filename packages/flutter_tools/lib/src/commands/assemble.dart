@@ -32,7 +32,10 @@ const List<Target> _kDefaultTargets = <Target>[
   ProfileMacOSBundleFlutterAssets(),
   ReleaseMacOSBundleFlutterAssets(),
   DebugBundleLinuxAssets(),
+<<<<<<< HEAD
   ReleaseBundleLinuxAssets(),
+=======
+>>>>>>> 71497367efc41eff684d8f092d467634f0875400
   WebReleaseBundle(),
 ];
 

@@ -47,10 +47,10 @@ or
           if (localEngine != null) '--local-engine=$localEngine',
           'assemble',
           '-dTargetPlatform=$targetPlatform',
-          '-dBuildMode=debug',
+          '-dBuildMode=release',
           '-dTargetFile=$flutterTarget',
           '--output=build',
-          'debug_bundle_linux_assets',
+          'release_bundle_linux_assets',
         ]);
     if (unpackResult.exitCode != 0) {
       stderr.write(unpackResult.stderr);

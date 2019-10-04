@@ -63,8 +63,54 @@ class UnpackLinuxDebug extends Target {
   }
 }
 
+abstract class BundleLinuxAssets extends Target {
+  const BundleLinuxAssets();
+
+  @override
+  Future<void> build(Environment environment) async {
+    if (environment.defines[kBuildMode] == null) {
+      throw MissingDefineException(kBuildMode, 'debug_bundle_linux_assets');
+    }
+    final BuildMode buildMode = getBuildModeForName(environment.defines[kBuildMode]);
+    final Directory outputDirectory = environment.outputDir
+        .childDirectory('flutter_assets');
+    if (!outputDirectory.existsSync()) {
+      outputDirectory.createSync();
+    }
+
+    // Only copy the kernel blob in debug mode.
+    if (buildMode == BuildMode.debug) {
+      environment.buildDir.childFile('app.dill')
+        .copySync(outputDirectory.childFile('kernel_blob.bin').path);
+    } else {
+      environment.buildDir.childFile('app.so')
+        .copySync(outputDirectory.childFile('libapp.so').path);
+    }
+
+    final AssetBundle assetBundle = AssetBundleFactory.instance.createBundle();
+    await assetBundle.build();
+    final Pool pool = Pool(kMaxOpenFiles);
+    await Future.wait<void>(
+      assetBundle.entries.entries.map<Future<void>>((MapEntry<String, DevFSContent> entry) async {
+        final PoolResource resource = await pool.request();
+        try {
+          final File file = fs.file(fs.path.join(outputDirectory.path, entry.key));
+          file.parent.createSync(recursive: true);
+          final DevFSContent content = entry.value;
+          if (content is DevFSFileContent && content.file is File) {
+            await (content.file as File).copy(file.path);
+          } else {
+            await file.writeAsBytes(await entry.value.contentsAsBytes());
+          }
+        } finally {
+          resource.release();
+        }
+      }));
+  }
+}
+
 /// Creates a debug bundle for the Linux desktop target.
-class DebugBundleLinuxAssets extends Target {
+class DebugBundleLinuxAssets extends BundleLinuxAssets {
   const DebugBundleLinuxAssets();
 
   @override
@@ -91,43 +137,59 @@ class DebugBundleLinuxAssets extends Target {
     Source.pattern('{OUTPUT_DIR}/flutter_assets/FontManifest.json'),
     Source.pattern('{OUTPUT_DIR}/flutter_assets/LICENSE'),
   ];
+}
+
+/// Creates a profile bundle for the Linux desktop target.
+class ProfileBundleLinuxAssets extends BundleLinuxAssets {
+  const ProfileBundleLinuxAssets();
 
   @override
-  Future<void> build(Environment environment) async {
-    if (environment.defines[kBuildMode] == null) {
-      throw MissingDefineException(kBuildMode, 'debug_bundle_linux_assets');
-    }
-    final BuildMode buildMode = getBuildModeForName(environment.defines[kBuildMode]);
-    final Directory outputDirectory = environment.outputDir
-      .childDirectory('flutter_assets');
-    if (!outputDirectory.existsSync()) {
-      outputDirectory.createSync();
-    }
+  String get name => 'profile_bundle_linux_assets';
 
-    // Only copy the kernel blob in debug mode.
-    if (buildMode == BuildMode.debug) {
-      environment.buildDir.childFile('app.dill')
-        .copySync(outputDirectory.childFile('kernel_blob.bin').path);
-    }
+  @override
+  List<Target> get dependencies => const <Target>[
+    AotElfProfile(),
+    UnpackLinuxDebug(),
+  ];
 
-    final AssetBundle assetBundle = AssetBundleFactory.instance.createBundle();
-    await assetBundle.build();
-    final Pool pool = Pool(kMaxOpenFiles);
-    await Future.wait<void>(
-      assetBundle.entries.entries.map<Future<void>>((MapEntry<String, DevFSContent> entry) async {
-        final PoolResource resource = await pool.request();
-        try {
-          final File file = fs.file(fs.path.join(outputDirectory.path, entry.key));
-          file.parent.createSync(recursive: true);
-          final DevFSContent content = entry.value;
-          if (content is DevFSFileContent && content.file is File) {
-            await (content.file as File).copy(file.path);
-          } else {
-            await file.writeAsBytes(await entry.value.contentsAsBytes());
-          }
-        } finally {
-          resource.release();
-        }
-      }));
-  }
+  @override
+  List<Source> get inputs => const <Source>[
+    Source.pattern('{BUILD_DIR}/app.so'),
+    Source.pattern('{FLUTTER_ROOT}/packages/flutter_tools/lib/src/build_system/targets/linux.dart'),
+    Source.behavior(AssetOutputBehavior('flutter_assets')),
+  ];
+
+  @override
+  List<Source> get outputs => const <Source>[
+    Source.behavior(AssetOutputBehavior('flutter_assets')),
+    Source.pattern('{OUTPUT_DIR}/flutter_assets/libapp.so'),
+  ];
+}
+
+
+/// Creates a release bundle for the Linux desktop target.
+class ReleaseBundleLinuxAssets extends BundleLinuxAssets {
+  const ReleaseBundleLinuxAssets();
+
+  @override
+  String get name => 'release_bundle_linux_assets';
+
+  @override
+  List<Target> get dependencies => const <Target>[
+    AotElfRelease(),
+    UnpackLinuxDebug(),
+  ];
+
+  @override
+  List<Source> get inputs => const <Source>[
+    Source.pattern('{BUILD_DIR}/app.so'),
+    Source.pattern('{FLUTTER_ROOT}/packages/flutter_tools/lib/src/build_system/targets/linux.dart'),
+    Source.behavior(AssetOutputBehavior('flutter_assets')),
+  ];
+
+  @override
+  List<Source> get outputs => const <Source>[
+    Source.behavior(AssetOutputBehavior('flutter_assets')),
+    Source.pattern('{OUTPUT_DIR}/flutter_assets/libapp.so'),
+  ];
 }

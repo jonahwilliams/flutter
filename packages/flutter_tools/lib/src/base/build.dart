@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:flutter_tools/src/build_system/build_system.dart';
 import 'package:meta/meta.dart';
 
 import '../artifacts.dart';
@@ -328,6 +329,7 @@ class AOTSnapshotter {
       TargetPlatform.android_arm64,
       TargetPlatform.ios,
       TargetPlatform.darwin_x64,
+      TargetPlatform.linux_x64,
     ].contains(platform);
   }
 

@@ -288,6 +288,7 @@ class RunCommand extends RunCommandBase {
         initializePlatform: argResults['web-initialize-platform'],
         hostname: featureFlags.isWebEnabled ? argResults['web-hostname'] : '',
         port: featureFlags.isWebEnabled ? argResults['web-port'] : '',
+        forwardDeviceId: featureFlags.isWebEnabled ? argResults['web-forward-device-id'] : null,
       );
     } else {
       return DebuggingOptions.enabled(
@@ -307,6 +308,7 @@ class RunCommand extends RunCommandBase {
         hostname: featureFlags.isWebEnabled ? argResults['web-hostname'] : '',
         port: featureFlags.isWebEnabled ? argResults['web-port'] : '',
         browserLaunch: featureFlags.isWebEnabled ? argResults['web-browser-launch'] : null,
+        forwardDeviceId: featureFlags.isWebEnabled ? argResults['web-forward-device-id'] : null,
       );
     }
   }

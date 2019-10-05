@@ -160,6 +160,17 @@ class ResidentWebRunner extends ResidentRunner {
       printError(message);
       return 1;
     }
+    if (debuggingOptions.forwardDeviceId != null) {
+      if (debuggingOptions.port == null) {
+        throwToolExit('"--web-forward-device-id" requires a specified port');
+      }
+      final int port = int.tryParse(debuggingOptions.port);
+      printStatus('Serving application on port $port for ${debuggingOptions.forwardDeviceId}');
+      final Device device = await deviceManager
+        .getDevicesById(debuggingOptions.forwardDeviceId).single;
+      final int result = await device.portForwarder.forward(port);
+      printStatus('using host port: $result');
+    }
     final String modeName = debuggingOptions.buildInfo.friendlyModeName;
     printStatus('Launching ${getDisplayPath(target)} on ${device.name} in $modeName mode...');
     Status buildStatus;
@@ -195,6 +206,7 @@ class ResidentWebRunner extends ResidentRunner {
         unawaited(_connectionResult.debugConnection.onDone.whenComplete(exit));
       }
     } catch (err) {
+      printTrace(err);
       throwToolExit('Failed to build application for the web.');
     } finally {
       buildStatus.stop();

@@ -158,6 +158,11 @@ abstract class FlutterCommand extends Command<void> {
         'on Chrome and other browsers which support extensions.',
       hide: hide,
     );
+    argParser.addOption('web-forward-device-id',
+      help: 'A device id of a connected mobile device to forward ports to for '
+        'remote web debugging. Must be used in combination with "--web-port"',
+      hide: hide,
+    );
   }
 
   void usesTargetOption() {

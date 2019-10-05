@@ -493,9 +493,15 @@ class DebuggingOptions {
     this.hostname,
     this.port,
     this.browserLaunch = true,
+    this.forwardDeviceId,
    }) : debuggingEnabled = true;
 
-  DebuggingOptions.disabled(this.buildInfo, { this.initializePlatform = true, this.port, this.hostname })
+  DebuggingOptions.disabled(this.buildInfo, {
+    this.initializePlatform = true,
+    this.port,
+    this.hostname,
+    this.forwardDeviceId,
+  })
     : debuggingEnabled = false,
       useTestFonts = false,
       startPaused = false,
@@ -529,6 +535,7 @@ class DebuggingOptions {
   final String port;
   final String hostname;
   final bool browserLaunch;
+  final String forwardDeviceId;
 
   bool get hasObservatoryPort => observatoryPort != null;
 }
@@ -573,6 +580,7 @@ abstract class DevicePortForwarder {
   List<ForwardedPort> get forwardedPorts;
 
   /// Forward [hostPort] on the host to [devicePort] on the device.
+  ///
   /// If [hostPort] is null or zero, will auto select a host port.
   /// Returns a Future that completes with the host port.
   Future<int> forward(int devicePort, { int hostPort });

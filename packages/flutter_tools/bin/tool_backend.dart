@@ -47,17 +47,10 @@ or
           if (localEngine != null) '--local-engine=$localEngine',
           'assemble',
           '-dTargetPlatform=$targetPlatform',
-<<<<<<< HEAD
           '-dBuildMode=release',
           '-dTargetFile=$flutterTarget',
           '--output=build',
           'release_bundle_linux_assets',
-=======
-          '-dBuildMode=debug',
-          '-dTargetFile=$flutterTarget',
-          '--output=build',
-          'debug_bundle_linux_assets',
->>>>>>> 71497367efc41eff684d8f092d467634f0875400
         ]);
     if (unpackResult.exitCode != 0) {
       stderr.write(unpackResult.stderr);

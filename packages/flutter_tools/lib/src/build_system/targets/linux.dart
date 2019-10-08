@@ -63,39 +63,9 @@ class UnpackLinuxDebug extends Target {
   }
 }
 
-<<<<<<< HEAD
+/// Creates a debug bundle for the Linux desktop target.
 abstract class BundleLinuxAssets extends Target {
   const BundleLinuxAssets();
-=======
-/// Creates a debug bundle for the Linux desktop target.
-class DebugBundleLinuxAssets extends Target {
-  const DebugBundleLinuxAssets();
-
-  @override
-  String get name => 'debug_bundle_linux_assets';
-
-  @override
-  List<Target> get dependencies => const <Target>[
-    KernelSnapshot(),
-    UnpackLinuxDebug(),
-  ];
-
-  @override
-  List<Source> get inputs => const <Source>[
-    Source.pattern('{BUILD_DIR}/app.dill'),
-    Source.pattern('{FLUTTER_ROOT}/packages/flutter_tools/lib/src/build_system/targets/linux.dart'),
-    Source.behavior(AssetOutputBehavior('flutter_assets')),
-  ];
-
-  @override
-  List<Source> get outputs => const <Source>[
-    Source.behavior(AssetOutputBehavior('flutter_assets')),
-    Source.pattern('{OUTPUT_DIR}/flutter_assets/kernel_blob.bin'),
-    Source.pattern('{OUTPUT_DIR}/flutter_assets/AssetManifest.json'),
-    Source.pattern('{OUTPUT_DIR}/flutter_assets/FontManifest.json'),
-    Source.pattern('{OUTPUT_DIR}/flutter_assets/LICENSE'),
-  ];
->>>>>>> 71497367efc41eff684d8f092d467634f0875400
 
   @override
   Future<void> build(Environment environment) async {
@@ -104,11 +74,7 @@ class DebugBundleLinuxAssets extends Target {
     }
     final BuildMode buildMode = getBuildModeForName(environment.defines[kBuildMode]);
     final Directory outputDirectory = environment.outputDir
-<<<<<<< HEAD
-        .childDirectory('flutter_assets');
-=======
       .childDirectory('flutter_assets');
->>>>>>> 71497367efc41eff684d8f092d467634f0875400
     if (!outputDirectory.existsSync()) {
       outputDirectory.createSync();
     }
@@ -117,12 +83,9 @@ class DebugBundleLinuxAssets extends Target {
     if (buildMode == BuildMode.debug) {
       environment.buildDir.childFile('app.dill')
         .copySync(outputDirectory.childFile('kernel_blob.bin').path);
-<<<<<<< HEAD
     } else {
       environment.buildDir.childFile('app.so')
         .copySync(outputDirectory.childFile('libapp.so').path);
-=======
->>>>>>> 71497367efc41eff684d8f092d467634f0875400
     }
 
     final AssetBundle assetBundle = AssetBundleFactory.instance.createBundle();
@@ -146,7 +109,6 @@ class DebugBundleLinuxAssets extends Target {
       }));
   }
 }
-<<<<<<< HEAD
 
 /// Creates a debug bundle for the Linux desktop target.
 class DebugBundleLinuxAssets extends BundleLinuxAssets {
@@ -232,5 +194,3 @@ class ReleaseBundleLinuxAssets extends BundleLinuxAssets {
     Source.pattern('{OUTPUT_DIR}/flutter_assets/libapp.so'),
   ];
 }
-=======
->>>>>>> 71497367efc41eff684d8f092d467634f0875400

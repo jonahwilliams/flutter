@@ -14,7 +14,6 @@ import '../base/io.dart';
 import '../base/logger.dart';
 import '../base/platform.dart';
 import '../base/process.dart';
-import '../base/process_manager.dart';
 import '../build_info.dart';
 import '../convert.dart';
 import '../device.dart';
@@ -373,25 +372,29 @@ class IOSDevice extends Device {
           debuggingOptions.observatoryPort,
         );
         if (localUri != null) {
+          UsageEvent('ios-mdns', 'success').send();
           return LaunchResult.succeeded(observatoryUri: localUri);
         }
       } catch (error) {
-        printError('Failed to establish a debug connection with $id: $error');
+        printError('Failed to establish a debug connection with $id using mdns: $error');
       }
 
-      // Fallback to manual protocol discovery
+      // Fallback to manual protocol discovery.
+      UsageEvent('ios-mdns', 'failure').send();
       printTrace('mDNS lookup failed, attempting fallback to reading device log.');
       try {
         printTrace('Waiting for observatory port.');
         localUri = await observatoryDiscovery.uri;
         if (localUri != null) {
+          UsageEvent('ios-mdns', 'fallback-success').send();
           return LaunchResult.succeeded(observatoryUri: localUri);
         }
       } catch (error) {
-        printError('Failed to establish a debug connection with $id: $error');
+        printError('Failed to establish a debug connection with $id using logs: $error');
       } finally {
         await observatoryDiscovery?.cancel();
       }
+      UsageEvent('ios-mdns', 'fallback-failure').send();
       return LaunchResult.failed();
     } finally {
       installStatus.stop();
@@ -413,7 +416,7 @@ class IOSDevice extends Device {
   @override
   DeviceLogReader getLogReader({ ApplicationPackage app }) {
     _logReaders ??= <ApplicationPackage, DeviceLogReader>{};
-    return _logReaders.putIfAbsent(app, () => _IOSDeviceLogReader(this, app));
+    return _logReaders.putIfAbsent(app, () => IOSDeviceLogReader(this, app));
   }
 
   @visibleForTesting
@@ -423,7 +426,7 @@ class IOSDevice extends Device {
   }
 
   @override
-  DevicePortForwarder get portForwarder => _portForwarder ??= _IOSDevicePortForwarder(this);
+  DevicePortForwarder get portForwarder => _portForwarder ??= IOSDevicePortForwarder(this);
 
   @visibleForTesting
   set portForwarder(DevicePortForwarder forwarder) {
@@ -444,6 +447,14 @@ class IOSDevice extends Device {
   @override
   bool isSupportedForProject(FlutterProject flutterProject) {
     return flutterProject.ios.existsSync();
+  }
+
+  @override
+  void dispose() {
+    _logReaders.forEach((ApplicationPackage application, DeviceLogReader logReader) {
+      logReader.dispose();
+    });
+    _portForwarder?.dispose();
   }
 }
 
@@ -507,11 +518,12 @@ String decodeSyslog(String line) {
   }
 }
 
-class _IOSDeviceLogReader extends DeviceLogReader {
-  _IOSDeviceLogReader(this.device, ApplicationPackage app) {
+@visibleForTesting
+class IOSDeviceLogReader extends DeviceLogReader {
+  IOSDeviceLogReader(this.device, ApplicationPackage app) {
     _linesController = StreamController<String>.broadcast(
       onListen: _start,
-      onCancel: _stop,
+      onCancel: dispose,
     );
 
     // Match for lines for the runner in syslog.
@@ -534,7 +546,6 @@ class _IOSDeviceLogReader extends DeviceLogReader {
   RegExp _anyLineRegex;
 
   StreamController<String> _linesController;
-  Process _process;
 
   @override
   Stream<String> get logLines => _linesController.stream;
@@ -544,16 +555,21 @@ class _IOSDeviceLogReader extends DeviceLogReader {
 
   void _start() {
     iMobileDevice.startLogger(device.id).then<void>((Process process) {
-      _process = process;
-      _process.stdout.transform<String>(utf8.decoder).transform<String>(const LineSplitter()).listen(_newLineHandler());
-      _process.stderr.transform<String>(utf8.decoder).transform<String>(const LineSplitter()).listen(_newLineHandler());
-      _process.exitCode.whenComplete(() {
+      process.stdout.transform<String>(utf8.decoder).transform<String>(const LineSplitter()).listen(_newLineHandler());
+      process.stderr.transform<String>(utf8.decoder).transform<String>(const LineSplitter()).listen(_newLineHandler());
+      process.exitCode.whenComplete(() {
         if (_linesController.hasListener) {
           _linesController.close();
         }
       });
+      assert(_idevicesyslogProcess == null);
+      _idevicesyslogProcess = process;
     });
   }
+
+  @visibleForTesting
+  set idevicesyslogProcess(Process process) => _idevicesyslogProcess = process;
+  Process _idevicesyslogProcess;
 
   // Returns a stateful line handler to properly capture multi-line output.
   //
@@ -586,13 +602,15 @@ class _IOSDeviceLogReader extends DeviceLogReader {
     };
   }
 
-  void _stop() {
-    _process?.kill();
+  @override
+  void dispose() {
+    _idevicesyslogProcess?.kill();
   }
 }
 
-class _IOSDevicePortForwarder extends DevicePortForwarder {
-  _IOSDevicePortForwarder(this.device) : _forwardedPorts = <ForwardedPort>[];
+@visibleForTesting
+class IOSDevicePortForwarder extends DevicePortForwarder {
+  IOSDevicePortForwarder(this.device) : _forwardedPorts = <ForwardedPort>[];
 
   final IOSDevice device;
 
@@ -600,6 +618,11 @@ class _IOSDevicePortForwarder extends DevicePortForwarder {
 
   @override
   List<ForwardedPort> get forwardedPorts => _forwardedPorts;
+
+  @visibleForTesting
+  void addForwardedPorts(List<ForwardedPort> forwardedPorts) {
+    forwardedPorts.forEach(_forwardedPorts.add);
+  }
 
   static const Duration _kiProxyPortForwardTimeout = Duration(seconds: 1);
 
@@ -614,7 +637,7 @@ class _IOSDevicePortForwarder extends DevicePortForwarder {
 
     bool connected = false;
     while (!connected) {
-      printTrace('attempting to forward device port $devicePort to host port $hostPort');
+      printTrace('Attempting to forward device port $devicePort to host port $hostPort');
       // Usage: iproxy LOCAL_TCP_PORT DEVICE_TCP_PORT UDID
       process = await processUtils.start(
         <String>[
@@ -630,6 +653,7 @@ class _IOSDevicePortForwarder extends DevicePortForwarder {
       // TODO(ianh): This is a flakey race condition, https://github.com/libimobiledevice/libimobiledevice/issues/674
       connected = !await process.stdout.isEmpty.timeout(_kiProxyPortForwardTimeout, onTimeout: () => false);
       if (!connected) {
+        process.kill();
         if (autoselect) {
           hostPort += 1;
           if (hostPort > 65535) {
@@ -659,13 +683,13 @@ class _IOSDevicePortForwarder extends DevicePortForwarder {
     }
 
     printTrace('Unforwarding port $forwardedPort');
+    forwardedPort.dispose();
+  }
 
-    final Process process = forwardedPort.context;
-
-    if (process != null) {
-      processManager.killPid(process.pid);
-    } else {
-      printError('Forwarded port did not have a valid process');
+  @override
+  Future<void> dispose() async {
+    for (ForwardedPort forwardedPort in _forwardedPorts) {
+      forwardedPort.dispose();
     }
   }
 }

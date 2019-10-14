@@ -3,10 +3,12 @@
 // found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dwds/dwds.dart';
 import 'package:flutter_tools/src/base/common.dart';
 import 'package:flutter_tools/src/base/file_system.dart';
+import 'package:flutter_tools/src/base/io.dart';
 import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/build_info.dart';
 import 'package:flutter_tools/src/device.dart';
@@ -31,12 +33,14 @@ void main() {
   MockDebugConnection mockDebugConnection;
   MockVmService mockVmService;
   MockWebDevice mockWebDevice;
+  MockAppConnection mockAppConnection;
 
   setUp(() {
     mockWebFs = MockFlutterWebFs();
     mockDebugConnection = MockDebugConnection();
     mockVmService = MockVmService();
     mockWebDevice = MockWebDevice();
+    mockAppConnection = MockAppConnection();
     testbed = Testbed(
       setup: () {
         residentWebRunner = ResidentWebRunner(
@@ -47,26 +51,27 @@ void main() {
         );
       },
       overrides: <Type, Generator>{
-      WebFsFactory: () => ({
-        @required String target,
-        @required FlutterProject flutterProject,
-        @required BuildInfo buildInfo,
-        @required bool skipDwds,
-        @required bool initializePlatform,
-        @required String hostname,
-        @required String port,
-      }) async {
-        return mockWebFs;
+        WebFsFactory: () => ({
+          @required String target,
+          @required FlutterProject flutterProject,
+          @required BuildInfo buildInfo,
+          @required bool skipDwds,
+          @required bool initializePlatform,
+          @required String hostname,
+          @required String port,
+        }) async {
+          return mockWebFs;
+        },
       },
-    });
+    );
   });
 
   void _setupMocks() {
     fs.file('pubspec.yaml').createSync();
     fs.file(fs.path.join('lib', 'main.dart')).createSync(recursive: true);
     fs.file(fs.path.join('web', 'index.html')).createSync(recursive: true);
-    when(mockWebFs.runAndDebug()).thenAnswer((Invocation _) async {
-      return mockDebugConnection;
+    when(mockWebFs.connect(any)).thenAnswer((Invocation _) async {
+      return ConnectionResult(mockAppConnection, mockDebugConnection);
     });
     when(mockWebFs.recompile()).thenAnswer((Invocation _) {
       return Future<bool>.value(false);
@@ -132,9 +137,34 @@ void main() {
     ));
     final DebugConnectionInfo debugConnectionInfo = await connectionInfoCompleter.future;
 
+    verify(mockAppConnection.runMain()).called(1);
     verify(mockVmService.registerService('reloadSources', 'FlutterTools')).called(1);
     expect(bufferLogger.statusText, contains('Debug service listening on ws://127.0.0.1/abcd/'));
     expect(debugConnectionInfo.wsUri.toString(), 'ws://127.0.0.1/abcd/');
+  }));
+
+  test('Listens to stdout streams before running main', () => testbed.run(() async {
+    _setupMocks();
+    final BufferLogger bufferLogger = logger;
+    final Completer<DebugConnectionInfo> connectionInfoCompleter = Completer<DebugConnectionInfo>();
+    final StreamController<Event> controller = StreamController<Event>.broadcast();
+    when(mockVmService.onStdoutEvent).thenAnswer((Invocation _) {
+      return controller.stream;
+    });
+    when(mockAppConnection.runMain()).thenAnswer((Invocation invocation) {
+      controller.add(Event.parse(<String, Object>{
+        'type': 'Event',
+        'kind': 'WriteEvent',
+        'timestamp': 1569473488296,
+        'bytes': base64.encode('THIS MESSAGE IS IMPORTANT'.codeUnits),
+      }));
+    });
+    unawaited(residentWebRunner.run(
+      connectionInfoCompleter: connectionInfoCompleter,
+    ));
+    await connectionInfoCompleter.future;
+
+    expect(bufferLogger.statusText, contains('THIS MESSAGE IS IMPORTANT'));
   }));
 
   test('Can hot reload after attaching', () => testbed.run(() async {
@@ -144,7 +174,7 @@ void main() {
       connectionInfoCompleter: connectionInfoCompleter,
     ));
     await connectionInfoCompleter.future;
-    when(mockWebFs.recompile()).thenAnswer((Invocation _) async {
+    when(mockWebFs.recompile()).thenAnswer((Invocation invocation) async {
       return true;
     });
     when(mockVmService.callServiceExtension('hotRestart')).thenAnswer((Invocation _) async {
@@ -160,6 +190,9 @@ void main() {
       'cd29': 'false',
       'cd30': 'true',
     })).called(1);
+    verify(Usage.instance.sendTiming('hot', 'web-restart', any)).called(1);
+    verify(Usage.instance.sendTiming('hot', 'web-refresh', any)).called(1);
+    verify(Usage.instance.sendTiming('hot', 'web-recompile', any)).called(1);
   }, overrides: <Type, Generator>{
     Usage: () => MockFlutterUsage(),
   }));
@@ -171,7 +204,7 @@ void main() {
       connectionInfoCompleter: connectionInfoCompleter,
     ));
     await connectionInfoCompleter.future;
-    when(mockWebFs.recompile()).thenAnswer((Invocation _) async {
+    when(mockWebFs.recompile()).thenAnswer((Invocation invocation) async {
       return true;
     });
     when(mockVmService.callServiceExtension('hotRestart')).thenAnswer((Invocation _) async {
@@ -187,6 +220,9 @@ void main() {
       'cd29': 'false',
       'cd30': 'true',
     })).called(1);
+    verify(Usage.instance.sendTiming('hot', 'web-restart', any)).called(1);
+    verify(Usage.instance.sendTiming('hot', 'web-refresh', any)).called(1);
+    verify(Usage.instance.sendTiming('hot', 'web-recompile', any)).called(1);
   }, overrides: <Type, Generator>{
     Usage: () => MockFlutterUsage(),
   }));
@@ -205,6 +241,11 @@ void main() {
 
     expect(result.code, 1);
     expect(result.message, contains('Failed to recompile application.'));
+    verifyNever(Usage.instance.sendTiming('hot', 'web-restart', any));
+    verifyNever(Usage.instance.sendTiming('hot', 'web-refresh', any));
+    verifyNever(Usage.instance.sendTiming('hot', 'web-recompile', any));
+  }, overrides: <Type, Generator>{
+    Usage: () => MockFlutterUsage(),
   }));
 
   test('Fails on vmservice response error', () => testbed.run(() async {
@@ -224,6 +265,11 @@ void main() {
 
     expect(result.code, 1);
     expect(result.message, contains('Failed'));
+    verifyNever(Usage.instance.sendTiming('hot', 'web-restart', any));
+    verifyNever(Usage.instance.sendTiming('hot', 'web-refresh', any));
+    verify(Usage.instance.sendTiming('hot', 'web-recompile', any)).called(1);
+  }, overrides: <Type, Generator>{
+    Usage: () => MockFlutterUsage(),
   }));
 
   test('Fails on vmservice RpcError', () => testbed.run(() async {
@@ -414,6 +460,63 @@ void main() {
 
     expect(bufferLogger.statusText, contains('Launching ${fs.path.join('lib', 'main.dart')} on Chromez in debug mode'));
   }));
+
+  test('Successfully turns WebSocketException into ToolExit', () => testbed.run(() async {
+    _setupMocks();
+    final Completer<DebugConnectionInfo> connectionInfoCompleter = Completer<DebugConnectionInfo>();
+    final Completer<void> unhandledErrorCompleter = Completer<void>();
+    when(mockWebFs.connect(any)).thenAnswer((Invocation _) async {
+      unawaited(unhandledErrorCompleter.future.then((void value) {
+        throw const WebSocketException();
+      }));
+      return ConnectionResult(mockAppConnection, mockDebugConnection);
+    });
+
+    final Future<void> expectation = expectLater(() => residentWebRunner.run(
+      connectionInfoCompleter: connectionInfoCompleter,
+    ), throwsA(isInstanceOf<ToolExit>()));
+
+    unhandledErrorCompleter.complete();
+    await expectation;
+  }));
+
+  test('Rethrows Exception type', () => testbed.run(() async {
+    _setupMocks();
+    final Completer<DebugConnectionInfo> connectionInfoCompleter = Completer<DebugConnectionInfo>();
+    final Completer<void> unhandledErrorCompleter = Completer<void>();
+    when(mockWebFs.connect(any)).thenAnswer((Invocation _) async {
+      unawaited(unhandledErrorCompleter.future.then((void value) {
+        throw Exception('Something went wrong');
+      }));
+      return ConnectionResult(mockAppConnection, mockDebugConnection);
+    });
+
+    final Future<void> expectation = expectLater(() => residentWebRunner.run(
+      connectionInfoCompleter: connectionInfoCompleter,
+    ), throwsA(isInstanceOf<Exception>()));
+
+    unhandledErrorCompleter.complete();
+    await expectation;
+  }));
+
+  test('Rethrows unknown exception type from web tooling', () => testbed.run(() async {
+    _setupMocks();
+    final Completer<DebugConnectionInfo> connectionInfoCompleter = Completer<DebugConnectionInfo>();
+    final Completer<void> unhandledErrorCompleter = Completer<void>();
+    when(mockWebFs.connect(any)).thenAnswer((Invocation _) async {
+      unawaited(unhandledErrorCompleter.future.then((void value) {
+        throw StateError('Something went wrong');
+      }));
+      return ConnectionResult(mockAppConnection, mockDebugConnection);
+    });
+
+    final Future<void> expectation = expectLater(() => residentWebRunner.run(
+      connectionInfoCompleter: connectionInfoCompleter,
+    ), throwsA(isInstanceOf<StateError>()));
+
+    unhandledErrorCompleter.complete();
+    await expectation;
+  }));
 }
 
 class MockFlutterUsage extends Mock implements Usage {}
@@ -421,4 +524,5 @@ class MockWebDevice extends Mock implements ChromeDevice {}
 class MockBuildDaemonCreator extends Mock implements BuildDaemonCreator {}
 class MockFlutterWebFs extends Mock implements WebFs {}
 class MockDebugConnection extends Mock implements DebugConnection {}
+class MockAppConnection extends Mock implements AppConnection {}
 class MockVmService extends Mock implements VmService {}

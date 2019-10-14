@@ -11,6 +11,7 @@ import 'package:flutter_tools/src/base/context.dart';
 import 'package:flutter_tools/src/base/file_system.dart';
 import 'package:flutter_tools/src/base/platform.dart';
 import 'package:flutter_tools/src/cache.dart';
+import 'package:flutter_tools/src/features.dart';
 import 'package:flutter_tools/src/flutter_manifest.dart';
 import 'package:flutter_tools/src/ios/plist_parser.dart';
 import 'package:flutter_tools/src/ios/xcodeproj.dart';
@@ -188,6 +189,52 @@ void main() {
         await project.ensureReadyForPlatformSpecificTooling();
         expectExists(project.android.hostAppGradleRoot.childFile('local.properties'));
       });
+      testUsingContext('injects plugins for macOS', () async {
+        final FlutterProject project = await someProject();
+        project.macos.managedDirectory.createSync(recursive: true);
+        await project.ensureReadyForPlatformSpecificTooling();
+        expectExists(project.macos.managedDirectory.childFile('GeneratedPluginRegistrant.swift'));
+      }, overrides: <Type, Generator>{
+        FileSystem: () => MemoryFileSystem(),
+        ProcessManager: () => FakeProcessManager(<FakeCommand>[]),
+        FeatureFlags: () => TestFeatureFlags(isMacOSEnabled: true),
+        FlutterProjectFactory: () => FlutterProjectFactory(),
+      });
+      testUsingContext('generates Xcode configuration for macOS', () async {
+        final FlutterProject project = await someProject();
+        project.macos.managedDirectory.createSync(recursive: true);
+        await project.ensureReadyForPlatformSpecificTooling();
+        expectExists(project.macos.generatedXcodePropertiesFile);
+      }, overrides: <Type, Generator>{
+        FileSystem: () => MemoryFileSystem(),
+        ProcessManager: () => FakeProcessManager(<FakeCommand>[]),
+        FeatureFlags: () => TestFeatureFlags(isMacOSEnabled: true),
+        FlutterProjectFactory: () => FlutterProjectFactory(),
+      });
+      testUsingContext('injects plugins for Linux', () async {
+        final FlutterProject project = await someProject();
+        project.linux.managedDirectory.createSync(recursive: true);
+        await project.ensureReadyForPlatformSpecificTooling();
+        expectExists(project.linux.managedDirectory.childFile('generated_plugin_registrant.h'));
+        expectExists(project.linux.managedDirectory.childFile('generated_plugin_registrant.cc'));
+      }, overrides: <Type, Generator>{
+        FileSystem: () => MemoryFileSystem(),
+        ProcessManager: () => FakeProcessManager(<FakeCommand>[]),
+        FeatureFlags: () => TestFeatureFlags(isLinuxEnabled: true),
+        FlutterProjectFactory: () => FlutterProjectFactory(),
+      });
+      testUsingContext('injects plugins for Windows', () async {
+        final FlutterProject project = await someProject();
+        project.windows.managedDirectory.createSync(recursive: true);
+        await project.ensureReadyForPlatformSpecificTooling();
+        expectExists(project.windows.managedDirectory.childFile('generated_plugin_registrant.h'));
+        expectExists(project.windows.managedDirectory.childFile('generated_plugin_registrant.cc'));
+      }, overrides: <Type, Generator>{
+        FileSystem: () => MemoryFileSystem(),
+        ProcessManager: () => FakeProcessManager(<FakeCommand>[]),
+        FeatureFlags: () => TestFeatureFlags(isWindowsEnabled: true),
+        FlutterProjectFactory: () => FlutterProjectFactory(),
+      });
       testInMemory('creates Android library in module', () async {
         final FlutterProject project = await aModuleProject();
         await project.ensureReadyForPlatformSpecificTooling();
@@ -280,9 +327,10 @@ apply plugin: 'kotlin-android'
         expect(await project.ios.isSwift, isTrue);
         expect(project.android.isKotlin, isTrue);
       }, overrides: <Type, Generator>{
-          FileSystem: () => fs,
-          XcodeProjectInterpreter: () => mockXcodeProjectInterpreter,
-          FlutterProjectFactory: () => flutterProjectFactory,
+        FileSystem: () => fs,
+        ProcessManager: () => FakeProcessManager(<FakeCommand>[]),
+        XcodeProjectInterpreter: () => mockXcodeProjectInterpreter,
+        FlutterProjectFactory: () => flutterProjectFactory,
       });
     });
 
@@ -301,6 +349,7 @@ apply plugin: 'kotlin-android'
       void testWithMocks(String description, Future<void> testMethod()) {
         testUsingContext(description, testMethod, overrides: <Type, Generator>{
           FileSystem: () => fs,
+          ProcessManager: () => FakeProcessManager(<FakeCommand>[]),
           PlistParser: () => mockPlistUtils,
           XcodeProjectInterpreter: () => mockXcodeProjectInterpreter,
           FlutterProjectFactory: () => flutterProjectFactory,
@@ -512,7 +561,11 @@ flutter:
         pluginClass: MyPlugin
       ios:
         pluginClass: MyPlugin
+      linux:
+        pluginClass: MyPlugin
       macos:
+        pluginClass: MyPlugin
+      windows:
         pluginClass: MyPlugin
 ''';
   }
@@ -559,6 +612,7 @@ void testInMemory(String description, Future<void> testMethod()) {
     testMethod,
     overrides: <Type, Generator>{
       FileSystem: () => testFileSystem,
+      ProcessManager: () => FakeProcessManager(<FakeCommand>[]),
       Cache: () => Cache(),
       FlutterProjectFactory: () => flutterProjectFactory,
     },

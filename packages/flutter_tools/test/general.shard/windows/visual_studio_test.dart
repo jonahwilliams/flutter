@@ -35,20 +35,20 @@ void main() {
   // A minimum version of a response where a VS installation was found.
   const Map<String, dynamic> _defaultResponse = <String, dynamic>{
     'installationPath': visualStudioPath,
-    'displayName': 'Visual Studio Community 2017',
-    'installationVersion': '15.9.28307.665',
+    'displayName': 'Visual Studio Community 2019',
+    'installationVersion': '16.2.29306.81',
     'isRebootRequired': false,
     'isComplete': true,
     'isLaunchable': true,
     'isPrerelease': false,
     'catalog': <String, dynamic>{
-      'productDisplayVersion': '15.9.12',
+      'productDisplayVersion': '16.2.5',
     },
   };
 
   // A version of a response that doesn't include certain installation status
   // information that might be missing in older Visual Studio versions.
-  const Map<String, dynamic> _oldResponse = <String, dynamic>{
+  const Map<String, dynamic> _missingStatusResponse = <String, dynamic>{
     'installationPath': visualStudioPath,
     'displayName': 'Visual Studio Community 2017',
     'installationVersion': '15.9.28307.665',
@@ -67,10 +67,11 @@ void main() {
   // Sets up the mock environment so that searching for Visual Studio with
   // exactly the given required components will provide a result. By default it
   // return a preset installation, but the response can be overridden.
-  void setMockVswhereResponse(
-      [List<String> requiredComponents,
-      List<String> additionalArguments,
-      Map<String, dynamic> response]) {
+  void setMockVswhereResponse([
+    List<String> requiredComponents,
+    List<String> additionalArguments,
+    Map<String, dynamic> response,
+  ]) {
     fs.file(vswherePath).createSync(recursive: true);
     fs.file(vcvarsPath).createSync(recursive: true);
 
@@ -87,12 +88,12 @@ void main() {
     when(mockProcessManager.runSync(
       <String>[
         vswherePath,
-          '-format',
-          'json',
-          '-utf8',
-          '-latest',
-          ...?additionalArguments,
-          ...?requirementArguments,
+        '-format',
+        'json',
+        '-utf8',
+        '-latest',
+        ...?additionalArguments,
+        ...?requirementArguments,
       ],
       workingDirectory: anyNamed('workingDirectory'),
       environment: anyNamed('environment'),
@@ -137,8 +138,8 @@ void main() {
       expect(visualStudio.isInstalled, false);
     }, overrides: <Type, Generator>{
       FileSystem: () => memoryFilesystem,
-      Platform: () => windowsPlatform,
       ProcessManager: () => mockProcessManager,
+      Platform: () => windowsPlatform,
     });
 
     testUsingContext('vcvarsPath returns null when vswhere is missing', () {
@@ -152,8 +153,8 @@ void main() {
       expect(visualStudio.vcvarsPath, isNull);
     }, overrides: <Type, Generator>{
       FileSystem: () => memoryFilesystem,
-      Platform: () => windowsPlatform,
       ProcessManager: () => mockProcessManager,
+      Platform: () => windowsPlatform,
     });
 
     testUsingContext('isInstalled returns false when vswhere returns non-zero', () {
@@ -180,8 +181,8 @@ void main() {
       expect(visualStudio.isInstalled, false);
     }, overrides: <Type, Generator>{
       FileSystem: () => memoryFilesystem,
-      Platform: () => windowsPlatform,
       ProcessManager: () => mockProcessManager,
+      Platform: () => windowsPlatform,
     });
 
     testUsingContext('VisualStudio getters return the right values if no installation is found', () {
@@ -201,21 +202,43 @@ void main() {
       expect(visualStudio.fullVersion, null);
     }, overrides: <Type, Generator>{
       FileSystem: () => memoryFilesystem,
-      Platform: () => windowsPlatform,
       ProcessManager: () => mockProcessManager,
+      Platform: () => windowsPlatform,
+    });
+
+    testUsingContext('necessaryComponentDescriptions suggest the right VS tools on major version 15', () {
+
+      visualStudio = VisualStudio();
+      final String toolsString = visualStudio.necessaryComponentDescriptions(15)[1];
+      expect(toolsString.contains('v141'), true);
+    }, overrides: <Type, Generator>{
+      FileSystem: () => memoryFilesystem,
+      ProcessManager: () => mockProcessManager,
+      Platform: () => windowsPlatform,
+    });
+
+    testUsingContext('necessaryComponentDescriptions suggest the right VS tools on major version != 15', () {
+
+      visualStudio = VisualStudio();
+      final String toolsString = visualStudio.necessaryComponentDescriptions(16)[1];
+      expect(toolsString.contains('v142'), true);
+    }, overrides: <Type, Generator>{
+      FileSystem: () => memoryFilesystem,
+      ProcessManager: () => mockProcessManager,
+      Platform: () => windowsPlatform,
     });
 
     testUsingContext('isInstalled returns true even with missing status information', () {
       setMockCompatibleVisualStudioInstallation(null);
       setMockPrereleaseVisualStudioInstallation(null);
-      setMockAnyVisualStudioInstallation(_oldResponse);
+      setMockAnyVisualStudioInstallation(_missingStatusResponse);
 
       visualStudio = VisualStudio();
       expect(visualStudio.isInstalled, true);
     }, overrides: <Type, Generator>{
       FileSystem: () => memoryFilesystem,
-      Platform: () => windowsPlatform,
       ProcessManager: () => mockProcessManager,
+      Platform: () => windowsPlatform,
     });
 
     testUsingContext('isInstalled returns true when VS is present but missing components', () {
@@ -227,8 +250,8 @@ void main() {
       expect(visualStudio.isInstalled, true);
     }, overrides: <Type, Generator>{
       FileSystem: () => memoryFilesystem,
-      Platform: () => windowsPlatform,
       ProcessManager: () => mockProcessManager,
+      Platform: () => windowsPlatform,
     });
 
     testUsingContext('isInstalled returns true when a prerelease version of VS is present', () {
@@ -244,8 +267,8 @@ void main() {
       expect(visualStudio.isPrerelease, true);
     }, overrides: <Type, Generator>{
       FileSystem: () => memoryFilesystem,
-      Platform: () => windowsPlatform,
       ProcessManager: () => mockProcessManager,
+      Platform: () => windowsPlatform,
     });
 
     testUsingContext('isComplete returns false when an incomplete installation is found', () {
@@ -261,8 +284,8 @@ void main() {
       expect(visualStudio.isComplete, false);
     }, overrides: <Type, Generator>{
       FileSystem: () => memoryFilesystem,
-      Platform: () => windowsPlatform,
       ProcessManager: () => mockProcessManager,
+      Platform: () => windowsPlatform,
     });
 
     testUsingContext('isLaunchable returns false if the installation can\'t be launched', () {
@@ -278,8 +301,8 @@ void main() {
       expect(visualStudio.isLaunchable, false);
     }, overrides: <Type, Generator>{
       FileSystem: () => memoryFilesystem,
-      Platform: () => windowsPlatform,
       ProcessManager: () => mockProcessManager,
+      Platform: () => windowsPlatform,
     });
 
     testUsingContext('isRebootRequired returns true if the installation needs a reboot', () {
@@ -295,8 +318,8 @@ void main() {
       expect(visualStudio.isRebootRequired, true);
     }, overrides: <Type, Generator>{
       FileSystem: () => memoryFilesystem,
-      Platform: () => windowsPlatform,
       ProcessManager: () => mockProcessManager,
+      Platform: () => windowsPlatform,
     });
 
 
@@ -309,8 +332,8 @@ void main() {
       expect(visualStudio.hasNecessaryComponents, false);
     }, overrides: <Type, Generator>{
       FileSystem: () => memoryFilesystem,
-      Platform: () => windowsPlatform,
       ProcessManager: () => mockProcessManager,
+      Platform: () => windowsPlatform,
     });
 
     testUsingContext('vcvarsPath returns null when VS is present but missing components', () {
@@ -322,8 +345,8 @@ void main() {
       expect(visualStudio.vcvarsPath, isNull);
     }, overrides: <Type, Generator>{
       FileSystem: () => memoryFilesystem,
-      Platform: () => windowsPlatform,
       ProcessManager: () => mockProcessManager,
+      Platform: () => windowsPlatform,
     });
 
     testUsingContext('vcvarsPath returns null when VS is present but with require components but installation is faulty', () {
@@ -336,8 +359,8 @@ void main() {
       expect(visualStudio.vcvarsPath, isNull);
     }, overrides: <Type, Generator>{
       FileSystem: () => memoryFilesystem,
-      Platform: () => windowsPlatform,
       ProcessManager: () => mockProcessManager,
+      Platform: () => windowsPlatform,
     });
 
     testUsingContext('hasNecessaryComponents returns false when VS is present with required components but installation is faulty', () {
@@ -350,8 +373,8 @@ void main() {
       expect(visualStudio.hasNecessaryComponents, false);
     }, overrides: <Type, Generator>{
       FileSystem: () => memoryFilesystem,
-      Platform: () => windowsPlatform,
       ProcessManager: () => mockProcessManager,
+      Platform: () => windowsPlatform,
     });
 
     testUsingContext('VS metadata is available when VS is present, even if missing components', () {
@@ -360,14 +383,14 @@ void main() {
       setMockAnyVisualStudioInstallation(_defaultResponse);
 
       visualStudio = VisualStudio();
-      expect(visualStudio.displayName, equals('Visual Studio Community 2017'));
-      expect(visualStudio.displayVersion, equals('15.9.12'));
+      expect(visualStudio.displayName, equals('Visual Studio Community 2019'));
+      expect(visualStudio.displayVersion, equals('16.2.5'));
       expect(visualStudio.installLocation, equals(visualStudioPath));
-      expect(visualStudio.fullVersion, equals('15.9.28307.665'));
+      expect(visualStudio.fullVersion, equals('16.2.29306.81'));
     }, overrides: <Type, Generator>{
       FileSystem: () => memoryFilesystem,
-      Platform: () => windowsPlatform,
       ProcessManager: () => mockProcessManager,
+      Platform: () => windowsPlatform,
     });
 
     testUsingContext('Everything returns good values when VS is present with all components', () {
@@ -381,12 +404,22 @@ void main() {
       expect(visualStudio.vcvarsPath, equals(vcvarsPath));
     }, overrides: <Type, Generator>{
       FileSystem: () => memoryFilesystem,
-      Platform: () => windowsPlatform,
       ProcessManager: () => mockProcessManager,
+      Platform: () => windowsPlatform,
     });
 
     testUsingContext('Metadata is for compatible version when latest is missing components', () {
-      setMockCompatibleVisualStudioInstallation(_defaultResponse);
+      // Return a different version for queries without the required packages.
+      final Map<String, dynamic> olderButCompleteVersionResponse = <String, dynamic>{
+        'installationPath': visualStudioPath,
+        'displayName': 'Visual Studio Community 2017',
+        'installationVersion': '15.9.28307.665',
+        'catalog': <String, dynamic>{
+          'productDisplayVersion': '15.9.12',
+        },
+      };
+
+      setMockCompatibleVisualStudioInstallation(olderButCompleteVersionResponse);
       setMockPrereleaseVisualStudioInstallation(null);
       // Return a different version for queries without the required packages.
       final Map<String, dynamic> incompleteVersionResponse = <String, dynamic>{
@@ -404,8 +437,8 @@ void main() {
       expect(visualStudio.displayVersion, equals('15.9.12'));
     }, overrides: <Type, Generator>{
       FileSystem: () => memoryFilesystem,
-      Platform: () => windowsPlatform,
       ProcessManager: () => mockProcessManager,
+      Platform: () => windowsPlatform,
     });
   });
 }

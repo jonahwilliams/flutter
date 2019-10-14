@@ -31,6 +31,7 @@ Future<int> runTests(
   bool machine = false,
   String precompiledDillPath,
   Map<String, String> precompiledDillFiles,
+  bool enableAsserts = false,
   bool trackWidgetCreation = false,
   bool updateGoldens = false,
   TestWatcher watcher,
@@ -57,7 +58,7 @@ Future<int> runTests(
   ];
   if (web) {
     final String tempBuildDir = fs.systemTempDirectory
-      .createTempSync('_flutter_test')
+      .createTempSync('flutter_test.')
       .absolute
       .uri
       .toFilePath();
@@ -91,6 +92,28 @@ Future<int> runTests(
   final InternetAddressType serverType =
       ipv6 ? InternetAddressType.IPv6 : InternetAddressType.IPv4;
 
+<<<<<<< HEAD
+=======
+  final loader.FlutterPlatform platform = loader.installHook(
+    shellPath: shellPath,
+    watcher: watcher,
+    enableObservatory: enableObservatory,
+    machine: machine,
+    startPaused: startPaused,
+    disableServiceAuthCodes: disableServiceAuthCodes,
+    serverType: serverType,
+    precompiledDillPath: precompiledDillPath,
+    precompiledDillFiles: precompiledDillFiles,
+    enableAsserts: enableAsserts,
+    trackWidgetCreation: trackWidgetCreation,
+    updateGoldens: updateGoldens,
+    buildTestAssets: buildTestAssets,
+    projectRootDirectory: fs.currentDirectory.uri,
+    flutterProject: flutterProject,
+    icudtlPath: icudtlPath,
+  );
+
+>>>>>>> e2c5fd6c2434f6ca191ac6be8329ec36c43787c2
   // Make the global packages path absolute.
   // (Makes sure it still works after we change the current directory.)
   PackageMap.globalPackagesPath =

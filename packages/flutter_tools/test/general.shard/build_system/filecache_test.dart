@@ -5,6 +5,7 @@
 import 'package:flutter_tools/src/base/file_system.dart';
 import 'package:flutter_tools/src/build_system/build_system.dart';
 import 'package:flutter_tools/src/build_system/file_hash_store.dart';
+import 'package:flutter_tools/src/convert.dart';
 
 import '../../src/common.dart';
 import '../../src/testbed.dart';
@@ -81,4 +82,56 @@ void main() {
     // Does not throw.
     fileCache.persist();
   }));
+
+  // Test cases taken from https://tools.ietf.org/html/rfc1321.
+  test('md5 test cases', () => testbed.run(() {
+    expect(FileHashStore.computeHash(FakeRandomAccessFile('')),
+      'd41d8cd98f00b204e9800998ecf8427e');
+    expect(FileHashStore.computeHash(FakeRandomAccessFile('a')),
+      '0cc175b9c0f1b6a831c399e269772661');
+    expect(FileHashStore.computeHash(FakeRandomAccessFile('abc')),
+      '900150983cd24fb0d6963f7d28e17f72');
+    expect(FileHashStore.computeHash(FakeRandomAccessFile('message digest')),
+      'f96b697d7cb7938d525a2f31aaf161d0');
+    expect(FileHashStore.computeHash(FakeRandomAccessFile('abcdefghijklmnopqr'
+      'stuvwxyz')), 'c3fcd3d76192e4007dfb496cca67e13b');
+    expect(FileHashStore.computeHash(FakeRandomAccessFile('ABCDEFGHIJKLMNOPQRS'
+      'TUVWXYZabcdefghijklmnopqrstuvwxyz0123456789')),
+      'd174ab98d277d9f5a5611c2c9f419d9f');
+    expect(FileHashStore.computeHash(FakeRandomAccessFile('1234567890123456789'
+      '0123456789012345678901234567890123456789012345678901234567890')),
+      '57edf4a22be3c955ac49da2e2107b67a');
+  }));
+}
+
+class FakeRandomAccessFile implements RandomAccessFile, File {
+  FakeRandomAccessFile(String contents)
+    : _contents = utf8.encode(contents);
+
+  int _position = 0;
+  final List<int> _contents;
+
+  @override
+  Future<int> length() async => _contents.length;
+
+  @override
+  Future<RandomAccessFile> setPosition(int newPosition) async {
+    _position = newPosition;
+    return this;
+  }
+
+  @override
+  Future<int> readInto(List<int> buffer, [int start = 0, int end]) async {
+    int i;
+    for (i = 0; i < buffer.length && _position + i < _contents.length; i++) {
+      buffer[i] = _contents[_position + i];
+    }
+    return i;
+  }
+
+  @override
+  void noSuchMethod(Invocation invocation) => throw UnimplementedError();
+
+  @override
+  Future<void> close() async {}
 }

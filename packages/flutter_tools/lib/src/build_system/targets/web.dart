@@ -1,3 +1,4 @@
+
 // Copyright 2019 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
@@ -110,9 +111,6 @@ class Dart2JSTarget extends Target {
   List<Source> get inputs => const <Source>[
     Source.pattern('{FLUTTER_ROOT}/packages/flutter_tools/lib/src/build_system/targets/web.dart'),
     Source.artifact(Artifact.flutterWebSdk),
-    Source.artifact(Artifact.dart2jsSnapshot),
-    Source.artifact(Artifact.engineDartBinary),
-    Source.artifact(Artifact.engineDartSdkPath),
     Source.pattern('{BUILD_DIR}/main.dart'),
     Source.pattern('{PROJECT_DIR}/.packages'),
     Source.function(listDartSources), // <- every dart file under {PROJECT_DIR}/lib and in .packages

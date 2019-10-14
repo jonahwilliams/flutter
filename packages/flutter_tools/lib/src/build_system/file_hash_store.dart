@@ -2,15 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'dart:io' as io;
-import 'dart:isolate';
 import 'dart:async';
 import 'dart:collection';
+import 'dart:io' as io;
+import 'dart:isolate';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
-import 'package:pool/pool.dart';
 
 import '../base/file_system.dart';
 import '../base/io.dart';
@@ -167,9 +166,23 @@ class FileHashStore {
         }
       }
     }
-    await Future.wait(<Future<void>>[
-      for (List<File> files in partitions) work(files)
-    ]);
+    if (files.length < 16) {
+      final Uint8List rawBuffer = Uint8List(_kBlockSize);
+      final Uint32List digest = Uint32List(4);
+      for (int i = 0; i < files.length; i++) {
+        final File currentFile = files[i];
+        final String absolutePath = currentFile.path;
+        final String previousHash = previousHashes[absolutePath];
+        final String currentHash = computeHash(io.File(files[i].path), rawBuffer, digest);
+        if (currentHash != previousHash) {
+          dirty.add(currentFile);
+        }
+      }
+    } else {
+      await Future.wait(<Future<void>>[
+        for (List<File> files in partitions) work(files)
+      ]);
+    }
     printTrace('hashing ${files.length} file(s) increased rss by '
       '${math.max(processInfo.currentRss - before, 0)} and took '
       '${stopwatch.elapsedMilliseconds} ms or '
@@ -195,7 +208,7 @@ class FileHashStore {
   static void _isolateEntrypoint(_IsolateMessage message) {
     final List<String> files = message.filePaths;
     // buffers for reading file chunks and maintaining digests.
-    final Uint8List rawBuffer = Uint8List(_kChunkSize);
+    final Uint8List rawBuffer = Uint8List(_kBlockSize);
     final Uint32List digest = Uint32List(4);
     final List<String> results = <String>[];
     for (String file in files) {
@@ -206,11 +219,12 @@ class FileHashStore {
 
   // 64 bytes (512 bits), The block size of the md5 algorithm.
   static const int _kChunkSize = 64;
+  // 64k block size for reading the file.
+  static const int _kBlockSize = _kChunkSize * 1024;
 
   @visibleForTesting
   static String computeHash(io.File file, Uint8List rawBuffer, Uint32List digest) {
     // typed views into buffers for easier numerics.
-    final Uint32List buffer = Uint32List.view(rawBuffer.buffer);
     final Uint64List lengthView = Uint64List.view(rawBuffer.buffer);
     final Uint8List hexView = Uint8List.view(digest.buffer);
 
@@ -218,6 +232,7 @@ class FileHashStore {
 
     // zero buffers before use. There are no yields (await) within this method
     // which means the static buffers cannot be written to by multiple calls.
+    // TODO(jonahwilliams): is this necessary.
     for (int i = 0; i < rawBuffer.length; i++) {
       rawBuffer[i] = 0;
     }
@@ -230,49 +245,48 @@ class FileHashStore {
     final int length = randomAccessFile.lengthSync();
     int offset = 0;
 
-    /// Read chunks of 64 bytes (512 bits) at a time from the file. One we
-    /// are unable to read a full chunk, we switch to the padding buffer.
-    /// There we can pad the remaining length to ensure the total message
-    /// length is divisible by 64 bytes.
+    /// Read blocks of 64K at a time from the file. Once we are unable to
+    /// read a full block, we switch to the padding buffer. There we can pad
+    /// the remaining length to ensure the total message length is divisible
+    /// by the chunk size of 64 bytes.
     int lastReadSize = 0;
     while (offset < length) {
       lastReadSize = randomAccessFile.readIntoSync(rawBuffer);
-      offset += _kChunkSize;
+      offset += _kBlockSize;
       randomAccessFile.setPositionSync(offset);
-      if (lastReadSize < _kChunkSize) {
-        // If we didn't read a full block, switch to the padding
-        // buffer.
-        break;
+      // BUG: doesn't handle partial bytes.
+      for (int i = 0; i < lastReadSize; i += 64) {
+        _processChunk(Uint32List.view(rawBuffer.buffer, i, _kChunkSize), digest);
       }
-      _processChunk(buffer, digest);
     }
     randomAccessFile.closeSync();
 
     // Pad the message to ensure we reach both a minimum message size and
     // divisibility by 64.
-    final int paddingOffset = lastReadSize % 64;
+    final int paddingOffset = lastReadSize % _kBlockSize;
+    final int paddingBufferStart = _align(lastReadSize);
     rawBuffer[paddingOffset] = 128;
 
     // If we don't have enough room for the one and the length,
     // we need to pad to two chunks.
-    if (lastReadSize > 56) {
+    if (_kBlockSize - lastReadSize > 56) {
       for (int i = paddingOffset + 1; i < 64; i++) {
         rawBuffer[i] = 0;
       }
-      _processChunk(buffer, digest);
+      _processChunk(Uint32List.view(rawBuffer.buffer, paddingBufferStart, _kChunkSize), digest);
       for (int i = 0; i < 56; i++) {
         rawBuffer[i] = 0;
       }
       // Pad the message the message length in bits.
       lengthView[7] = length * 8;
-      _processChunk(buffer, digest);
+      _processChunk(Uint32List.view(rawBuffer.buffer, 0, _kChunkSize), digest);
     } else {
       for (int i = paddingOffset + 1; i < 56; i++) {
         rawBuffer[i] = 0;
       }
       // Pad the message the message length in bits.
       lengthView[7] = length * 8;
-      _processChunk(buffer, digest);
+      _processChunk(Uint32List.view(rawBuffer.buffer, paddingBufferStart, _kChunkSize), digest);
     }
 
     final List<int> charCodes = <int>[];
@@ -288,12 +302,20 @@ class FileHashStore {
 
   static final List<int> _hexAlphabet = '0123456789abcdef'.codeUnits;
 
+  static int _align(int lastReadSize) {
+    if (lastReadSize == _kBlockSize || lastReadSize == 0) {
+      return 0;
+    }
+    final int overflow = lastReadSize % _kChunkSize;
+    return lastReadSize - overflow;
+  }
+
   static void _processChunk(Uint32List buffer, Uint32List digest) {
     int a = digest[0];
     int b = digest[1];
     int c = digest[2];
     int d = digest[3];
-    for (int i = 0; i < 64; i++) {
+    for (int i = 0; i < _kChunkSize; i++) {
       int f = 0;
       int e = 0;
       if (i < 16) {

@@ -16,22 +16,19 @@ import 'package:front_end/src/api_unstable/vm.dart';
 import 'package:kernel/ast.dart';
 import 'package:kernel/binary/ast_to_binary.dart';
 import 'package:kernel/kernel.dart'
-    show Component, loadComponentSourceFromBytes;
+    show Component;
 import 'package:kernel/target/targets.dart';
 import 'package:meta/meta.dart';
-import 'package:vm/frontend_server.dart';
+import 'package:frontend_server/frontend_server.dart';
 import 'package:vm/incremental_compiler.dart' show IncrementalCompiler;
 import 'package:vm/kernel_front_end.dart';
 import 'package:vm/kernel_front_end.dart'
     show
-        convertFileOrUriArgumentToUri,
-        createFrontEndTarget,
         createFrontEndFileSystem,
         setVMEnvironmentDefines;
 import 'package:vm/target/flutter.dart';
 
 import '../artifacts.dart';
-import '../base/terminal.dart';
 import '../convert.dart';
 import '../globals.dart';
 import '../runner/flutter_command.dart';
@@ -117,12 +114,11 @@ class SpicyReloadCommand extends FlutterCommand {
   Future<void> latch = Future<void>.value();
 
   Future<void> processTerminalInput() async {
-    print('>>>>>>>>>>');
     final Stopwatch total = Stopwatch()..start();
     final Stopwatch stopwatch = Stopwatch()..start();
     final String newString = String.fromCharCode(Random().nextInt(225) + 25);
 
-    // Recompille kernel.
+    // Recompile kernel.
     final StringSmasher smasher =
         StringSmasher(File('lib/main.dart').absolute.uri, className, 'build', newString);
     if (partialComponent == null) {
@@ -364,10 +360,4 @@ class StringSmasher extends Transformer {
       });
       node.arguments.named[index] = NamedExpression('angle', DoubleConstant(angle).asExpression());
     }
-
-  void _changeTextValue(InvocationExpression node, FunctionNode function,
-      Class constructedClass) {
-    node.arguments.positional[0] =
-        StringConstant(newString).asExpression();
-  }
 }

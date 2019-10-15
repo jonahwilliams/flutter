@@ -5,6 +5,9 @@
 import 'dart:async';
 
 import 'package:meta/meta.dart';
+import 'package:test_api/backend.dart';
+import 'package:test_core/src/executable.dart' as test; // ignore: implementation_imports
+import 'package:test_core/src/runner/hack_register_platform.dart' as hack; // ignore: implementation_imports
 
 import '../artifacts.dart';
 import '../base/common.dart';
@@ -16,32 +19,34 @@ import '../dart/package_map.dart';
 import '../globals.dart';
 import '../project.dart';
 import '../web/compile.dart';
+import 'flutter_platform.dart' as loader;
+import 'flutter_web_platform.dart';
 import 'watcher.dart';
 
 /// Runs tests using package:test and the Flutter engine.
 Future<int> runTests(
-  List<String> testFiles, {
-  Directory workDir,
-  List<String> names = const <String>[],
-  List<String> plainNames = const <String>[],
-  bool enableObservatory = false,
-  bool startPaused = false,
-  bool disableServiceAuthCodes = false,
-  bool ipv6 = false,
-  bool machine = false,
-  String precompiledDillPath,
-  Map<String, String> precompiledDillFiles,
-  bool enableAsserts = false,
-  bool trackWidgetCreation = false,
-  bool updateGoldens = false,
-  TestWatcher watcher,
-  @required int concurrency,
-  bool buildTestAssets = false,
-  FlutterProject flutterProject,
-  String icudtlPath,
-  Directory coverageDirectory,
-  bool web = false,
-}) async {
+    List<String> testFiles, {
+      Directory workDir,
+      List<String> names = const <String>[],
+      List<String> plainNames = const <String>[],
+      bool enableObservatory = false,
+      bool startPaused = false,
+      bool disableServiceAuthCodes = false,
+      bool ipv6 = false,
+      bool machine = false,
+      String precompiledDillPath,
+      Map<String, String> precompiledDillFiles,
+      bool enableAsserts = false,
+      bool trackWidgetCreation = false,
+      bool updateGoldens = false,
+      TestWatcher watcher,
+      @required int concurrency,
+      bool buildTestAssets = false,
+      FlutterProject flutterProject,
+      String icudtlPath,
+      Directory coverageDirectory,
+      bool web = false,
+    }) async {
   // Compute the command-line arguments for package:test.
   final List<String> testArgs = <String>[
     if (!terminal.supportsColor)
@@ -58,10 +63,10 @@ Future<int> runTests(
   ];
   if (web) {
     final String tempBuildDir = fs.systemTempDirectory
-      .createTempSync('flutter_test.')
-      .absolute
-      .uri
-      .toFilePath();
+        .createTempSync('flutter_test.')
+        .absolute
+        .uri
+        .toFilePath();
     final bool result = await webCompilationProxy.initialize(
       projectDirectory: flutterProject.directory,
       testOutputDir: tempBuildDir,
@@ -76,6 +81,13 @@ Future<int> runTests(
       ..add('--precompiled=$tempBuildDir')
       ..add('--')
       ..addAll(testFiles);
+    hack.registerPlatformPlugin(
+      <Runtime>[Runtime.chrome],
+          () {
+        return FlutterWebPlatform.start(flutterProject.directory.path);
+      },
+    );
+    await test.main(testArgs);
     return exitCode;
   }
 
@@ -90,10 +102,8 @@ Future<int> runTests(
   }
 
   final InternetAddressType serverType =
-      ipv6 ? InternetAddressType.IPv6 : InternetAddressType.IPv4;
+  ipv6 ? InternetAddressType.IPv6 : InternetAddressType.IPv4;
 
-<<<<<<< HEAD
-=======
   final loader.FlutterPlatform platform = loader.installHook(
     shellPath: shellPath,
     watcher: watcher,
@@ -113,7 +123,6 @@ Future<int> runTests(
     icudtlPath: icudtlPath,
   );
 
->>>>>>> e2c5fd6c2434f6ca191ac6be8329ec36c43787c2
   // Make the global packages path absolute.
   // (Makes sure it still works after we change the current directory.)
   PackageMap.globalPackagesPath =
@@ -128,6 +137,7 @@ Future<int> runTests(
     }
 
     printTrace('running test package with arguments: $testArgs');
+    await test.main(testArgs);
 
     // test.main() sets dart:io's exitCode global.
     printTrace('test package returned with exit code $exitCode');
@@ -135,5 +145,6 @@ Future<int> runTests(
     return exitCode;
   } finally {
     fs.currentDirectory = saved;
+    await platform.close();
   }
 }

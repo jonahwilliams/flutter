@@ -8,16 +8,10 @@ import 'package:meta/meta.dart';
 import 'package:pool/pool.dart';
 
 import 'asset.dart';
-import 'base/common.dart';
 import 'base/file_system.dart';
 import 'build_info.dart';
-import 'build_system/build_system.dart';
-import 'build_system/depfile.dart';
-import 'build_system/targets/dart.dart';
 import 'dart/package_map.dart';
 import 'devfs.dart';
-import 'globals.dart';
-import 'project.dart';
 
 String get defaultMainPath => fs.path.join('lib', 'main.dart');
 const String defaultAssetBasePath = '.';
@@ -39,106 +33,6 @@ String getKernelPathForTransformerOptions(
     path += '.track.dill';
   }
   return path;
-}
-
-const String defaultPrivateKeyPath = 'privatekey.der';
-
-/// Provides a `build` method that builds the bundle.
-class BundleBuilder {
-  /// Builds the bundle for the given target platform.
-  ///
-  /// The default `mainPath` is `lib/main.dart`.
-  /// The default  `manifestPath` is `pubspec.yaml`
-  Future<void> build({
-    TargetPlatform platform,
-    BuildMode buildMode,
-    String mainPath,
-    String manifestPath = defaultManifestPath,
-    String applicationKernelFilePath,
-    String depfilePath,
-    String privateKeyPath = defaultPrivateKeyPath,
-    String assetDirPath,
-    String packagesPath,
-    bool precompiledSnapshot = false,
-    bool reportLicensedPackages = false,
-    bool trackWidgetCreation = false,
-    List<String> extraFrontEndOptions = const <String>[],
-    List<String> extraGenSnapshotOptions = const <String>[],
-    List<String> fileSystemRoots,
-    String fileSystemScheme,
-  }) async {
-    mainPath ??= defaultMainPath;
-    depfilePath ??= defaultDepfilePath;
-    assetDirPath ??= getAssetBuildDirectory();
-    packagesPath ??= fs.path.absolute(PackageMap.globalPackagesPath);
-    final FlutterProject flutterProject = FlutterProject.current();
-    await buildWithAssemble(
-      buildMode: buildMode ?? BuildMode.debug,
-      targetPlatform: platform,
-      mainPath: mainPath,
-      flutterProject: flutterProject,
-      outputDir: assetDirPath,
-      depfilePath: depfilePath,
-      precompiled: precompiledSnapshot,
-      trackWidgetCreation: trackWidgetCreation,
-    );
-    // Work around for flutter_tester placing kernel artifacts in odd places.
-    if (applicationKernelFilePath != null) {
-      final File outputDill = fs.directory(assetDirPath).childFile('kernel_blob.bin');
-      if (outputDill.existsSync()) {
-        outputDill.copySync(applicationKernelFilePath);
-      }
-    }
-    return;
-  }
-}
-
-/// Build an application bundle using flutter assemble.
-///
-/// This is a temporary shim to migrate the build implementations.
-Future<void> buildWithAssemble({
-  @required FlutterProject flutterProject,
-  @required BuildMode buildMode,
-  @required TargetPlatform targetPlatform,
-  @required String mainPath,
-  @required String outputDir,
-  @required String depfilePath,
-  @required bool precompiled,
-  bool trackWidgetCreation,
-}) async {
-  // If the precompiled flag was not passed, force us into debug mode.
-  buildMode = precompiled ? buildMode : BuildMode.debug;
-  final Environment environment = Environment(
-    projectDir: flutterProject.directory,
-    outputDir: fs.directory(outputDir),
-    buildDir: flutterProject.dartTool.childDirectory('flutter_build'),
-    defines: <String, String>{
-      kTargetFile: mainPath,
-      kBuildMode: getNameForBuildMode(buildMode),
-      kTargetPlatform: getNameForTargetPlatform(targetPlatform),
-      kTrackWidgetCreation: trackWidgetCreation?.toString(),
-    },
-  );
-  final Target target = buildMode == BuildMode.debug
-    ? const CopyFlutterBundle()
-    : const ReleaseCopyFlutterBundle();
-  final BuildResult result = await buildSystem.build(target, environment);
-
-  if (!result.success) {
-    for (ExceptionMeasurement measurement in result.exceptions.values) {
-      printError(measurement.exception.toString());
-      printError(measurement.stackTrace.toString());
-    }
-    throwToolExit('Failed to build bundle.');
-  }
-  if (depfilePath != null) {
-    final Depfile depfile = Depfile(result.inputFiles, result.outputFiles);
-    final File outputDepfile = fs.file(depfilePath);
-    if (!outputDepfile.parent.existsSync()) {
-      outputDepfile.parent.createSync(recursive: true);
-    }
-    depfile.writeToFile(outputDepfile);
-  }
 }
 
 Future<AssetBundle> buildAssets({

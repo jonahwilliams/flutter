@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'package:flutter_tools/src/build_system/depfile.dart';
 import 'package:meta/meta.dart';
 
 import '../base/common.dart';
@@ -33,6 +34,8 @@ const List<Target> _kDefaultTargets = <Target>[
   ReleaseMacOSBundleFlutterAssets(),
   DebugBundleLinuxAssets(),
   WebReleaseBundle(),
+  CopyFlutterBundle(),
+  ReleaseCopyFlutterBundle(),
 ];
 
 /// Assemble provides a low level API to interact with the flutter tool build
@@ -56,6 +59,10 @@ class AssembleCommand extends FlutterCommand {
         'files will be written. Must be either absolute or relative from the '
         'root of the current Flutter project.',
     );
+    argParser.addOption('depfile', help: 'A file path where a Make style'
+      ' depfile will be written. Must be either absolute or relative from the '
+      'root of the current Flutter project.'
+    );
     argParser.addOption(
       'resource-pool-size',
       help: 'The maximum number of concurrent tasks the build system will run.',
@@ -67,42 +74,6 @@ class AssembleCommand extends FlutterCommand {
 
   @override
   String get name => 'assemble';
-
-  /// The target we are building.
-  Target get target {
-    if (argResults.rest.isEmpty) {
-      throwToolExit('missing target name for flutter assemble.');
-    }
-    final String name = argResults.rest.first;
-    final Target result = _kDefaultTargets
-        .firstWhere((Target target) => target.name == name, orElse: () => null);
-    if (result == null) {
-      throwToolExit('No target named "$name" defined.');
-    }
-    return result;
-  }
-
-  /// The environmental configuration for a build invocation.
-  Environment get environment {
-    final FlutterProject flutterProject = FlutterProject.current();
-    String output = argResults['output'];
-    if (output == null) {
-      throwToolExit('--output directory is required for assemble.');
-    }
-    // If path is relative, make it absolute from flutter project.
-    if (fs.path.isRelative(output)) {
-      output = fs.path.join(flutterProject.directory.path, output);
-    }
-    final Environment result = Environment(
-      outputDir: fs.directory(output),
-      buildDir: flutterProject.directory
-          .childDirectory('.dart_tool')
-          .childDirectory('flutter_build'),
-      projectDir: flutterProject.directory,
-      defines: _parseDefines(argResults['define']),
-    );
-    return result;
-  }
 
   static Map<String, String> _parseDefines(List<String> values) {
     final Map<String, String> results = <String, String>{};
@@ -120,8 +91,55 @@ class AssembleCommand extends FlutterCommand {
 
   @override
   Future<FlutterCommandResult> runCommand() async {
+    if (argResults.rest.isEmpty) {
+      throwToolExit('missing target name for flutter assemble.');
+    }
+    await AssembleDelegate().build(
+      targetName: argResults.rest.first,
+      resourcePoolSize: argResults['resourcePoolSize'],
+      buildInputs: argResults['build-inputs'],
+      buildOutputs: argResults['build-outputs'],
+      depfile: argResults['depfile'],
+      defines: _parseDefines(argResults['define']),
+      output: argResults['output'],
+    );
+    return null;
+  }
+}
+
+class AssembleDelegate {
+  Future<void> build({
+    String targetName,
+    String buildInputs,
+    String buildOutputs,
+    String depfile,
+    int resourcePoolSize,
+    Map<String, String> defines,
+    String output,
+  }) async {
+    final FlutterProject flutterProject = FlutterProject.current();
+    if (output == null) {
+      throwToolExit('--output directory is required for assemble.');
+    }
+    final Target target = _kDefaultTargets
+      .firstWhere((Target target) => target.name == targetName, orElse: () => null);
+    if (target == null) {
+      throwToolExit('No target named "$targetName" defined.');
+    }
+    // If path is relative, make it absolute from flutter project.
+    if (fs.path.isRelative(output)) {
+      output = fs.path.join(flutterProject.directory.path, output);
+    }
+    final Environment environment = Environment(
+      outputDir: fs.directory(output),
+      buildDir: flutterProject.directory
+          .childDirectory('.dart_tool')
+          .childDirectory('flutter_build'),
+      projectDir: flutterProject.directory,
+      defines: defines,
+    );
     final BuildResult result = await buildSystem.build(target, environment, buildSystemConfig: BuildSystemConfig(
-      resourcePoolSize: argResults['resource-pool-size'],
+      resourcePoolSize: resourcePoolSize
     ));
     if (!result.success) {
       for (MapEntry<String, ExceptionMeasurement> data in result.exceptions.entries) {
@@ -131,13 +149,20 @@ class AssembleCommand extends FlutterCommand {
       throwToolExit('build failed.');
     }
     printStatus('build succeeded.');
-    if (argResults.wasParsed('build-inputs')) {
-      writeListIfChanged(result.inputFiles, argResults['build-inputs']);
+    if (buildInputs != null) {
+      writeListIfChanged(result.inputFiles, buildInputs);
     }
-    if (argResults.wasParsed('build-outputs')) {
-      writeListIfChanged(result.outputFiles, argResults['build-outputs']);
+    if (buildOutputs != null) {
+      writeListIfChanged(result.outputFiles, buildInputs);
     }
-    return null;
+    if (depfile != null) {
+      final Depfile depfile = Depfile(result.inputFiles, result.outputFiles);
+      final File outputFile = fs.file(depfile);
+      if (!outputFile.parent.existsSync()) {
+        outputFile.parent.createSync(recursive: true);
+      }
+      depfile.writeToFile(outputFile);
+    }
   }
 }
 

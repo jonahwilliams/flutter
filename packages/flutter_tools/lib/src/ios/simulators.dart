@@ -15,7 +15,6 @@ import '../base/process.dart';
 import '../base/process_manager.dart';
 import '../base/utils.dart';
 import '../build_info.dart';
-import '../bundle.dart';
 import '../convert.dart';
 import '../device.dart';
 import '../globals.dart';
@@ -417,8 +416,6 @@ class IOSSimulator extends Device {
   }
 
   Future<void> _setupUpdatedApplicationBundle(covariant BuildableIOSApp app, BuildInfo buildInfo, String mainPath) async {
-    await _sideloadUpdatedAssetsForInstalledApplicationBundle(app, buildInfo, mainPath);
-
     // Step 1: Build the Xcode project.
     // The build mode for the simulator is always debug.
 
@@ -446,16 +443,6 @@ class IOSSimulator extends Device {
 
     // Step 3: Install the updated bundle to the simulator.
     await SimControl.instance.install(id, fs.path.absolute(bundle.path));
-  }
-
-  Future<void> _sideloadUpdatedAssetsForInstalledApplicationBundle(ApplicationPackage app, BuildInfo buildInfo, String mainPath) {
-    // Run compiler to produce kernel file for the application.
-    return BundleBuilder().build(
-      mainPath: mainPath,
-      precompiledSnapshot: false,
-      buildMode: buildInfo.mode,
-      trackWidgetCreation: buildInfo.trackWidgetCreation,
-    );
   }
 
   @override

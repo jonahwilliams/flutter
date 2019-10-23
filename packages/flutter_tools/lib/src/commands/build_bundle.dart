@@ -7,15 +7,17 @@ import 'dart:async';
 import '../base/common.dart';
 import '../base/file_system.dart';
 import '../build_info.dart';
+import '../build_system/targets/dart.dart';
 import '../bundle.dart';
 import '../features.dart';
 import '../project.dart';
 import '../reporting/reporting.dart';
 import '../runner/flutter_command.dart' show FlutterOptions, FlutterCommandResult;
+import 'assemble.dart';
 import 'build.dart';
 
 class BuildBundleCommand extends BuildSubCommand {
-  BuildBundleCommand({bool verboseHelp = false, this.bundleBuilder}) {
+  BuildBundleCommand({bool verboseHelp = false}) {
     usesTargetOption();
     usesFilesystemOptions(hide: !verboseHelp);
     usesBuildNumberOption();
@@ -29,11 +31,6 @@ class BuildBundleCommand extends BuildSubCommand {
           'a debug build is always provided, regardless of build mode. If provided '
           'then release is the default mode.',
       )
-      // This option is still referenced by the iOS build scripts. We should
-      // remove it once we've updated those build scripts.
-      ..addOption('asset-base', help: 'Ignored. Will be removed.', hide: !verboseHelp)
-      ..addOption('manifest', defaultsTo: defaultManifestPath)
-      ..addOption('private-key', defaultsTo: defaultPrivateKeyPath)
       ..addOption('depfile', defaultsTo: defaultDepfilePath)
       ..addOption('target-platform',
         defaultsTo: 'android-arm',
@@ -56,18 +53,22 @@ class BuildBundleCommand extends BuildSubCommand {
         splitCommas: true,
         hide: true,
       )
-      ..addOption('asset-dir', defaultsTo: getAssetBuildDirectory())
       ..addFlag('report-licensed-packages',
         help: 'Whether to report the names of all the packages that are included '
               'in the application\'s LICENSE file.',
-        defaultsTo: false);
+        defaultsTo: false)
+      ..addOption('asset-dir', help: 'deprecated', defaultsTo: getAssetBuildDirectory())
+      // TODO(jonahwilliams): send breaking change announcement and remove.
+      // All of these options are deprecated.
+      // This option is still referenced by the iOS build scripts. We should
+      // remove it once we've updated those build scripts.
+      ..addOption('asset-base', help: 'Ignored. Will be removed.', hide: !verboseHelp)
+      ..addOption('manifest', help: 'deprecated')
+      ..addOption('private-key', help: 'deprecated');
+      // end deprecated.
     usesPubOption();
     usesTrackWidgetCreation(verboseHelp: verboseHelp);
-
-    bundleBuilder ??= BundleBuilder();
   }
-
-  BundleBuilder bundleBuilder;
 
   @override
   final String name = 'bundle';
@@ -120,24 +121,18 @@ class BuildBundleCommand extends BuildSubCommand {
       default:
         break;
     }
-
-    final BuildMode buildMode = getBuildMode();
-
-    await bundleBuilder.build(
-      platform: platform,
-      buildMode: buildMode,
-      mainPath: targetFile,
-      manifestPath: argResults['manifest'],
-      depfilePath: argResults['depfile'],
-      privateKeyPath: argResults['private-key'],
-      assetDirPath: argResults['asset-dir'],
-      precompiledSnapshot: argResults['precompiled'],
-      reportLicensedPackages: argResults['report-licensed-packages'],
-      trackWidgetCreation: argResults['track-widget-creation'],
-      extraFrontEndOptions: argResults[FlutterOptions.kExtraFrontEndOptions],
-      extraGenSnapshotOptions: argResults[FlutterOptions.kExtraGenSnapshotOptions],
-      fileSystemScheme: argResults['filesystem-scheme'],
-      fileSystemRoots: argResults['filesystem-root'],
+    await AssembleDelegate().build(
+      targetName: argResults['precompiled']
+        ? 'release_copy_flutter_bundle'
+        : 'debug_copy_flutter_bundle',
+      depfile: argResults['depfile'],
+      output: argResults['asset-dir'],
+      defines: <String, String>{
+        kTargetFile: targetFile,
+        kBuildMode: getNameForBuildMode(getBuildMode()),
+        kTargetPlatform: getNameForTargetPlatform(platform),
+        kTrackWidgetCreation: argResults['track-widget-creation']
+      },
     );
     return null;
   }

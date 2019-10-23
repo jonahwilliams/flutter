@@ -69,7 +69,7 @@ class CopyFlutterBundle extends Target {
   const CopyFlutterBundle();
 
   @override
-  String get name => 'copy_flutter_bundle';
+  String get name => 'debug_copy_flutter_bundle';
 
   @override
   List<Source> get inputs => const <Source>[
@@ -154,7 +154,7 @@ class ReleaseCopyFlutterBundle extends CopyFlutterBundle {
   const ReleaseCopyFlutterBundle();
 
   @override
-  String get name => 'release_flutter_bundle';
+  String get name => 'release_copy_flutter_bundle';
 
   @override
   List<Source> get inputs => const <Source>[

@@ -4,6 +4,8 @@
 
 import 'dart:async';
 
+import 'package:flutter_tools/src/build_system/targets/dart.dart';
+import 'package:flutter_tools/src/commands/assemble.dart';
 import 'package:meta/meta.dart';
 
 import '../application_package.dart';
@@ -144,15 +146,21 @@ class FlutterTesterDevice extends Device {
       fs.path.join(getBuildDirectory(), 'flutter-tester-app.dill'),
       trackWidgetCreation: buildInfo.trackWidgetCreation,
     );
-    await BundleBuilder().build(
-      buildMode: buildInfo.mode,
-      mainPath: mainPath,
-      assetDirPath: assetDirPath,
-      applicationKernelFilePath: applicationKernelFilePath,
-      precompiledSnapshot: false,
-      trackWidgetCreation: buildInfo.trackWidgetCreation,
-      platform: getTargetPlatformForName(getNameForHostPlatform(getCurrentHostPlatform())),
+    await AssembleDelegate().build(
+      targetName: 'debug_copy_flutter_bundle',
+      depfile: null,
+      output: getBuildDirectory(),
+      defines: <String, String>{
+        kTargetFile: mainPath,
+        kBuildMode: getNameForBuildMode(buildInfo.mode),
+        kTargetPlatform: getNameForTargetPlatform(TargetPlatform.tester),
+        kTrackWidgetCreation: buildInfo.trackWidgetCreation.toString(),
+      },
     );
+    final File outputDill = fs.directory(assetDirPath).childFile('kernel_blob.bin');
+    if (outputDill.existsSync()) {
+      outputDill.copySync(applicationKernelFilePath);
+    }
     command.add('--flutter-assets-dir=$assetDirPath');
 
     command.add(applicationKernelFilePath);

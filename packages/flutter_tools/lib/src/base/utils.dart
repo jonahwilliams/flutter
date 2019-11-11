@@ -5,8 +5,6 @@
 import 'dart:async';
 import 'dart:math' show Random, max;
 
-import 'package:intl/intl.dart';
-
 import '../convert.dart';
 import 'context.dart';
 import 'file_system.dart';
@@ -124,16 +122,13 @@ String getSizeAsMB(int bytesLength) {
   return '${(bytesLength / (1024 * 1024)).toStringAsFixed(1)}MB';
 }
 
-final NumberFormat kSecondsFormat = NumberFormat('0.0');
-final NumberFormat kMillisecondsFormat = NumberFormat.decimalPattern();
-
 String getElapsedAsSeconds(Duration duration) {
   final double seconds = duration.inMilliseconds / Duration.millisecondsPerSecond;
-  return '${kSecondsFormat.format(seconds)}s';
+  return '${seconds.toStringAsFixed(1)}s';
 }
 
 String getElapsedAsMilliseconds(Duration duration) {
-  return '${kMillisecondsFormat.format(duration.inMilliseconds)}ms';
+  return '${duration.inMilliseconds.toStringAsFixed(3)}ms';
 }
 
 /// Return a relative path if [fullPath] is contained by the cwd, else return an

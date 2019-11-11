@@ -10,7 +10,7 @@ dependencies:
   collection: 1.14.11
   device_info: 0.4.1+1
   intl: 0.16.0
-  connectivity: 0.4.5+2
+  connectivity: 0.4.5+3
   string_scanner: 1.0.5
   url_launcher: 5.2.5
   cupertino_icons: 0.1.2
@@ -261,4 +261,4 @@ flutter:
       - asset: packages/flutter_gallery_assets/fonts/merriweather/Merriweather-Regular.ttf
       - asset: packages/flutter_gallery_assets/fonts/merriweather/Merriweather-Light.ttf
 
-# PUBSPEC CHECKSUM: 8b43
+# PUBSPEC CHECKSUM: 1944

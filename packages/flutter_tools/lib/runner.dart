@@ -5,8 +5,8 @@
 import 'dart:async';
 
 import 'package:args/command_runner.dart';
-import 'package:intl/intl.dart' as intl;
-import 'package:intl/intl_standalone.dart' as intl_standalone;
+//import 'package:intl/intl.dart' as intl;
+//import 'package:intl/intl_standalone.dart' as intl_standalone;
 import 'package:meta/meta.dart';
 
 import 'src/base/common.dart';

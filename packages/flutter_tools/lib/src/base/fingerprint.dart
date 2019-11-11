@@ -4,22 +4,13 @@
 
 import 'package:crypto/crypto.dart' show md5;
 import 'package:meta/meta.dart';
-import 'package:quiver/core.dart' show hash2;
 
 import '../convert.dart' show json;
 import '../globals.dart';
 import '../version.dart';
 import 'file_system.dart';
-import 'platform.dart';
 
 typedef FingerprintPathFilter = bool Function(String path);
-
-/// Whether to completely disable build caching.
-///
-/// This is done by always returning false from fingerprinter invocations. This
-/// is safe to do generally, because fingerprinting is only a performance
-/// improvement.
-bool get _disableBuildCache => platform.environment['DISABLE_FLUTTER_BUILD_CACHE']?.toLowerCase() == 'true';
 
 /// A tool that can be used to compute, compare, and write [Fingerprint]s for a
 /// set of input files and associated build settings.
@@ -56,9 +47,6 @@ class Fingerprinter {
   }
 
   bool doesFingerprintMatch() {
-    if (_disableBuildCache) {
-      return false;
-    }
     try {
       final File fingerprintFile = fs.file(fingerprintPath);
       if (!fingerprintFile.existsSync()) {
@@ -170,7 +158,7 @@ class Fingerprint {
   @override
   // Ignore map entries here to avoid becoming inconsistent with equals
   // due to differences in map entry order.
-  int get hashCode => hash2(_properties.length, _checksums.length);
+  int get hashCode => _properties.length ^ _checksums.length;
 
   @override
   String toString() => '{checksums: $_checksums, properties: $_properties}';

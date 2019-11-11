@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import 'package:meta/meta.dart';
-import 'package:pub_semver/pub_semver.dart';
+import 'package:pub_semver/pub_semver.dart' show Version;
 import 'package:yaml/yaml.dart';
 
 import 'base/file_system.dart';

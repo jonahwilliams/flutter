@@ -2,11 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'package:archive/archive.dart';
-
 import '../base/file_system.dart';
+import '../base/os.dart';
 import '../base/version.dart';
-import '../convert.dart';
 import '../doctor.dart';
 
 class IntelliJPlugins {
@@ -59,10 +57,14 @@ class IntelliJPlugins {
     // TODO(danrubel): look for a better way to extract a single 2K file from the zip
     // rather than reading the entire file into memory.
     try {
-      final Archive archive =
-          ZipDecoder().decodeBytes(fs.file(jarPath).readAsBytesSync());
-      final ArchiveFile file = archive.findFile('META-INF/plugin.xml');
-      final String content = utf8.decode(file.content);
+      final Directory tempDirectory = fs
+        .directory('flutter_tools.')
+        .createTempSync();
+      os.unzip(fs.file(jarPath), tempDirectory);
+      final File file = tempDirectory
+        .childDirectory('META-INF')
+        .childFile('plugin.xml');
+      final String content = file.readAsStringSync();
       const String versionStartTag = '<version>';
       final int start = content.indexOf(versionStartTag);
       final int end = content.indexOf('</version>', start);

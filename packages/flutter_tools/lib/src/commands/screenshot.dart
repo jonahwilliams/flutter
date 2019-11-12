@@ -11,7 +11,7 @@ import '../convert.dart';
 import '../device.dart';
 import '../globals.dart';
 import '../runner/flutter_command.dart';
-import '../vmservice.dart';
+import '../vmservice_2.dart';
 
 const String _kOut = 'out';
 const String _kType = 'type';
@@ -140,9 +140,9 @@ class ScreenshotCommand extends FlutterCommand {
   }
 
   Future<Map<String, dynamic>> _invokeVmServiceRpc(String method) async {
-    final Uri observatoryUri = Uri.parse(argResults[_kObservatoryUri]);
-    final VMService vmService = await VMService.connect(observatoryUri);
-    return await vmService.vm.invokeRpcRaw(method);
+    final VmService vmService = await connectToVmService(argResults[_kObservatoryUri] as String);
+    final Response response = await vmService.callMethod(method);
+    return response.json;
   }
 
   void _ensureOutputIsNotJsonRpcError(File outputFile) {

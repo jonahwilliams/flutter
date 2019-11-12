@@ -5,7 +5,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:file/file.dart';
 import 'package:json_rpc_2/error_code.dart' as rpc_error_code;
 import 'package:json_rpc_2/json_rpc_2.dart' as rpc;
 import 'package:meta/meta.dart' show required;
@@ -21,7 +20,6 @@ import 'base/utils.dart';
 import 'convert.dart' show base64, utf8;
 import 'globals.dart';
 import 'version.dart';
-import 'vmservice_record_replay.dart';
 
 /// Override `WebSocketConnector` in [context] to use a different constructor
 /// for [WebSocket]s (used by tests).
@@ -60,8 +58,6 @@ typedef CompileExpression = Future<String> Function(
   String klass,
   bool isStatic,
 );
-
-const String _kRecordingType = 'vmservice';
 
 Future<StreamChannel<String>> _defaultOpenChannel(Uri uri, {io.CompressionOptions compression = io.CompressionOptions.compressionDefault}) async {
   Duration delay = const Duration(milliseconds: 100);
@@ -266,31 +262,6 @@ class VMService {
     }
   }
 
-  /// Enables recording of VMService JSON-rpc activity to the specified base
-  /// recording [location].
-  ///
-  /// Activity will be recorded in a subdirectory of [location] named
-  /// `"vmservice"`. It is permissible for [location] to represent an existing
-  /// non-empty directory as long as there is no collision with the
-  /// `"vmservice"` subdirectory.
-  static void enableRecordingConnection(String location) {
-    final Directory dir = getRecordingSink(location, _kRecordingType);
-    _openChannel = (Uri uri, {io.CompressionOptions compression}) async {
-      final StreamChannel<String> delegate = await _defaultOpenChannel(uri);
-      return RecordingVMServiceChannel(delegate, dir);
-    };
-  }
-
-  /// Enables VMService JSON-rpc replay mode.
-  ///
-  /// [location] must represent a directory to which VMService JSON-rpc
-  /// activity has been recorded (i.e. the result of having been previously
-  /// passed to [enableRecordingConnection]), or a [ToolExit] will be thrown.
-  static void enableReplayConnection(String location) {
-    final Directory dir = getReplaySource(location, _kRecordingType);
-    _openChannel = (Uri uri, {io.CompressionOptions compression}) async => ReplayVMServiceChannel(dir);
-  }
-
   static void _unhandledError(dynamic error, dynamic stack) {
     logger.printTrace('Error in internal implementation of JSON RPC.\n$error\n$stack');
     assert(false);
@@ -304,6 +275,8 @@ class VMService {
   /// protocol itself.
   ///
   /// See: https://github.com/dart-lang/sdk/commit/df8bf384eb815cf38450cb50a0f4b62230fba217
+  // Soft-deprecated, use vmservice_2.dart if possible for new code that does not
+  // invole the ResidentRunners.
   static Future<VMService> connect(
     Uri httpUri, {
       ReloadSources reloadSources,

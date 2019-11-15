@@ -46,42 +46,34 @@ final List<File> inputs = <File>[
 ];
 
 void main() {
-  Testbed testbed;
+  Cache.disableLocking();
+  Cache.flutterRoot = '';
   Environment environment;
-  MockPlatform mockPlatform;
 
-  setUpAll(() {
-    Cache.disableLocking();
-    Cache.flutterRoot = '';
+  final Testbed testbed = Testbed(setup: () {
+    when(platform.isWindows).thenReturn(false);
+    when(platform.isMacOS).thenReturn(true);
+    when(platform.isLinux).thenReturn(false);
+    when(platform.environment).thenReturn(const <String, String>{});
+    fs.file(fs.path.join('bin', 'cache', 'pkg', 'sky_engine', 'lib', 'ui',
+        'ui.dart')).createSync(recursive: true);
+    fs.file(fs.path.join('bin', 'cache', 'pkg', 'sky_engine', 'sdk_ext',
+        'vmservice_io.dart')).createSync(recursive: true);
+
+    environment = Environment(
+      outputDir: fs.currentDirectory,
+      projectDir: fs.currentDirectory,
+      defines: <String, String>{
+        kBuildMode: 'debug',
+        kTargetPlatform: 'darwin-x64',
+      },
+    );
+  }, overrides: <Type, Generator>{
+    ProcessManager: () => MockProcessManager(),
+    Platform: () => MockPlatform(),
   });
 
-  setUp(() {
-    mockPlatform = MockPlatform();
-    when(mockPlatform.isWindows).thenReturn(false);
-    when(mockPlatform.isMacOS).thenReturn(true);
-    when(mockPlatform.isLinux).thenReturn(false);
-    when(mockPlatform.environment).thenReturn(const <String, String>{});
-    testbed = Testbed(setup: () {
-      fs.file(fs.path.join('bin', 'cache', 'pkg', 'sky_engine', 'lib', 'ui',
-          'ui.dart')).createSync(recursive: true);
-      fs.file(fs.path.join('bin', 'cache', 'pkg', 'sky_engine', 'sdk_ext',
-          'vmservice_io.dart')).createSync(recursive: true);
-
-      environment = Environment(
-        outputDir: fs.currentDirectory,
-        projectDir: fs.currentDirectory,
-        defines: <String, String>{
-          kBuildMode: 'debug',
-          kTargetPlatform: 'darwin-x64',
-        },
-      );
-    }, overrides: <Type, Generator>{
-      ProcessManager: () => MockProcessManager(),
-      Platform: () => mockPlatform,
-    });
-  });
-
-  test('Copies files to correct cache directory', () => testbed.run(() async {
+  testbed.test('Copies files to correct cache directory', () async {
     for (File input in inputs) {
       input.createSync(recursive: true);
     }
@@ -118,9 +110,9 @@ void main() {
     for (File file in inputs) {
       expect(fs.file(file.path.replaceFirst(_kInputPrefix, _kOutputPrefix)).existsSync(), true);
     }
-  }));
+  });
 
-  test('debug macOS application fails if App.framework missing', () => testbed.run(() async {
+  testbed.test('debug macOS application fails if App.framework missing', () async {
     final String inputKernel = fs.path.join(environment.buildDir.path, 'app.dill');
     fs.file(inputKernel)
       ..createSync(recursive: true)
@@ -128,9 +120,9 @@ void main() {
 
     expect(() async => await const DebugMacOSBundleFlutterAssets().build(environment),
         throwsA(isInstanceOf<Exception>()));
-  }));
+  });
 
-  test('debug macOS application creates correctly structured framework', () => testbed.run(() async {
+  testbed.test('debug macOS application creates correctly structured framework', () async {
     fs.file(fs.path.join('bin', 'cache', 'artifacts', 'engine', 'darwin-x64',
         'vm_isolate_snapshot.bin')).createSync(recursive: true);
     fs.file(fs.path.join('bin', 'cache', 'artifacts', 'engine', 'darwin-x64',
@@ -151,9 +143,9 @@ void main() {
 
     expect(fs.file(outputKernel).readAsStringSync(), 'testing');
     expect(fs.file(outputPlist).readAsStringSync(), contains('io.flutter.flutter.app'));
-  }));
+  });
 
-  test('release/profile macOS application has no blob or precompiled runtime', () => testbed.run(() async {
+  testbed.test('release/profile macOS application has no blob or precompiled runtime', () async {
     fs.file(fs.path.join('bin', 'cache', 'artifacts', 'engine', 'darwin-x64',
         'vm_isolate_snapshot.bin')).createSync(recursive: true);
     fs.file(fs.path.join('bin', 'cache', 'artifacts', 'engine', 'darwin-x64',
@@ -171,9 +163,9 @@ void main() {
     expect(fs.file(outputKernel).existsSync(), false);
     expect(fs.file(precompiledVm).existsSync(), false);
     expect(fs.file(precompiledIsolate).existsSync(), false);
-  }));
+  });
 
-  test('release/profile macOS application updates when App.framework updates', () => testbed.run(() async {
+  testbed.test('release/profile macOS application updates when App.framework updates', () async {
     fs.file(fs.path.join('bin', 'cache', 'artifacts', 'engine', 'darwin-x64',
         'vm_isolate_snapshot.bin')).createSync(recursive: true);
     fs.file(fs.path.join('bin', 'cache', 'artifacts', 'engine', 'darwin-x64',
@@ -191,9 +183,9 @@ void main() {
     await const ProfileMacOSBundleFlutterAssets().build(environment..defines[kBuildMode] = 'profile');
 
     expect(outputFramework.readAsStringSync(), 'DEF');
-  }));
+  });
 
-  test('release/profile macOS compilation uses correct gen_snapshot', () => testbed.run(() async {
+  testbed.test('release/profile macOS compilation uses correct gen_snapshot', () async {
     when(genSnapshot.run(
       snapshotType: anyNamed('snapshotType'),
       additionalArgs: anyNamed('additionalArgs'),
@@ -220,7 +212,7 @@ flutter_tools:lib/''');
   }, overrides: <Type, Generator>{
     GenSnapshot: () => MockGenSnapshot(),
     Xcode: () => MockXCode(),
-  }));
+  });
 }
 
 class MockPlatform extends Mock implements Platform {}

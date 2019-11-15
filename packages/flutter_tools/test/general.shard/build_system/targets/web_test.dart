@@ -17,39 +17,32 @@ import '../../../src/mocks.dart';
 import '../../../src/testbed.dart';
 
 void main() {
-  Testbed testbed;
   Environment environment;
-  MockPlatform mockPlatform;
-  MockPlatform  mockWindowsPlatform;
+  final MockPlatform mockPlatform = MockPlatform();
+  final MockPlatform  mockWindowsPlatform = MockPlatform();
+  when(mockPlatform.isWindows).thenReturn(false);
+  when(mockPlatform.isMacOS).thenReturn(true);
+  when(mockPlatform.isLinux).thenReturn(false);
 
-  setUp(() {
-    mockPlatform = MockPlatform();
-    mockWindowsPlatform = MockPlatform();
+  when(mockWindowsPlatform.isWindows).thenReturn(true);
+  when(mockWindowsPlatform.isMacOS).thenReturn(false);
+  when(mockWindowsPlatform.isLinux).thenReturn(false);
 
-    when(mockPlatform.isWindows).thenReturn(false);
-    when(mockPlatform.isMacOS).thenReturn(true);
-    when(mockPlatform.isLinux).thenReturn(false);
-
-    when(mockWindowsPlatform.isWindows).thenReturn(true);
-    when(mockWindowsPlatform.isMacOS).thenReturn(false);
-    when(mockWindowsPlatform.isLinux).thenReturn(false);
-
-    testbed = Testbed(setup: () {
-      environment = Environment(
-        projectDir: fs.currentDirectory,
-        outputDir: fs.currentDirectory,
-        buildDir: fs.currentDirectory,
-        defines: <String, String>{
-          kTargetFile: fs.path.join('lib', 'main.dart'),
-        }
-      );
-      environment.buildDir.createSync(recursive: true);
-    }, overrides: <Type, Generator>{
-      Platform: () => mockPlatform,
-    });
+  final Testbed testbed = Testbed(setup: () {
+    environment = Environment(
+      projectDir: fs.currentDirectory,
+      outputDir: fs.currentDirectory,
+      buildDir: fs.currentDirectory,
+      defines: <String, String>{
+        kTargetFile: fs.path.join('lib', 'main.dart'),
+      }
+    );
+    environment.buildDir.createSync(recursive: true);
+  }, overrides: <Type, Generator>{
+    Platform: () => mockPlatform,
   });
 
-  test('WebEntrypointTarget generates an entrypoint with plugins and init platform', () => testbed.run(() async {
+  testbed.test('WebEntrypointTarget generates an entrypoint with plugins and init platform', () async {
     environment.defines[kHasWebPlugins] = 'true';
     environment.defines[kInitializePlatform] = 'true';
     await const WebEntrypointTarget().build(environment);
@@ -68,9 +61,9 @@ void main() {
 
     // Import.
     expect(generated, contains('import "file:///lib/main.dart" as entrypoint;'));
-  }));
+  });
 
-  test('WebEntrypointTarget generates an entrypoint with plugins and init platform on windows', () => testbed.run(() async {
+  testbed.test('WebEntrypointTarget generates an entrypoint with plugins and init platform on windows', () async {
     environment.defines[kHasWebPlugins] = 'true';
     environment.defines[kInitializePlatform] = 'true';
     await const WebEntrypointTarget().build(environment);
@@ -91,9 +84,9 @@ void main() {
     expect(generated, contains('import "file:///C:/lib/main.dart" as entrypoint;'));
   }, overrides: <Type, Generator>{
     Platform: () => mockWindowsPlatform,
-  }));
+  });
 
-  test('WebEntrypointTarget generates an entrypoint without plugins and init platform', () => testbed.run(() async {
+  testbed.test('WebEntrypointTarget generates an entrypoint without plugins and init platform', () async {
     environment.defines[kHasWebPlugins] = 'false';
     environment.defines[kInitializePlatform] = 'true';
     await const WebEntrypointTarget().build(environment);
@@ -109,9 +102,9 @@ void main() {
 
     // Main
     expect(generated, contains('entrypoint.main();'));
-  }));
+  });
 
-  test('WebEntrypointTarget generates an entrypoint with plugins and without init platform', () => testbed.run(() async {
+  testbed.test('WebEntrypointTarget generates an entrypoint with plugins and without init platform', () async {
     environment.defines[kHasWebPlugins] = 'true';
     environment.defines[kInitializePlatform] = 'false';
     await const WebEntrypointTarget().build(environment);
@@ -127,9 +120,9 @@ void main() {
 
     // Main
     expect(generated, contains('entrypoint.main();'));
-  }));
+  });
 
-  test('WebEntrypointTarget generates an entrypoint without plugins and without init platform', () => testbed.run(() async {
+  testbed.test('WebEntrypointTarget generates an entrypoint without plugins and without init platform', () async {
     environment.defines[kHasWebPlugins] = 'false';
     environment.defines[kInitializePlatform] = 'false';
     await const WebEntrypointTarget().build(environment);
@@ -145,9 +138,9 @@ void main() {
 
     // Main
     expect(generated, contains('entrypoint.main();'));
-  }));
+  });
 
-  test('Dart2JSTarget calls dart2js with expected args in profile mode', () => testbed.run(() async {
+  testbed.test('Dart2JSTarget calls dart2js with expected args in profile mode', () async {
     environment.defines[kBuildMode] = 'profile';
     when(processManager.run(any)).thenAnswer((Invocation invocation) async {
       return FakeProcessResult(exitCode: 0);
@@ -169,9 +162,9 @@ void main() {
     verify(processManager.run(expected)).called(1);
   }, overrides: <Type, Generator>{
     ProcessManager: () => MockProcessManager(),
-  }));
+  });
 
-  test('Dart2JSTarget calls dart2js with expected args in release mode', () => testbed.run(() async {
+  testbed.test('Dart2JSTarget calls dart2js with expected args in release mode', () async {
     environment.defines[kBuildMode] = 'release';
     when(processManager.run(any)).thenAnswer((Invocation invocation) async {
       return FakeProcessResult(exitCode: 0);
@@ -192,9 +185,9 @@ void main() {
     verify(processManager.run(expected)).called(1);
   }, overrides: <Type, Generator>{
     ProcessManager: () => MockProcessManager(),
-  }));
+  });
 
-  test('Dart2JSTarget calls dart2js with expected args in release with dart2js optimization override', () => testbed.run(() async {
+  testbed.test('Dart2JSTarget calls dart2js with expected args in release with dart2js optimization override', () async {
     environment.defines[kBuildMode] = 'release';
     environment.defines[kDart2jsOptimization] = 'O3';
     when(processManager.run(any)).thenAnswer((Invocation invocation) async {
@@ -216,9 +209,9 @@ void main() {
     verify(processManager.run(expected)).called(1);
   }, overrides: <Type, Generator>{
     ProcessManager: () => MockProcessManager(),
-  }));
+  });
 
-  test('Dart2JSTarget produces expected depfile', () => testbed.run(() async {
+  testbed.test('Dart2JSTarget produces expected depfile', () async {
     environment.defines[kBuildMode] = 'release';
     when(processManager.run(any)).thenAnswer((Invocation invocation) async {
       environment.buildDir.childFile('main.dart.js.deps')
@@ -235,9 +228,9 @@ void main() {
       environment.buildDir.childFile('main.dart.js').absolute.path);
   }, overrides: <Type, Generator>{
     ProcessManager: () => MockProcessManager(),
-  }));
+  });
 
-  test('Dart2JSTarget calls dart2js with Dart defines in release mode', () => testbed.run(() async {
+  testbed.test('Dart2JSTarget calls dart2js with Dart defines in release mode', () async {
     environment.defines[kBuildMode] = 'release';
     environment.defines[kDartDefines] = '["FOO=bar","BAZ=qux"]';
     when(processManager.run(any)).thenAnswer((Invocation invocation) async {
@@ -261,9 +254,9 @@ void main() {
     verify(processManager.run(expected)).called(1);
   }, overrides: <Type, Generator>{
     ProcessManager: () => MockProcessManager(),
-  }));
+  });
 
-  test('Dart2JSTarget calls dart2js with Dart defines in profile mode', () => testbed.run(() async {
+  testbed.test('Dart2JSTarget calls dart2js with Dart defines in profile mode', () async {
     environment.defines[kBuildMode] = 'profile';
     environment.defines[kDartDefines] = '["FOO=bar","BAZ=qux"]';
     when(processManager.run(any)).thenAnswer((Invocation invocation) async {
@@ -288,9 +281,9 @@ void main() {
     verify(processManager.run(expected)).called(1);
   }, overrides: <Type, Generator>{
     ProcessManager: () => MockProcessManager(),
-  }));
+  });
 
-  test('Dart2JSTarget throws developer-friendly exception on misformatted DartDefines', () => testbed.run(() async {
+  testbed.test('Dart2JSTarget throws developer-friendly exception on misformatted DartDefines', () async {
     environment.defines[kBuildMode] = 'profile';
     environment.defines[kDartDefines] = '[misformatted json';
     try {
@@ -309,7 +302,7 @@ void main() {
     verifyNever(processManager.run(any));
   }, overrides: <Type, Generator>{
     ProcessManager: () => MockProcessManager(),
-  }));
+  });
 }
 
 class MockProcessManager extends Mock implements ProcessManager {}

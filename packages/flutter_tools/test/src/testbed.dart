@@ -92,17 +92,17 @@ class Testbed {
   ///
   /// Unlike [run], this sets up a test group on its own.
   @isTest
-  void test<T>(String name, FutureOr<T> Function() test, {Map<Type, Generator> overrides}) {
+  void test<T>(String name, FutureOr<T> Function() test, {Map<Type, Generator> overrides, bool skip}) {
     tester.test(name, () {
-      return run(test, overrides: overrides);
-    });
+      return _run(test, overrides: overrides);
+    }, skip: skip);
   }
 
   /// Runs `test` within a tool zone.
   ///
   /// `overrides` may be used to provide new context values for the single test
   /// case or override any context values from the setup.
-  Future<T> run<T>(FutureOr<T> Function() test, {Map<Type, Generator> overrides}) {
+  Future<T> _run<T>(FutureOr<T> Function() test, {Map<Type, Generator> overrides}) {
     final Map<Type, Generator> testOverrides = <Type, Generator>{
       ..._testbedDefaults,
       // Add the initial setUp overrides

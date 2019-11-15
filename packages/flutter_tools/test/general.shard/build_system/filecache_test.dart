@@ -27,7 +27,7 @@ void main() {
     });
   });
 
-  test('Initializes file cache', () => testbed.run(() {
+  testbed.test('Initializes file cache', () {
     final FileHashStore fileCache = FileHashStore(environment, fs);
     fileCache.initialize();
     fileCache.persist();
@@ -40,9 +40,9 @@ void main() {
 
     expect(fileStorage.files, isEmpty);
     expect(fileStorage.version, 2);
-  }));
+  });
 
-  test('saves and restores to file cache', () => testbed.run(() async {
+  testbed.test('saves and restores to file cache', () async {
     final File file = fs.file('foo.dart')
       ..createSync()
       ..writeAsStringSync('hello');
@@ -70,9 +70,9 @@ void main() {
 
     expect(fileStorage.files.single.hash, currentHash);
     expect(fileStorage.files.single.path, file.path);
-  }));
+  });
 
-  test('handles persisting with a missing build directory', () => testbed.run(() async {
+  testbed.test('handles persisting with a missing build directory', () async {
     final File file = fs.file('foo.dart')
       ..createSync()
       ..writeAsStringSync('hello');
@@ -83,9 +83,9 @@ void main() {
     await fileCache.hashFiles(<File>[file]);
     // Does not throw.
     fileCache.persist();
-  }));
+  });
 
-  test('handles hashing missing files', () => testbed.run(() async {
+  testbed.test('handles hashing missing files', () async {
     final FileHashStore fileCache = FileHashStore(environment, fs);
     fileCache.initialize();
 
@@ -94,9 +94,9 @@ void main() {
     expect(results, hasLength(1));
     expect(results.single.path, 'hello.dart');
     expect(fileCache.currentHashes, isNot(contains(fs.path.absolute('hello.dart'))));
-  }));
+  });
 
-  test('handles failure to persist file cache', () => testbed.run(() async {
+  testbed.test('handles failure to persist file cache', () async {
     final BufferLogger bufferLogger = logger;
     final FakeForwardingFileSystem fakeForwardingFileSystem = FakeForwardingFileSystem(fs);
     final FileHashStore fileCache = FileHashStore(environment, fakeForwardingFileSystem);
@@ -110,9 +110,9 @@ void main() {
     fileCache.persist();
 
     expect(bufferLogger.errorText, contains('Out of space!'));
-  }));
+  });
 
-  test('handles failure to restore file cache', () => testbed.run(() async {
+  testbed.test('handles failure to restore file cache', () async {
     final BufferLogger bufferLogger = logger;
     final FakeForwardingFileSystem fakeForwardingFileSystem = FakeForwardingFileSystem(fs);
     final FileHashStore fileCache = FileHashStore(environment, fakeForwardingFileSystem);
@@ -125,7 +125,7 @@ void main() {
     fileCache.initialize();
 
     expect(bufferLogger.errorText, contains('Out of space!'));
-  }));
+  });
 }
 
 class FakeForwardingFileSystem extends ForwardingFileSystem {

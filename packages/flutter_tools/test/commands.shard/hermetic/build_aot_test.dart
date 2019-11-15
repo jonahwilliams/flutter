@@ -30,7 +30,7 @@ void main() {
     });
   });
 
-  test('invokes assemble for android aot build.', () => testbed.run(() async {
+  testbed.test('invokes assemble for android aot build.', () async {
     fs.file('pubspec.yaml').createSync();
     fs.file('.packages').createSync();
     fs.file(fs.path.join('lib', 'main.dart')).createSync(recursive: true);
@@ -53,7 +53,7 @@ void main() {
       kBuildMode: 'release',
       kTargetPlatform: 'android-arm',
     });
-  }));
+  });
 }
 
 class MockBuildSystem extends Mock implements BuildSystem {}

@@ -45,7 +45,7 @@ void main() {
     });
   });
 
-  test('Outputs error information from flutter generate', () => testbed.run(() async {
+  testbed.test('Outputs error information from flutter generate', () async {
     final GenerateCommand command = GenerateCommand();
     final BufferLogger bufferLogger = logger;
     applyMocksToCommand(command);
@@ -75,7 +75,7 @@ void main() {
     expect(bufferLogger.errorText, contains('b'));
     expect(bufferLogger.errorText, contains('foo builder'));
     expect(bufferLogger.errorText, isNot(contains('Error reading error')));
-  }));
+  });
 }
 
 class MockCodeGenerator extends Mock implements CodeGenerator { }

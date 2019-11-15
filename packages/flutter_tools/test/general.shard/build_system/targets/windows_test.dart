@@ -14,6 +14,22 @@ import '../../../src/common.dart';
 import '../../../src/fake_process_manager.dart';
 import '../../../src/testbed.dart';
 
+const List<String> artifacts = <String>[
+  r'C:\bin\cache\artifacts\engine\windows-x64\flutter_export.h',
+  r'C:\bin\cache\artifacts\engine\windows-x64\flutter_messenger.h',
+  r'C:\bin\cache\artifacts\engine\windows-x64\flutter_windows.dll',
+  r'C:\bin\cache\artifacts\engine\windows-x64\flutter_windows.dll.exp',
+  r'C:\bin\cache\artifacts\engine\windows-x64\flutter_windows.dll.lib',
+  r'C:\bin\cache\artifacts\engine\windows-x64\flutter_windows.dll.pdb',
+  r'C:\bin\cache\artifacts\engine\windows-x64\lutter_export.h',
+  r'C:\bin\cache\artifacts\engine\windows-x64\flutter_messenger.h',
+  r'C:\bin\cache\artifacts\engine\windows-x64\flutter_plugin_registrar.h',
+  r'C:\bin\cache\artifacts\engine\windows-x64\flutter_windows.h',
+  r'C:\bin\cache\artifacts\engine\windows-x64\icudtl.dat',
+  r'C:\bin\cache\artifacts\engine\windows-x64\cpp_client_wrapper\foo',
+  r'C:\packages\flutter_tools\lib\src\build_system\targets\windows.dart',
+];
+
 void main() {
   Testbed testbed;
   const BuildSystem buildSystem = BuildSystem();
@@ -36,19 +52,9 @@ void main() {
         outputDir: fs.currentDirectory,
         projectDir: fs.currentDirectory,
       );
-      fs.file(r'C:\bin\cache\artifacts\engine\windows-x64\flutter_export.h').createSync(recursive: true);
-      fs.file(r'C:\bin\cache\artifacts\engine\windows-x64\flutter_messenger.h').createSync();
-      fs.file(r'C:\bin\cache\artifacts\engine\windows-x64\flutter_windows.dll').createSync();
-      fs.file(r'C:\bin\cache\artifacts\engine\windows-x64\flutter_windows.dll.exp').createSync();
-      fs.file(r'C:\bin\cache\artifacts\engine\windows-x64\flutter_windows.dll.lib').createSync();
-      fs.file(r'C:\bin\cache\artifacts\engine\windows-x64\flutter_windows.dll.pdb').createSync();
-      fs.file(r'C:\bin\cache\artifacts\engine\windows-x64\lutter_export.h').createSync();
-      fs.file(r'C:\bin\cache\artifacts\engine\windows-x64\flutter_messenger.h').createSync();
-      fs.file(r'C:\bin\cache\artifacts\engine\windows-x64\flutter_plugin_registrar.h').createSync();
-      fs.file(r'C:\bin\cache\artifacts\engine\windows-x64\flutter_windows.h').createSync();
-      fs.file(r'C:\bin\cache\artifacts\engine\windows-x64\icudtl.dat').createSync();
-      fs.file(r'C:\bin\cache\artifacts\engine\windows-x64\cpp_client_wrapper\foo').createSync(recursive: true);
-      fs.file(r'C:\packages\flutter_tools\lib\src\build_system\targets\windows.dart').createSync(recursive: true);
+      for (String file in artifacts) {
+        fs.file(file).createSync(recursive: true);
+      }
       fs.directory('windows').createSync();
     }, overrides: <Type, Generator>{
       FileSystem: () => MemoryFileSystem(style: FileSystemStyle.windows),

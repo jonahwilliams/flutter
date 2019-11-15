@@ -10,21 +10,10 @@ import '../../src/mocks.dart';
 import '../../src/testbed.dart';
 
 void main() {
-  Testbed testbed;
+  final Testbed testbed = Testbed();
+  Cache.disableLocking();
 
-  setUpAll(() {
-    Cache.disableLocking();
-  });
-
-  tearDownAll(() {
-    Cache.enableLocking();
-  });
-
-  setUp(() {
-    testbed = Testbed();
-  });
-
-  test('Returns success for linux unconditionally', () => testbed.run(() async {
+  testbed.test('Returns success for linux unconditionally', () async {
     final UnpackCommand unpackCommand = UnpackCommand();
     applyMocksToCommand(unpackCommand);
 
@@ -35,5 +24,5 @@ void main() {
         '--target-platform=linux-x64',
       ],
     );
-  }));
+  });
 }

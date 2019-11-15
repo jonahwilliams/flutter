@@ -39,7 +39,7 @@ void main() {
       });
     });
 
-    test('set template type as usage value', () => testbed.run(() async {
+    testbed.test('set template type as usage value', () async {
       final CreateCommand command = CreateCommand();
       final CommandRunner<void> runner = createTestCommandRunner(command);
 
@@ -54,9 +54,9 @@ void main() {
 
       await runner.run(<String>['create', '--flutter-root=flutter', '--no-pub', '--template=plugin', 'testy']);
       expect(await command.usageValues, containsPair(CustomDimensions.commandCreateProjectType, 'plugin'));
-    }));
+    });
 
-    test('set iOS host language type as usage value', () => testbed.run(() async {
+    testbed.test('set iOS host language type as usage value', () async {
       final CreateCommand command = CreateCommand();
       final CommandRunner<void> runner = createTestCommandRunner(command);
 
@@ -76,9 +76,9 @@ void main() {
       expect(await command.usageValues,
              containsPair(CustomDimensions.commandCreateIosLanguage, 'objc'));
 
-    }));
+    });
 
-    test('set Android host language type as usage value', () => testbed.run(() async {
+    testbed.test('set Android host language type as usage value', () async {
       final CreateCommand command = CreateCommand();
       final CommandRunner<void> runner = createTestCommandRunner(command);
 
@@ -96,7 +96,7 @@ void main() {
       ]);
       expect(await command.usageValues,
              containsPair(CustomDimensions.commandCreateAndroidLanguage, 'java'));
-    }));
+    });
   });
 }
 

@@ -16,69 +16,65 @@ import '../../src/common.dart';
 import '../../src/testbed.dart';
 
 void main() {
-  Testbed testbed;
   SourceVisitor visitor;
   Environment environment;
   MockPlatform mockPlatform;
-
-  setUp(() {
+  final Testbed testbed = Testbed(setup: () {
     mockPlatform = MockPlatform();
     when(mockPlatform.isWindows).thenReturn(true);
-    testbed = Testbed(setup: () {
-      fs.directory('cache').createSync();
-      final Directory outputs = fs.directory('outputs')
-          ..createSync();
-      environment = Environment(
-        outputDir: outputs,
-        projectDir: fs.currentDirectory,
-        buildDir: fs.directory('build'),
-      );
-      visitor = SourceVisitor(environment);
-      environment.buildDir.createSync(recursive: true);
-    });
+    fs.directory('cache').createSync();
+    final Directory outputs = fs.directory('outputs')
+        ..createSync();
+    environment = Environment(
+      outputDir: outputs,
+      projectDir: fs.currentDirectory,
+      buildDir: fs.directory('build'),
+    );
+    visitor = SourceVisitor(environment);
+    environment.buildDir.createSync(recursive: true);
   });
 
-  test('configures implicit vs explict correctly', () => testbed.run(() {
+  testbed.test('configures implicit vs explict correctly', () {
     expect(const Source.pattern('{PROJECT_DIR}/foo').implicit, false);
     expect(const Source.pattern('{PROJECT_DIR}/*foo').implicit, true);
-  }));
+  });
 
-  test('can substitute {PROJECT_DIR}/foo', () => testbed.run(() {
+  testbed.test('can substitute {PROJECT_DIR}/foo', () {
     fs.file('foo').createSync();
     const Source fooSource = Source.pattern('{PROJECT_DIR}/foo');
     fooSource.accept(visitor);
 
     expect(visitor.sources.single.path, fs.path.absolute('foo'));
-  }));
+  });
 
-  test('can substitute {OUTPUT_DIR}/foo', () => testbed.run(() {
+  testbed.test('can substitute {OUTPUT_DIR}/foo', () {
     fs.file('foo').createSync();
     const Source fooSource = Source.pattern('{OUTPUT_DIR}/foo');
     fooSource.accept(visitor);
 
     expect(visitor.sources.single.path, fs.path.absolute(fs.path.join('outputs', 'foo')));
-  }));
+  });
 
 
-  test('can substitute {BUILD_DIR}/bar', () => testbed.run(() {
+  testbed.test('can substitute {BUILD_DIR}/bar', () {
     final String path = fs.path.join(environment.buildDir.path, 'bar');
     fs.file(path).createSync();
     const Source barSource = Source.pattern('{BUILD_DIR}/bar');
     barSource.accept(visitor);
 
     expect(visitor.sources.single.path, fs.path.absolute(path));
-  }));
+  });
 
-  test('can substitute {FLUTTER_ROOT}/foo', () => testbed.run(() {
+  testbed.test('can substitute {FLUTTER_ROOT}/foo', () {
     final String path = fs.path.join(environment.flutterRootDir.path, 'foo');
     fs.file(path).createSync();
     const Source barSource = Source.pattern('{FLUTTER_ROOT}/foo');
     barSource.accept(visitor);
 
     expect(visitor.sources.single.path, fs.path.absolute(path));
-  }));
+  });
 
-  test('can substitute Artifact', () => testbed.run(() {
+  testbed.test('can substitute Artifact', () {
     final String path = fs.path.join(
       Cache.instance.getArtifactDirectory('engine').path,
       'windows-x64',
@@ -89,9 +85,9 @@ void main() {
     fizzSource.accept(visitor);
 
     expect(visitor.sources.single.resolveSymbolicLinksSync(), fs.path.absolute(path));
-  }));
+  });
 
-  test('can substitute {PROJECT_DIR}/*.fizz', () => testbed.run(() {
+  testbed.test('can substitute {PROJECT_DIR}/*.fizz', () {
     const Source fizzSource = Source.pattern('{PROJECT_DIR}/*.fizz');
     fizzSource.accept(visitor);
 
@@ -104,9 +100,9 @@ void main() {
     fizzSource.accept(visitor);
 
     expect(visitor.sources.single.path, fs.path.absolute('foo.fizz'));
-  }));
+  });
 
-  test('can substitute {PROJECT_DIR}/fizz.*', () => testbed.run(() {
+  testbed.test('can substitute {PROJECT_DIR}/fizz.*', () {
     const Source fizzSource = Source.pattern('{PROJECT_DIR}/fizz.*');
     fizzSource.accept(visitor);
 
@@ -118,10 +114,10 @@ void main() {
     fizzSource.accept(visitor);
 
     expect(visitor.sources.single.path, fs.path.absolute('fizz.foo'));
-  }));
+  });
 
 
-  test('can substitute {PROJECT_DIR}/a*bc', () => testbed.run(() {
+  testbed.test('can substitute {PROJECT_DIR}/a*bc', () {
     const Source fizzSource = Source.pattern('{PROJECT_DIR}/bc*bc');
     fizzSource.accept(visitor);
 
@@ -133,41 +129,41 @@ void main() {
     fizzSource.accept(visitor);
 
     expect(visitor.sources.single.path, fs.path.absolute('bcbc'));
-  }));
+  });
 
 
-  test('crashes on bad substitute of two **', () => testbed.run(() {
+  testbed.test('crashes on bad substitute of two **', () {
     const Source fizzSource = Source.pattern('{PROJECT_DIR}/*.*bar');
 
     fs.file('abcd.bar').createSync();
 
     expect(() => fizzSource.accept(visitor), throwsA(isInstanceOf<InvalidPatternException>()));
-  }));
+  });
 
 
-  test('can\'t substitute foo', () => testbed.run(() {
+  testbed.test('can\'t substitute foo', () {
     const Source invalidBase = Source.pattern('foo');
 
     expect(() => invalidBase.accept(visitor), throwsA(isInstanceOf<InvalidPatternException>()));
-  }));
+  });
 
-  test('can substitute optional files', () => testbed.run(() {
+  testbed.test('can substitute optional files', () {
     const Source missingSource = Source.pattern('{PROJECT_DIR}/foo', optional: true);
 
     expect(fs.file('foo').existsSync(), false);
     missingSource.accept(visitor);
     expect(visitor.sources, isEmpty);
-  }));
+  });
 
-  test('can resolve a missing depfile', () => testbed.run(() {
+  testbed.test('can resolve a missing depfile', () {
     const Source depfile = Source.depfile('foo.d');
 
     depfile.accept(visitor);
     expect(visitor.sources, isEmpty);
     expect(visitor.containsNewDepfile, true);
-  }));
+  });
 
-  test('can resolve a populated depfile', () => testbed.run(() {
+  testbed.test('can resolve a populated depfile', () {
     const Source depfile = Source.depfile('foo.d');
     environment.buildDir.childFile('foo.d')
       .writeAsStringSync('a.dart : c.dart');
@@ -181,9 +177,9 @@ void main() {
 
     expect(outputVisitor.sources.single.path, 'a.dart');
     expect(outputVisitor.containsNewDepfile, false);
-  }));
+  });
 
-  test('does not crash on completely invalid depfile', () => testbed.run(() {
+  testbed.test('does not crash on completely invalid depfile', () {
     const Source depfile = Source.depfile('foo.d');
     environment.buildDir.childFile('foo.d')
         .writeAsStringSync('hello, world');
@@ -191,9 +187,9 @@ void main() {
     depfile.accept(visitor);
     expect(visitor.sources, isEmpty);
     expect(visitor.containsNewDepfile, false);
-  }));
+  });
 
-  test('can parse depfile with windows paths', () => testbed.run(() {
+  testbed.test('can parse depfile with windows paths', () {
     const Source depfile = Source.depfile('foo.d');
     environment.buildDir.childFile('foo.d')
         .writeAsStringSync(r'a.dart: C:\\foo\\bar.txt');
@@ -203,9 +199,9 @@ void main() {
     expect(visitor.containsNewDepfile, false);
   }, overrides: <Type, Generator>{
     Platform: () => mockPlatform,
-  }));
+  });
 
-  test('can parse depfile with spaces in paths', () => testbed.run(() {
+  testbed.test('can parse depfile with spaces in paths', () {
     const Source depfile = Source.depfile('foo.d');
     environment.buildDir.childFile('foo.d')
         .writeAsStringSync(r'a.dart: foo\ bar.txt');
@@ -213,7 +209,7 @@ void main() {
     depfile.accept(visitor);
     expect(visitor.sources.single.path, r'foo bar.txt');
     expect(visitor.containsNewDepfile, false);
-  }));
+  });
 }
 
 class MockPlatform extends Mock implements Platform {}

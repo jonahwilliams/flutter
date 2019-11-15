@@ -36,7 +36,7 @@ void main() {
       });
     });
 
-    test('Can find assets from the generated directory', () => testbed.run(() async {
+    testbed.test('Can find assets from the generated directory', () async {
       await IOOverrides.runWithIOOverrides(() async {
         final MultirootFileBasedAssetReader reader = MultirootFileBasedAssetReader(
           packageGraph,
@@ -60,7 +60,7 @@ void main() {
      // Some component of either dart:io or build_runner normalizes file uris
      // into file paths for windows. This doesn't seem to work with IOOverrides
      // leaving all filepaths on windows with forward slashes.
-    }), skip: Platform.isWindows);
+    }, skip: Platform.isWindows);
   });
 }
 

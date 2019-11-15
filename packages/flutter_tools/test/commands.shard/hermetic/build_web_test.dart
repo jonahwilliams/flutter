@@ -49,7 +49,7 @@ void main() {
     });
   });
 
-  test('Refuses to build for web when missing index.html', () => testbed.run(() async {
+  testbed.test('Refuses to build for web when missing index.html', () async {
     fs.file(fs.path.join('web', 'index.html')).deleteSync();
 
     expect(buildWeb(
@@ -59,9 +59,9 @@ void main() {
       false,
       const <String>[],
     ), throwsA(isInstanceOf<ToolExit>()));
-  }));
+  });
 
-  test('Refuses to build using runner when missing index.html', () => testbed.run(() async {
+  testbed.test('Refuses to build using runner when missing index.html', () async {
     fs.file(fs.path.join('web', 'index.html')).deleteSync();
 
     final ResidentWebRunner runner = DwdsWebRunnerFactory().createWebRunner(
@@ -73,27 +73,27 @@ void main() {
       dartDefines: const <String>[],
     );
     expect(await runner.run(), 1);
-  }));
+  });
 
-  test('Refuses to build a debug build for web', () => testbed.run(() async {
+  testbed.test('Refuses to build a debug build for web', () async {
     final CommandRunner<void> runner = createTestCommandRunner(BuildCommand());
 
     expect(() => runner.run(<String>['build', 'web', '--debug']),
         throwsA(isInstanceOf<UsageException>()));
   }, overrides: <Type, Generator>{
     FeatureFlags: () => TestFeatureFlags(isWebEnabled: true),
-  }));
+  });
 
-  test('Refuses to build for web when feature is disabled', () => testbed.run(() async {
+  testbed.test('Refuses to build for web when feature is disabled', () async {
     final CommandRunner<void> runner = createTestCommandRunner(BuildCommand());
 
     expect(() => runner.run(<String>['build', 'web']),
         throwsA(isInstanceOf<ToolExit>()));
   }, overrides: <Type, Generator>{
     FeatureFlags: () => TestFeatureFlags(isWebEnabled: false),
-  }));
+  });
 
-  test('Builds a web bundle - end to end', () => testbed.run(() async {
+  testbed.test('Builds a web bundle - end to end', () async {
     final BuildCommand buildCommand = BuildCommand();
     applyMocksToCommand(buildCommand);
     final CommandRunner<void> runner = createTestCommandRunner(buildCommand);
@@ -156,19 +156,19 @@ class UrlLauncherPlugin {}
   }, overrides: <Type, Generator>{
     FeatureFlags: () => TestFeatureFlags(isWebEnabled: true),
     BuildSystem: () => MockBuildSystem(),
-  }));
+  });
 
-  test('hidden if feature flag is not enabled', () => testbed.run(() async {
+  testbed.test('hidden if feature flag is not enabled', () async {
     expect(BuildWebCommand().hidden, true);
   }, overrides: <Type, Generator>{
     FeatureFlags: () => TestFeatureFlags(isWebEnabled: false),
-  }));
+  });
 
-  test('not hidden if feature flag is enabled', () => testbed.run(() async {
+  testbed.test('not hidden if feature flag is enabled', () async {
     expect(BuildWebCommand().hidden, false);
   }, overrides: <Type, Generator>{
     FeatureFlags: () => TestFeatureFlags(isWebEnabled: true),
-  }));
+  });
 }
 
 class MockBuildSystem extends Mock implements BuildSystem {}

@@ -15,7 +15,7 @@ void main() {
   setUp(() {
     testbed = Testbed();
   });
-  test('Can parse depfile from file', () => testbed.run(() {
+  testbed.test('Can parse depfile from file', () {
     final File depfileSource = fs.file('example.d')..writeAsStringSync('''
 a.txt: b.txt
 ''');
@@ -23,9 +23,9 @@ a.txt: b.txt
 
     expect(depfile.inputs.single.path, 'b.txt');
     expect(depfile.outputs.single.path, 'a.txt');
-  }));
+  });
 
-  test('Can parse depfile with multiple inputs', () => testbed.run(() {
+  testbed.test('Can parse depfile with multiple inputs', () {
     final File depfileSource = fs.file('example.d')..writeAsStringSync('''
 a.txt: b.txt c.txt d.txt
 ''');
@@ -37,9 +37,9 @@ a.txt: b.txt c.txt d.txt
       'd.txt',
     ]);
     expect(depfile.outputs.single.path, 'a.txt');
-  }));
+  });
 
-  test('Can parse depfile with multiple outputs', () => testbed.run(() {
+  testbed.test('Can parse depfile with multiple outputs', () {
     final File depfileSource = fs.file('example.d')..writeAsStringSync('''
 a.txt c.txt d.txt: b.txt
 ''');
@@ -51,9 +51,9 @@ a.txt c.txt d.txt: b.txt
       'c.txt',
       'd.txt',
     ]);
-  }));
+  });
 
-  test('Can parse depfile with windows file paths', () => testbed.run(() {
+  testbed.test('Can parse depfile with windows file paths', () {
     final File depfileSource = fs.file('example.d')..writeAsStringSync(r'''
 C:\\a.txt: C:\\b.txt
 ''');
@@ -63,9 +63,9 @@ C:\\a.txt: C:\\b.txt
     expect(depfile.outputs.single.path, r'C:\a.txt');
   }, overrides: <Type, Generator>{
     FileSystem: () => MemoryFileSystem(style: FileSystemStyle.windows),
-  }));
+  });
 
-  test('Resillient to weird whitespace', () => testbed.run(() {
+  testbed.test('Resillient to weird whitespace', () {
     final File depfileSource = fs.file('example.d')..writeAsStringSync(r'''
 a.txt
   : b.txt    c.txt
@@ -76,9 +76,9 @@ a.txt
 
     expect(depfile.inputs, hasLength(2));
     expect(depfile.outputs.single.path, 'a.txt');
-  }));
+  });
 
-  test('Resillient to duplicate files', () => testbed.run(() {
+  testbed.test('Resillient to duplicate files', () {
     final File depfileSource = fs.file('example.d')..writeAsStringSync(r'''
 a.txt: b.txt b.txt
 ''');
@@ -86,9 +86,9 @@ a.txt: b.txt b.txt
 
     expect(depfile.inputs.single.path, 'b.txt');
     expect(depfile.outputs.single.path, 'a.txt');
-  }));
+  });
 
-  test('Resillient to malformed file, missing :', () => testbed.run(() {
+  testbed.test('Resillient to malformed file, missing :', () {
     final File depfileSource = fs.file('example.d')..writeAsStringSync(r'''
 a.text b.txt
 ''');
@@ -96,9 +96,9 @@ a.text b.txt
 
     expect(depfile.inputs, isEmpty);
     expect(depfile.outputs, isEmpty);
-  }));
+  });
 
-  test('Can parse dart2js output format', () => testbed.run(() {
+  testbed.test('Can parse dart2js output format', () {
     final File dart2jsDependencyFile = fs.file('main.dart.js.deps')..writeAsStringSync(r'''
 file:///Users/foo/collection.dart
 file:///Users/foo/algorithms.dart
@@ -115,9 +115,9 @@ file:///Users/foo/canonicalized_map.dart
     expect(depfile.outputs.single.path, 'foo.dart.js');
   }, overrides: <Type, Generator>{
     FileSystem: () => MemoryFileSystem(style: FileSystemStyle.posix)
-  }));
+  });
 
-  test('Can parse handle invalid uri', () => testbed.run(() {
+  testbed.test('Can parse handle invalid uri', () {
     final File dart2jsDependencyFile = fs.file('main.dart.js.deps')..writeAsStringSync('''
 file:///Users/foo/collection.dart
 abcdevf
@@ -133,6 +133,6 @@ file:///Users/foo/canonicalized_map.dart
     expect(depfile.outputs.single.path, 'foo.dart.js');
   }, overrides: <Type, Generator>{
     FileSystem: () => MemoryFileSystem(style: FileSystemStyle.posix)
-  }));
+  });
 }
 

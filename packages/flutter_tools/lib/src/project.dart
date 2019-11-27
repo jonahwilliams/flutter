@@ -230,6 +230,26 @@ class FlutterProject {
     await injectPlugins(this, checkProjects: checkProjects);
   }
 
+  /// The packages listed in the applications "dependencies" section.
+  ///
+  /// This is usually a subset of the overall .packages dependencies.
+  List<String> get dependencies => _dependencies ??= _computeDependencues();
+  List<String> _dependencies;
+  List<String>  _computeDependencues() {
+    if (!pubspecFile.existsSync()) {
+      return <String>[];
+    }
+    final YamlMap pubspec = loadYaml(pubspecFile.readAsStringSync()) as YamlMap;
+    if (pubspec == null) {
+      return <String>[];
+    }
+    final YamlMap yamlDependencies = pubspec['dependencies'] as YamlMap;
+    if (yamlDependencies == null) {
+      return <String>[];
+    }
+    return yamlDependencies.keys.cast<String>().toList();
+  }
+
   /// Return the set of builders used by this package.
   YamlMap get builders {
     if (!pubspecFile.existsSync()) {

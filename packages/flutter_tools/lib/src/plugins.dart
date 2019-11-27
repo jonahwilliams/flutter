@@ -301,6 +301,9 @@ List<Plugin> findPlugins(FlutterProject project) {
     return plugins;
   }
   packages.forEach((String name, Uri uri) {
+    if (!project.dependencies.contains(name)) {
+      return;
+    }
     final Uri packageRoot = uri.resolve('..');
     final Plugin plugin = _pluginFromPubspec(name, packageRoot);
     if (plugin != null) {

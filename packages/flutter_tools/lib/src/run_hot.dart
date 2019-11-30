@@ -356,12 +356,10 @@ class HotRunner extends ResidentRunner {
     Uri packagesUri,
     Uri assetsDirectoryUri,
   ) {
-    final List<Future<void>> futures = <Future<void>>[
-      for (FlutterView view in device.views) view.runFromSource(entryUri, packagesUri, assetsDirectoryUri),
-    ];
-    final Completer<void> completer = Completer<void>();
-    Future.wait(futures).whenComplete(() { completer.complete(null); });
-    return completer.future;
+    return Future.wait(<Future<void>>[
+      for (FlutterView view in device.views)
+        view.runFromSource(entryUri, packagesUri, assetsDirectoryUri),
+    ]);
   }
 
   Future<void> _launchFromDevFS(String mainScript) async {
@@ -427,7 +425,7 @@ class HotRunner extends ResidentRunner {
           continue;
         }
         // Reload the isolate.
-        futures.add(view.uiIsolate.reload().then((ServiceObject _) {
+        futures.add(view.uiIsolate.reload().whenComplete(() {
           final ServiceEvent pauseEvent = view.uiIsolate.pauseEvent;
           if ((pauseEvent != null) && pauseEvent.isPauseEvent) {
             // Resume the isolate so that it can be killed by the embedder.
@@ -518,6 +516,10 @@ class HotRunner extends ResidentRunner {
   @override
   bool get supportsRestart => true;
 
+  String _reloadTargetPlatform;
+  String _reloadSdkName;
+  bool _reloadEmulator;
+
   @override
   Future<OperationResult> restart({
     bool fullRestart = false,
@@ -525,29 +527,26 @@ class HotRunner extends ResidentRunner {
     String reason,
     bool benchmarkMode = false,
   }) async {
-    String targetPlatform;
-    String sdkName;
-    bool emulator;
     if (flutterDevices.length == 1) {
       final Device device = flutterDevices.first.device;
-      targetPlatform = getNameForTargetPlatform(await device.targetPlatform);
-      sdkName = await device.sdkNameAndVersion;
-      emulator = await device.isLocalEmulator;
+      _reloadTargetPlatform ??= getNameForTargetPlatform(await device.targetPlatform);
+      _reloadSdkName ??= await device.sdkNameAndVersion;
+      _reloadEmulator ??= await device.isLocalEmulator;
     } else if (flutterDevices.length > 1) {
-      targetPlatform = 'multiple';
-      sdkName = 'multiple';
-      emulator = false;
+      _reloadTargetPlatform = 'multiple';
+      _reloadSdkName = 'multiple';
+      _reloadEmulator = false;
     } else {
-      targetPlatform = 'unknown';
-      sdkName = 'unknown';
-      emulator = false;
+      _reloadTargetPlatform = 'unknown';
+      _reloadSdkName = 'unknown';
+      _reloadEmulator = false;
     }
     final Stopwatch timer = Stopwatch()..start();
     if (fullRestart) {
       final OperationResult result = await _fullRestartHelper(
-        targetPlatform: targetPlatform,
-        sdkName: sdkName,
-        emulator: emulator,
+        targetPlatform: _reloadTargetPlatform,
+        sdkName: _reloadSdkName,
+        emulator: _reloadEmulator,
         reason: reason,
         benchmarkMode: benchmarkMode,
       );
@@ -555,9 +554,9 @@ class HotRunner extends ResidentRunner {
       return result;
     }
     final OperationResult result = await _hotReloadHelper(
-      targetPlatform: targetPlatform,
-      sdkName: sdkName,
-      emulator: emulator,
+      targetPlatform: _reloadTargetPlatform,
+      sdkName: _reloadSdkName,
+      emulator: _reloadEmulator,
       reason: reason,
       pauseAfterRestart: pauseAfterRestart,
     );
@@ -778,23 +777,20 @@ class HotRunner extends ResidentRunner {
     // Record time it took for the VM to reload the sources.
     _addBenchmarkData('hotReloadVMReloadMilliseconds', vmReloadTimer.elapsed.inMilliseconds);
     final Stopwatch reassembleTimer = Stopwatch()..start();
+
     // Reload the isolate.
     final List<Future<void>> allDevices = <Future<void>>[];
     for (FlutterDevice device in flutterDevices) {
-      printTrace('Sending reload events to ${device.device.name}');
-      final List<Future<ServiceObject>> futuresViews = <Future<ServiceObject>>[];
       for (FlutterView view in device.views) {
-        printTrace('Sending reload event to "${view.uiIsolate.name}"');
-        futuresViews.add(view.uiIsolate.reload());
+        printTrace('Sending reload event to "${view.uiIsolate.name}" on ${device.device.name}');
+        allDevices.add(view.uiIsolate.reload());
       }
-      allDevices.add(Future.wait(futuresViews).whenComplete(() {
-        return device.refreshViews();
-      }));
     }
     await Future.wait(allDevices);
 
     // We are now running from source.
     _runningFromSnapshot = false;
+
     // Check if any isolates are paused.
     final List<FlutterView> reassembleViews = <FlutterView>[];
     String serviceEventKind;
@@ -825,6 +821,7 @@ class HotRunner extends ResidentRunner {
         return OperationResult(OperationResult.ok.code, reloadMessage);
       }
     }
+
     printTrace('Evicting dirty assets');
     await _evictDirtyAssets();
     assert(reassembleViews.isNotEmpty);
@@ -832,15 +829,10 @@ class HotRunner extends ResidentRunner {
     bool failedReassemble = false;
     final List<Future<void>> futures = <Future<void>>[
       for (FlutterView view in reassembleViews)
-        () async {
-          try {
-            await view.uiIsolate.flutterReassemble();
-          } catch (error) {
-            failedReassemble = true;
-            printError('Reassembling ${view.uiIsolate.name} failed: $error');
-            return;
-          }
-        }(),
+        view.uiIsolate.flutterReassemble().catchError((dynamic error) {
+          failedReassemble = true;
+          printError('Reassembling ${view.uiIsolate.name} failed: $error');
+        }),
     ];
     final Future<void> reassembleFuture = Future.wait<void>(futures);
     await reassembleFuture.timeout(
@@ -992,7 +984,7 @@ class HotRunner extends ResidentRunner {
     }
   }
 
-  Future<void> _evictDirtyAssets() {
+  Future<void> _evictDirtyAssets() async {
     final List<Future<Map<String, dynamic>>> futures = <Future<Map<String, dynamic>>>[];
     for (FlutterDevice device in flutterDevices) {
       if (device.devFS.assetPathsToEvict.isEmpty) {

@@ -822,7 +822,6 @@ class HotRunner extends ResidentRunner {
       }
     }
 
-    printTrace('Evicting dirty assets');
     await _evictDirtyAssets();
     assert(reassembleViews.isNotEmpty);
     printTrace('Reassembling application');
@@ -984,7 +983,8 @@ class HotRunner extends ResidentRunner {
     }
   }
 
-  Future<void> _evictDirtyAssets() async {
+  Future<void> _evictDirtyAssets() {
+    printTrace('Evicting dirty assets');
     final List<Future<Map<String, dynamic>>> futures = <Future<Map<String, dynamic>>>[];
     for (FlutterDevice device in flutterDevices) {
       if (device.devFS.assetPathsToEvict.isEmpty) {

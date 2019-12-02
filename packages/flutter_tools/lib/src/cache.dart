@@ -62,6 +62,9 @@ class DevelopmentArtifact {
   /// Artifacts required for the Flutter Runner.
   static const DevelopmentArtifact flutterRunner = DevelopmentArtifact._('flutter_runner', unstable: true);
 
+  /// Artifacts required to generate a local incremental compiler.
+  static const DevelopmentArtifact incrementalCompiler = DevelopmentArtifact._('incremental_compiler', unstable: true);
+
   /// Artifacts required for any development platform.
   ///
   /// This does not need to be explicitly returned from requiredArtifacts as
@@ -81,6 +84,7 @@ class DevelopmentArtifact {
     fuchsia,
     universal,
     flutterRunner,
+    incrementalCompiler,
   ];
 
   @override
@@ -110,6 +114,7 @@ class Cache {
       _artifacts.add(MacOSFuchsiaSDKArtifacts(this));
       _artifacts.add(FlutterRunnerSDKArtifacts(this));
       _artifacts.add(FlutterRunnerDebugSymbols(this));
+      _artifacts.add(IncrementalCompilerArtifact(this));
       for (String artifactName in IosUsbArtifacts.artifactNames) {
         _artifacts.add(IosUsbArtifacts(artifactName, this));
       }
@@ -792,6 +797,32 @@ class MacOSEngineArtifacts extends EngineCachedArtifact {
     if (platform.isMacOS) {
       return _macOSDesktopBinaryDirs;
     }
+    return const <List<String>>[];
+  }
+
+  @override
+  List<String> getLicenseDirs() => const <String>[];
+}
+
+class IncrementalCompilerArtifact extends EngineCachedArtifact {
+  IncrementalCompilerArtifact(Cache cache) : super(
+    'incremental-compiler',
+    cache,
+    DevelopmentArtifact.incrementalCompiler,
+  );
+
+  @override
+  List<String> getPackageDirs() => const <String>[
+    'frontend_server',
+    'flutter_frontend_server',
+    'kernel',
+    'front_end',
+    'build_integration',
+    'dev_compiler',
+  ];
+
+  @override
+  List<List<String>> getBinaryDirs() {
     return const <List<String>>[];
   }
 

@@ -46,6 +46,7 @@ class PrecacheCommand extends FlutterCommand {
         help: 'Precache the flutter runner artifacts.', hide: true);
     argParser.addFlag('use-unsigned-mac-binaries', negatable: true, defaultsTo: false,
         help: 'Precache the unsigned mac binaries when available.', hide: true);
+    argParser.addFlag('incremental_compiler', defaultsTo: false, hide: true);
   }
 
   @override

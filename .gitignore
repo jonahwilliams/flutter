@@ -96,6 +96,13 @@ unlinked_spec.ds
 # Coverage
 coverage/
 
+# macOS
+**/macos/Flutter/GeneratedPluginRegistrant.swift
+**/macos/Podfile
+
+# Web plugins
+**/lib/generated_plugin_registrant.dart
+
 # Exceptions to above rules.
 !**/ios/**/default.mode1v3
 !**/ios/**/default.mode2v3

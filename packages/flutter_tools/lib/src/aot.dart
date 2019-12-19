@@ -15,6 +15,7 @@ import 'base/process.dart';
 import 'build_info.dart';
 import 'build_system/build_system.dart';
 import 'build_system/targets/dart.dart';
+import 'build_system/targets/ios.dart';
 import 'dart/package_map.dart';
 import 'globals.dart';
 import 'ios/bitcode.dart';
@@ -176,9 +177,9 @@ class AotBuilder {
       case TargetPlatform.android_arm64:
       case TargetPlatform.android_x86:
       case TargetPlatform.darwin_x64:
-        return true;
       case TargetPlatform.android_x64:
       case TargetPlatform.ios:
+        return true;
       case TargetPlatform.linux_x64:
       case TargetPlatform.windows_x64:
       case TargetPlatform.fuchsia_arm64:
@@ -206,10 +207,17 @@ class AotBuilder {
       );
     }
     final FlutterProject flutterProject = FlutterProject.current();
-    // Currently this only supports android, per the check above.
-    final Target target = buildMode == BuildMode.profile
-      ? const ProfileCopyFlutterAotBundle()
-      : const ReleaseCopyFlutterAotBundle();
+    Target target;
+    // Currently this only supports android and iOS, per the check above.
+    if (targetPlatform == TargetPlatform.ios) {
+      target = buildMode == BuildMode.profile
+        ? const AotAssemblyProfile()
+        : const AotAssemblyRelease();
+    } else {
+      target = buildMode == BuildMode.profile
+        ? const ProfileCopyFlutterAotBundle()
+        : const ReleaseCopyFlutterAotBundle();
+    }
 
     final BuildResult result = await buildSystem.build(target, Environment(
       projectDir: flutterProject.directory,

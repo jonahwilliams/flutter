@@ -93,12 +93,7 @@ Future<int> runTests(
     testWrapper.registerPlatformPlugin(
       <Runtime>[Runtime.chrome],
       () {
-        return FlutterWebPlatform.start(
-          flutterProject.directory.path,
-          updateGoldens: updateGoldens,
-          shellPath: shellPath,
-          flutterProject: flutterProject,
-        );
+        return null;
       },
     );
     await testWrapper.main(testArgs);

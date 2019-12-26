@@ -332,7 +332,7 @@ class AOTSnapshotter {
     final String frontendPath = artifacts.getArtifactPath(Artifact.frontendServerSnapshotForEngineDartSdk);
     fs.directory(outputPath).childFile('frontend_server.d').writeAsStringSync('frontend_server.d: $frontendPath\n');
 
-    return compilerOutput?.outputFilename;
+    return null;//compilerOutput?.outputFilename;
   }
 
   bool _isValidAotPlatform(TargetPlatform platform, BuildMode buildMode) {

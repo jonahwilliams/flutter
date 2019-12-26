@@ -3,15 +3,16 @@
 // found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
 import 'package:stream_channel/stream_channel.dart';
 
 import 'package:test_api/src/backend/suite_platform.dart'; // ignore: implementation_imports
-import 'package:test_core/src/runner/runner_suite.dart'; // ignore: implementation_imports
-import 'package:test_core/src/runner/suite.dart'; // ignore: implementation_imports
-import 'package:test_core/src/runner/plugin/platform_helpers.dart'; // ignore: implementation_imports
-import 'package:test_core/src/runner/environment.dart'; // ignore: implementation_imports
+// import 'package:test_core/src/runner/runner_suite.dart'; // ignore: implementation_imports
+// import 'package:test_core/src/runner/suite.dart'; // ignore: implementation_imports
+// import 'package:test_core/src/runner/plugin/platform_helpers.dart'; // ignore: implementation_imports
+// import 'package:test_core/src/runner/environment.dart'; // ignore: implementation_imports
 
 import '../base/common.dart';
 import '../base/file_system.dart';
@@ -98,7 +99,7 @@ FlutterPlatform installHook({
     testWrapper.registerPlatformPlugin(
       <Runtime>[Runtime.vm],
       () {
-        return platform;
+        return null;
       },
     );
   };
@@ -240,6 +241,8 @@ enum TestResult { crashed, harnessBailed, testBailed }
 
 typedef Finalizer = Future<void> Function();
 
+class PlatformPlugin {}
+
 /// The flutter test platform used to integrate with package:test.
 class FlutterPlatform extends PlatformPlugin {
   FlutterPlatform({
@@ -300,10 +303,10 @@ class FlutterPlatform extends PlatformPlugin {
   int _testCount = 0;
 
   @override
-  Future<RunnerSuite> load(
+  Future<Null> load(
     String path,
     SuitePlatform platform,
-    SuiteConfiguration suiteConfig,
+    Null suiteConfig,
     Object message,
   ) async {
     // loadChannel may throw an exception. That's fine; it will cause the
@@ -311,10 +314,10 @@ class FlutterPlatform extends PlatformPlugin {
     // Except for the Declarer error, which is a specific test incompatibility
     // error we need to catch.
     try {
-      final StreamChannel<dynamic> channel = loadChannel(path, platform);
-      final RunnerSuiteController controller = deserializeSuite(path, platform,
-        suiteConfig, const PluginEnvironment(), channel, message);
-      return await controller.suite;
+      // final StreamChannel<dynamic> channel = loadChannel(path, platform);
+      // final RunnerSuiteController controller = deserializeSuite(path, platform,
+      //   suiteConfig, const PluginEnvironment(), channel, message);
+      // return await controller.suite;
     } catch (err) {
       /// Rethrow a less confusing error if it is a test incompatibility.
       if (err.toString().contains('type \'Declarer\' is not a subtype of type \'Declarer\'')) {
@@ -374,11 +377,11 @@ class FlutterPlatform extends PlatformPlugin {
     if (compiler == null || compiler.compiler == null) {
       throw 'Compiler is not set up properly to compile $expression';
     }
-    final CompilerOutput compilerOutput =
+    final DirectCompilerOutput compilerOutput =
       await compiler.compiler.compileExpression(expression, definitions,
         typeDefinitions, libraryUri, klass, isStatic);
-    if (compilerOutput != null && compilerOutput.outputFilename != null) {
-      return base64.encode(fs.file(compilerOutput.outputFilename).readAsBytesSync());
+    if (compilerOutput != null) {
+      return base64.encode(compilerOutput.buffer);
     }
     throw 'Failed to compile $expression';
   }
@@ -450,7 +453,7 @@ class FlutterPlatform extends PlatformPlugin {
       if (precompiledDillPath == null && precompiledDillFiles == null) {
         // Lazily instantiate compiler so it is built only if it is actually used.
         compiler ??= TestCompiler(buildMode, trackWidgetCreation, flutterProject);
-        mainDart = await compiler.compile(mainDart);
+        await compiler.compile(mainDart).then((Uint8List output) => fs.file('$mainDart.dill').writeAsBytesSync(output));
 
         if (mainDart == null) {
           controller.sink.addError(_getErrorMessage('Compilation failed', testPath, shellPath));

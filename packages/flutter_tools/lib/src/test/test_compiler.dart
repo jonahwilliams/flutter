@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
 
@@ -21,7 +22,7 @@ import '../project.dart';
 class _CompilationRequest {
   _CompilationRequest(this.path, this.result);
   String path;
-  Completer<String> result;
+  Completer<Uint8List> result;
 }
 
 /// A frontend_server wrapper for the flutter test runner.
@@ -70,8 +71,8 @@ class TestCompiler {
   // Whether to report compiler messages.
   bool _suppressOutput = false;
 
-  Future<String> compile(String mainDart) {
-    final Completer<String> completer = Completer<String>();
+  Future<Uint8List> compile(String mainDart) {
+    final Completer<Uint8List> completer = Completer<Uint8List>();
     compilerController.add(_CompilationRequest(mainDart, completer));
     return completer.future;
   }
@@ -111,7 +112,6 @@ class TestCompiler {
       packagesPath: PackageMap.globalPackagesPath,
       buildMode: buildMode,
       trackWidgetCreation: trackWidgetCreation,
-      compilerMessageConsumer: _reportCompilerMessage,
       initializeFromDill: testFilePath,
       unsafePackageSerialization: false,
       dartDefines: const <String>[],
@@ -138,32 +138,28 @@ class TestCompiler {
         firstCompile = true;
       }
       _suppressOutput = false;
-      final CompilerOutput compilerOutput = await compiler.recompile(
+      final DirectCompilerOutput compilerOutput = await compiler.recompile(
         request.path,
         <Uri>[Uri.parse(request.path)],
         outputPath: outputDill.path,
       );
-      final String outputPath = compilerOutput?.outputFilename;
 
       // In case compiler didn't produce output or reported compilation
       // errors, pass [null] upwards to the consumer and shutdown the
       // compiler to avoid reusing compiler that might have gotten into
       // a weird state.
-      if (outputPath == null || compilerOutput.errorCount > 0) {
+      if (compilerOutput == null || compilerOutput.errorCount > 0) {
         request.result.complete(null);
         await _shutdown();
       } else {
-        final File outputFile = fs.file(outputPath);
-        final File kernelReadyToRun = await outputFile.copy('${request.path}.dill');
         final File testCache = fs.file(testFilePath);
-        if (firstCompile || !testCache.existsSync() || (testCache.lengthSync() < outputFile.lengthSync())) {
+        if (firstCompile || !testCache.existsSync()) {
           // The idea is to keep the cache file up-to-date and include as
           // much as possible in an effort to re-use as many packages as
           // possible.
           ensureDirectoryExists(testFilePath);
-          await outputFile.copy(testFilePath);
+          testCache.writeAsBytesSync(compilerOutput.buffer);
         }
-        request.result.complete(kernelReadyToRun.path);
         compiler.accept();
         compiler.reset();
       }

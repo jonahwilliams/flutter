@@ -139,11 +139,11 @@ class HotRunner extends ResidentRunner {
   ) async {
     for (FlutterDevice device in flutterDevices) {
       if (device.generator != null) {
-        final CompilerOutput compilerOutput =
+        final DirectCompilerOutput compilerOutput =
             await device.generator.compileExpression(expression, definitions,
                 typeDefinitions, libraryUri, klass, isStatic);
-        if (compilerOutput != null && compilerOutput.outputFilename != null) {
-          return base64.encode(fs.file(compilerOutput.outputFilename).readAsBytesSync());
+        if (compilerOutput != null) {
+          return base64.encode(compilerOutput.buffer);
         }
       }
     }

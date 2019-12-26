@@ -489,7 +489,7 @@ class DevFS {
       generator.reset();
     }
     printTrace('Compiling dart to kernel with ${invalidatedFiles.length} updated files');
-    final CompilerOutput compilerOutput = await generator.recompile(
+    final DirectCompilerOutput compilerOutput = await generator.recompile(
       mainPath,
       invalidatedFiles,
       outputPath:  dillOutputPath ?? getDefaultApplicationKernelPath(trackWidgetCreation: trackWidgetCreation),
@@ -502,20 +502,17 @@ class DevFS {
     lastCompiled = candidateCompileTime;
     // list of sources that needs to be monitored are in [compilerOutput.sources]
     sources = compilerOutput.sources;
-    //
+
     // Don't send full kernel file that would overwrite what VM already
     // started loading from.
     if (!bundleFirstUpload) {
-      final String compiledBinary = compilerOutput?.outputFilename;
-      if (compiledBinary != null && compiledBinary.isNotEmpty) {
-        final Uri entryUri = fs.path.toUri(projectRootPath != null
-          ? fs.path.relative(pathToReload, from: projectRootPath)
-          : pathToReload,
-        );
-        final DevFSFileContent content = DevFSFileContent(fs.file(compiledBinary));
-        syncedBytes += content.size;
-        dirtyEntries[entryUri] = content;
-      }
+      final Uri entryUri = fs.path.toUri(projectRootPath != null
+        ? fs.path.relative(pathToReload, from: projectRootPath)
+        : pathToReload,
+      );
+      final DevFSByteContent content = DevFSByteContent(compilerOutput.buffer);
+      syncedBytes += content.size;
+      dirtyEntries[entryUri] = content;
     }
     printTrace('Updating files');
     if (dirtyEntries.isNotEmpty) {

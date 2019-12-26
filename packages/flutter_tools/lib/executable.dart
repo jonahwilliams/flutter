@@ -9,9 +9,9 @@ import 'src/base/context.dart';
 // The build_runner code generation is provided here to make it easier to
 // avoid introducing the dependency into google3. Not all build* packages
 // are synced internally.
-import 'src/build_runner/build_runner.dart';
-import 'src/build_runner/resident_web_runner.dart';
-import 'src/build_runner/web_compilation_delegate.dart';
+// import 'src/build_runner/build_runner.dart';
+// import 'src/build_runner/resident_web_runner.dart';
+// import 'src/build_runner/web_compilation_delegate.dart';
 
 import 'src/codegen.dart';
 import 'src/commands/analyze.dart';
@@ -100,10 +100,10 @@ Future<void> main(List<String> args) async {
      overrides: <Type, Generator>{
        // The build runner instance is not supported in google3 because
        // the build runner packages are not synced internally.
-       CodeGenerator: () => const BuildRunner(),
-       WebCompilationProxy: () => BuildRunnerWebCompilationProxy(),
+       // CodeGenerator: () => const BuildRunner(),
+       // WebCompilationProxy: () => BuildRunnerWebCompilationProxy(),
        // The web runner is not supported internally because it depends
        // on dwds.
-       WebRunnerFactory: () => DwdsWebRunnerFactory(),
+       // WebRunnerFactory: () => DwdsWebRunnerFactory(),
      });
 }

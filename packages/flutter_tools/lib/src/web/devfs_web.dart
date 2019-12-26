@@ -5,7 +5,7 @@
 import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
-import 'package:mime/mime.dart' as mime;
+// import 'package:mime/mime.dart' as mime;
 
 import '../artifacts.dart';
 import '../asset.dart';
@@ -148,10 +148,10 @@ class WebAssetServer {
     // cannot determine a mime type, fall back to application/octet-stream.
     String mimeType;
     if (length >= 12) {
-      mimeType= mime.lookupMimeType(
-        file.path,
-        headerBytes: await file.openRead(0, 12).first,
-      );
+      // mimeType= mime.lookupMimeType(
+      //   file.path,
+      //   headerBytes: await file.openRead(0, 12).first,
+      // );
     }
     mimeType ??= _kDefaultMimeType;
     response.headers.add('Content-Length', length);
@@ -330,7 +330,7 @@ class WebDevFS implements DevFS {
     if (fullRestart) {
       generator.reset();
     }
-     final CompilerOutput compilerOutput = await generator.recompile(
+    final DirectCompilerOutput compilerOutput = await generator.recompile(
       mainPath,
       invalidatedFiles,
       outputPath:  dillOutputPath ?? getDefaultApplicationKernelPath(trackWidgetCreation: trackWidgetCreation),
@@ -348,9 +348,9 @@ class WebDevFS implements DevFS {
     File sourcemapFile;
     List<String> modules;
     try {
-      codeFile = fs.file('${compilerOutput.outputFilename}.sources');
-      manifestFile = fs.file('${compilerOutput.outputFilename}.json');
-      sourcemapFile = fs.file('${compilerOutput.outputFilename}.map');
+      // codeFile = fs.file('${compilerOutput.outputFilename}.sources');
+      // manifestFile = fs.file('${compilerOutput.outputFilename}.json');
+      // sourcemapFile = fs.file('${compilerOutput.outputFilename}.map');
       modules = _webAssetServer.write(codeFile, manifestFile, sourcemapFile);
     } on FileSystemException catch (err) {
       throwToolExit('Failed to load recompiled sources:\n$err');

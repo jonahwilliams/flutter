@@ -13,19 +13,19 @@ import 'package:path/path.dart' as p; // ignore: package_path_import
 import 'package:pool/pool.dart';
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as shelf_io;
-import 'package:shelf_packages_handler/shelf_packages_handler.dart';
-import 'package:shelf_static/shelf_static.dart';
+// import 'package:shelf_packages_handler/shelf_packages_handler.dart';
+// import 'package:shelf_static/shelf_static.dart';
 import 'package:shelf_web_socket/shelf_web_socket.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:test_api/src/backend/runtime.dart';
 import 'package:test_api/src/backend/suite_platform.dart';
 import 'package:test_api/src/util/stack_trace_mapper.dart';
-import 'package:test_core/src/runner/configuration.dart';
-import 'package:test_core/src/runner/environment.dart';
-import 'package:test_core/src/runner/platform.dart';
-import 'package:test_core/src/runner/plugin/platform_helpers.dart';
-import 'package:test_core/src/runner/runner_suite.dart';
-import 'package:test_core/src/runner/suite.dart';
+// import 'package:test_core/src/runner/configuration.dart';
+// import 'package:test_core/src/runner/environment.dart';
+// import 'package:test_core/src/runner/platform.dart';
+// import 'package:test_core/src/runner/plugin/platform_helpers.dart';
+// import 'package:test_core/src/runner/runner_suite.dart';
+// import 'package:test_core/src/runner/suite.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:webkit_inspection_protocol/webkit_inspection_protocol.dart' hide StackTrace;
 
@@ -45,6 +45,8 @@ import '../web/chrome.dart';
 import 'test_compiler.dart';
 import 'test_config.dart';
 
+class PlatformPlugin {}
+
 class FlutterWebPlatform extends PlatformPlugin {
   FlutterWebPlatform._(this._server, this._config, this._root, {
     FlutterProject flutterProject,
@@ -61,14 +63,14 @@ class FlutterWebPlatform extends PlatformPlugin {
     testUri = packageMap['test'];
     final shelf.Cascade cascade = shelf.Cascade()
         .add(_webSocketHandler.handler)
-        .add(packagesDirHandler())
+        // .add(packagesDirHandler())
         .add(_jsHandler.handler)
-        .add(createStaticHandler(
-          fs.path.join(Cache.flutterRoot, 'packages', 'flutter_tools'),
-          serveFilesOutsidePath: true,
-        ))
-        .add(createStaticHandler(_config.suiteDefaults.precompiledPath,
-            serveFilesOutsidePath: true))
+        // .add(createStaticHandler(
+        //   fs.path.join(Cache.flutterRoot, 'packages', 'flutter_tools'),
+        //   serveFilesOutsidePath: true,
+        // ))
+        // .add(createStaticHandler(_config.suiteDefaults.precompiledPath,
+        //     serveFilesOutsidePath: true))
         .add(_handleStaticArtifact)
         .add(_goldenFileHandler)
         .add(_wrapperHandler);
@@ -89,7 +91,7 @@ class FlutterWebPlatform extends PlatformPlugin {
         shelf_io.IOServer(await HttpMultiServer.loopback(0));
     return FlutterWebPlatform._(
       server,
-      Configuration.current,
+      null,
       root,
       flutterProject: flutterProject,
       shellPath: shellPath,
@@ -100,7 +102,7 @@ class FlutterWebPlatform extends PlatformPlugin {
   Uri testUri;
 
   /// The test runner configuration.
-  final Configuration _config;
+  final dynamic _config;
 
   /// The underlying server.
   final shelf.Server _server;
@@ -284,10 +286,10 @@ class FlutterWebPlatform extends PlatformPlugin {
   }
 
   @override
-  Future<RunnerSuite> load(
+  Future<dynamic> load(
     String path,
     SuitePlatform platform,
-    SuiteConfiguration suiteConfig,
+    dynamic suiteConfig,
     Object message,
   ) async {
     if (_closed) {
@@ -302,7 +304,7 @@ class FlutterWebPlatform extends PlatformPlugin {
     final Uri suiteUrl = url.resolveUri(fs.path.toUri(fs.path.withoutExtension(
             fs.path.relative(path, from: fs.path.join(_root, 'test'))) +
         '.html'));
-    final RunnerSuite suite = await browserManager
+    final dynamic suite = await browserManager
         .load(path, suiteUrl, suiteConfig, message, mapper: _mappers[path]);
     if (_closed) {
       return null;
@@ -490,7 +492,7 @@ class BrowserManager {
     // Start this canceled because we don't want it to start ticking until we
     // get some response from the iframe.
     _timer = RestartableTimer(const Duration(seconds: 3), () {
-      for (RunnerSuiteController controller in _controllers) {
+      for (dynamic controller in _controllers) {
         controller.setDebugging(true);
       }
     })
@@ -504,7 +506,7 @@ class BrowserManager {
           if (!_closed) {
             _timer.reset();
           }
-          for (RunnerSuiteController controller in _controllers) {
+          for (dynamic controller in _controllers) {
             controller.setDebugging(false);
           }
 
@@ -571,7 +573,7 @@ class BrowserManager {
   ///
   /// These are used to mark suites as debugging or not based on the browser's
   /// pings.
-  final Set<RunnerSuiteController> _controllers = <RunnerSuiteController>{};
+  final Set<dynamic> _controllers = <dynamic>{};
 
   // A timer that's reset whenever we receive a message from the browser.
   //
@@ -645,10 +647,10 @@ class BrowserManager {
   ///
   /// If [mapper] is passed, it's used to map stack traces for errors coming
   /// from this test suite.
-  Future<RunnerSuite> load(
+  Future<dynamic> load(
     String path,
     Uri url,
-    SuiteConfiguration suiteConfig,
+    dynamic suiteConfig,
     Object message, {
     StackTraceMapper mapper,
   }) async {
@@ -658,7 +660,7 @@ class BrowserManager {
     })));
 
     final int suiteID = _suiteID++;
-    RunnerSuiteController controller;
+    dynamic controller;
     void closeIframe() {
       if (_closed) {
         return;
@@ -679,7 +681,7 @@ class BrowserManager {
       }),
     );
 
-    return await _pool.withResource<RunnerSuite>(() async {
+    return await _pool.withResource<dynamic>(() async {
       _channel.sink.add(<String, Object>{
         'command': 'loadSuite',
         'url': url.toString(),
@@ -688,8 +690,7 @@ class BrowserManager {
       });
 
       try {
-        controller = deserializeSuite(path, SuitePlatform(Runtime.chrome),
-            suiteConfig, await _environment, suiteChannel, message);
+        controller = null;
         controller.channel('test.browser.mapper').sink.add(mapper?.serialize());
 
         _controllers.add(controller);
@@ -753,6 +754,7 @@ class BrowserManager {
     });
   }
 }
+class Environment{}
 
 /// An implementation of [Environment] for the browser.
 ///
@@ -832,13 +834,13 @@ class TestGoldenComparator {
 
     // Lazily create the compiler
     _compiler = _compiler ?? compilerFactory();
-    final String output = await _compiler.compile(listenerFile.path);
+    //final String output = await _compiler.compile(listenerFile.path);
     final List<String> command = <String>[
       shellPath,
       '--disable-observatory',
       '--non-interactive',
       '--packages=${PackageMap.globalPackagesPath}',
-      output,
+     // output,
     ];
 
     final Map<String, String> environment = <String, String>{

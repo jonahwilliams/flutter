@@ -13,7 +13,7 @@ import 'src/base/context.dart';
 // import 'src/build_runner/resident_web_runner.dart';
 // import 'src/build_runner/web_compilation_delegate.dart';
 
-import 'src/codegen.dart';
+// import 'src/codegen.dart';
 import 'src/commands/analyze.dart';
 import 'src/commands/assemble.dart';
 import 'src/commands/attach.dart';
@@ -46,8 +46,8 @@ import 'src/commands/update_packages.dart';
 import 'src/commands/upgrade.dart';
 import 'src/commands/version.dart';
 import 'src/runner/flutter_command.dart';
-import 'src/web/compile.dart';
-import 'src/web/web_runner.dart';
+// import 'src/web/compile.dart';
+// import 'src/web/web_runner.dart';
 
 /// Main entry point for commands.
 ///

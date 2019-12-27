@@ -700,7 +700,7 @@ class HotRunner extends ResidentRunner {
     bool emulator,
     String reason,
     bool pause,
-  }) async {
+  }) {
     final bool reloadOnTopOfSnapshot = _runningFromSnapshot;
     final String progressPrefix = reloadOnTopOfSnapshot ? 'Initializing' : 'Performing';
     Status status = logger.startProgress(
@@ -708,35 +708,33 @@ class HotRunner extends ResidentRunner {
       timeout: timeoutConfiguration.fastOperation,
       progressId: 'hot.reload',
     );
-    OperationResult result;
-    try {
-      result = await _reloadSources(
-        targetPlatform: targetPlatform,
-        sdkName: sdkName,
-        emulator: emulator,
-        reason: reason,
-        pause: pause,
-        onSlow: (String message) {
-          status?.cancel();
-          status = logger.startProgress(
-            message,
-            timeout: timeoutConfiguration.slowOperation,
-            progressId: 'hot.reload',
-          );
-        },
-      );
-    } on rpc.RpcException {
+    return _reloadSources(
+      targetPlatform: targetPlatform,
+      sdkName: sdkName,
+      emulator: emulator,
+      reason: reason,
+      pause: pause,
+      onSlow: (String message) {
+        status?.cancel();
+        status = logger.startProgress(
+          message,
+          timeout: timeoutConfiguration.slowOperation,
+          progressId: 'hot.reload',
+        );
+      },
+    ).then((OperationResult result) {
+      status.stop();
+      return result;
+    }).catchError((dynamic error) {
       HotEvent('exception',
         targetPlatform: targetPlatform,
         sdkName: sdkName,
         emulator: emulator,
         fullRestart: false,
         reason: reason).send();
-      return OperationResult(1, 'hot reload failed to complete', fatal: true);
-    } finally {
       status.cancel();
-    }
-    return result;
+      return OperationResult(1, 'hot reload failed to complete', fatal: true);
+    }, test: (dynamic error) => error is rpc.RpcException);
   }
 
   Future<OperationResult> _reloadSources({
@@ -764,10 +762,10 @@ class HotRunner extends ResidentRunner {
     bool shouldReportReloadTime = !_runningFromSnapshot;
     final Stopwatch reloadTimer = Stopwatch()..start();
 
-    if (!_isPaused()) {
-      printTrace('Refreshing active FlutterViews before reloading.');
-      await refreshViews();
-    }
+    // if (!_isPaused()) {
+    //   printTrace('Refreshing active FlutterViews before reloading.');
+    //   await refreshViews();
+    // }
 
     final Stopwatch devFSTimer = Stopwatch()..start();
     final UpdateFSReport updatedDevFS = await _updateDevFS();

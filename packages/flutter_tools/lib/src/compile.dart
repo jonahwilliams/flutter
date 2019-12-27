@@ -524,6 +524,7 @@ class DefaultResidentCompiler implements ResidentCompiler {
        // This is a URI, not a file path, so the forward slash is correct even on Windows.
        sdkRoot = sdkRoot.endsWith('/') ? sdkRoot : '$sdkRoot/';
 
+  PackageUriMapper _packageUriMapper;
   final BuildMode buildMode;
   final bool causalAsyncStacks;
   final bool trackWidgetCreation;
@@ -574,10 +575,12 @@ class DefaultResidentCompiler implements ResidentCompiler {
 
   Future<Uint8List> _recompile(_RecompileRequest request) async {
     if (_frontendCompiler == null) {
-      return _compile(request.mainPath, request.packagesFilePath ?? packagesPath);
+      _packageUriMapper = PackageUriMapper(request.mainPath, packagesPath ?? request.packagesFilePath, fileSystemScheme, fileSystemRoots);
+      print(_packageUriMapper.map(request.mainPath).toString());
+      return _compile(_packageUriMapper.map(request.mainPath).toString(), request.packagesFilePath ?? packagesPath);
     }
     request.invalidatedFiles.forEach(_frontendCompiler.invalidate);
-    return _frontendCompiler.recompileDelta(entryPoint: request.mainPath);
+    return _frontendCompiler.recompileDelta(entryPoint: _packageUriMapper.map(request.mainPath).toString());
   }
 
   final List<_CompilationRequest> _compilationQueue = <_CompilationRequest>[];
@@ -603,7 +606,7 @@ class DefaultResidentCompiler implements ResidentCompiler {
   ) async {
     _frontendCompiler = FrontendCompiler(
       sdkRootPath: sdkRoot,
-      packagesPath: packagesPath,
+      packagesPath: packagesFilePath,
     );
     return _frontendCompiler.compile(scriptUri);
   }

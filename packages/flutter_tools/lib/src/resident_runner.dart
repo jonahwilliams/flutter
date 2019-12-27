@@ -532,34 +532,32 @@ class FlutterDevice {
     String pathToReload,
     @required String dillOutputPath,
     @required List<Uri> invalidatedFiles,
-  }) async {
+  }) {
     final Status devFSStatus = logger.startProgress(
       'Syncing files to device ${device.name}...',
       timeout: timeoutConfiguration.fastOperation,
     );
-    UpdateFSReport report;
-    try {
-      report = await devFS.update(
-        mainPath: mainPath,
-        target: target,
-        bundle: bundle,
-        firstBuildTime: firstBuildTime,
-        bundleFirstUpload: bundleFirstUpload,
-        generator: generator,
-        fullRestart: fullRestart,
-        dillOutputPath: dillOutputPath,
-        trackWidgetCreation: trackWidgetCreation,
-        projectRootPath: projectRootPath,
-        pathToReload: pathToReload,
-        invalidatedFiles: invalidatedFiles,
-      );
-    } on DevFSException {
-      devFSStatus.cancel();
-      return UpdateFSReport(success: false);
-    }
-    devFSStatus.stop();
-    printTrace('Synced ${getSizeAsMB(report.syncedBytes)}.');
-    return report;
+    return devFS.update(
+      mainPath: mainPath,
+      target: target,
+      bundle: bundle,
+      firstBuildTime: firstBuildTime,
+      bundleFirstUpload: bundleFirstUpload,
+      generator: generator,
+      fullRestart: fullRestart,
+      dillOutputPath: dillOutputPath,
+      trackWidgetCreation: trackWidgetCreation,
+      projectRootPath: projectRootPath,
+      pathToReload: pathToReload,
+      invalidatedFiles: invalidatedFiles,
+    ).then((UpdateFSReport report) {
+      devFSStatus.stop();
+      printTrace('Synced ${getSizeAsMB(report.syncedBytes)}.');
+      return report;
+    }).catchError((dynamic error) {
+        devFSStatus.cancel();
+        return UpdateFSReport(success: false);
+    }, test: (dynamic error) => error is DevFSException);
   }
 
   Future<void> updateReloadStatus(bool wasReloadSuccessful) async {

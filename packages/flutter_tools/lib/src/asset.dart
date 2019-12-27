@@ -115,7 +115,7 @@ class _ManifestAssetBundle implements AssetBundle {
     String packagesPath,
     bool includeDefaultFonts = true,
     bool reportLicensedPackages = false,
-  }) async {
+  }) {
     assetDirPath ??= getAssetBuildDirectory();
     packagesPath ??= fs.path.absolute(PackageMap.globalPackagesPath);
     FlutterManifest flutterManifest;
@@ -124,10 +124,10 @@ class _ManifestAssetBundle implements AssetBundle {
     } catch (e) {
       printStatus('Error detected in pubspec.yaml:', emphasis: true);
       printError('$e');
-      return 1;
+      return Future<int>.value(1);
     }
     if (flutterManifest == null) {
-      return 1;
+      return Future<int>.value(1);
     }
 
     // If the last build time isn't set before this early return, empty pubspecs will
@@ -136,7 +136,7 @@ class _ManifestAssetBundle implements AssetBundle {
     _lastBuildTimestamp = DateTime.now();
     if (flutterManifest.isEmpty) {
       entries[_assetManifestJson] = DevFSStringContent('{}');
-      return 0;
+      return Future<int>.value(0);
     }
 
     final String assetBasePath = fs.path.dirname(fs.path.absolute(manifestPath));
@@ -157,7 +157,7 @@ class _ManifestAssetBundle implements AssetBundle {
     );
 
     if (assetVariants == null) {
-      return 1;
+      return Future<int>.value(1);
     }
 
     final List<Map<String, dynamic>> fonts = _parseFonts(
@@ -190,7 +190,7 @@ class _ManifestAssetBundle implements AssetBundle {
         );
 
         if (packageAssets == null) {
-          return 1;
+          return Future<int>.value(1);
         }
         assetVariants.addAll(packageAssets);
 
@@ -209,7 +209,7 @@ class _ManifestAssetBundle implements AssetBundle {
       if (!asset.assetFileExists && assetVariants[asset].isEmpty) {
         printStatus('Error detected in pubspec.yaml:', emphasis: true);
         printError('No file or variants found for $asset.\n');
-        return 1;
+        return Future<int>.value(1);
       }
       // The file name for an asset's "main" entry is whatever appears in
       // the pubspec.yaml file. The main entry's file must always exist for
@@ -248,7 +248,7 @@ class _ManifestAssetBundle implements AssetBundle {
     // TODO(ianh): Only do the following line if we've changed packages or if our LICENSE file changed
     entries[_license] = _obtainLicenses(packageMap, assetBasePath, reportPackages: reportLicensedPackages);
 
-    return 0;
+    return Future<int>.value(0);
   }
 }
 

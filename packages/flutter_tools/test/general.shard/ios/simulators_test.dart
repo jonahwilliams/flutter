@@ -189,12 +189,12 @@ void main() {
 
   testUsingContext('builds with targetPlatform', () async {
     final IOSSimulator simulator = IOSSimulator('x', name: 'iPhone X');
-    when(buildSystem.build(any, any)).thenAnswer((Invocation invocation) async {
+    when(globals.buildSystem.build(any, any)).thenAnswer((Invocation invocation) async {
       return BuildResult(success: true);
     });
     await simulator.sideloadUpdatedAssetsForInstalledApplicationBundle(BuildInfo.debug, 'lib/main.dart');
 
-    final VerificationResult result = verify(buildSystem.build(any, captureAny));
+    final VerificationResult result = verify(globals.buildSystem.build(any, captureAny));
     final Environment environment = result.captured.single as Environment;
     expect(environment.defines, <String, String>{
       kTargetFile: 'lib/main.dart',

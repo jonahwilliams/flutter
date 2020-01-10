@@ -7,7 +7,6 @@ import 'package:pool/pool.dart';
 import '../../asset.dart';
 import '../../base/file_system.dart';
 import '../../devfs.dart';
-import '../../globals.dart' as globals;
 import '../../plugins.dart';
 import '../../project.dart';
 import '../build_system.dart';
@@ -19,11 +18,18 @@ import '../depfile.dart';
 /// Returns a [Depfile] containing all assets used in the build.
 Future<Depfile> copyAssets(Environment environment, Directory outputDirectory) async {
   final File pubspecFile =  environment.projectDir.childFile('pubspec.yaml');
-  final AssetBundle assetBundle = AssetBundleFactory.instance.createBundle();
-  await assetBundle.build(
+  // TODO(jonahwilliams): remove the customizability for asset bundle in assemble.
+  final AssetBundle assetBundle = ManifestAssetBundleFactory(
+    logger: environment.logger,
+    fileSystem: environment.fileSystem,
+  ).createBundle();
+  final int result = await assetBundle.build(
     manifestPath: pubspecFile.path,
     packagesPath: environment.projectDir.childFile('.packages').path,
   );
+  if (result != 0) {
+    throw Exception('Failed to build asset bundle.');
+  }
   final Pool pool = Pool(kMaxOpenFiles);
   final List<File> inputs = <File>[
     // An asset manifest with no assets would have zero inputs if not
@@ -40,12 +46,12 @@ Future<Depfile> copyAssets(Environment environment, Directory outputDirectory) a
         // to `%23.ext`.  However, we have to keep it this way since the
         // platform channels in the framework will URI encode these values,
         // and the native APIs will look for files this way.
-        final File file = globals.fs.file(globals.fs.path.join(outputDirectory.path, entry.key));
+        final File file = environment.fileSystem.file(environment.fileSystem.path.join(outputDirectory.path, entry.key));
         outputs.add(file);
         file.parent.createSync(recursive: true);
         final DevFSContent content = entry.value;
         if (content is DevFSFileContent && content.file is File) {
-          inputs.add(globals.fs.file(content.file.path));
+          inputs.add(environment.fileSystem.file(content.file.path));
           await (content.file as File).copy(file.path);
         } else {
           await file.writeAsBytes(await entry.value.contentsAsBytes());
@@ -87,7 +93,10 @@ class CopyAssets extends Target {
       .childDirectory('flutter_assets');
     output.createSync(recursive: true);
     final Depfile depfile = await copyAssets(environment, output);
-    depfile.writeToFile(environment.buildDir.childFile('flutter_assets.d'));
+    depfile.writeToFile(
+      environment.buildDir.childFile('flutter_assets.d'),
+      environment.platform.isWindows,
+    );
   }
 }
 

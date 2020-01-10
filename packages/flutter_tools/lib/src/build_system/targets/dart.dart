@@ -109,7 +109,10 @@ class CopyFlutterBundle extends Target {
           .copySync(environment.outputDir.childFile('isolate_snapshot_data').path);
     }
     final Depfile assetDepfile = await copyAssets(environment, environment.outputDir);
-    assetDepfile.writeToFile(environment.buildDir.childFile('flutter_assets.d'));
+    assetDepfile.writeToFile(
+      environment.buildDir.childFile('flutter_assets.d'),
+      environment.platform.isWindows,
+    );
   }
 
   @override

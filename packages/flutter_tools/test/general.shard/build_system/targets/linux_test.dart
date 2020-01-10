@@ -16,7 +16,7 @@ import '../../../src/testbed.dart';
 
 void main() {
   Testbed testbed;
-  const BuildSystem buildSystem = BuildSystem();
+  BuildSystem buildSystem;
   Environment environment;
   MockPlatform mockPlatform;
 
@@ -32,6 +32,12 @@ void main() {
     when(mockPlatform.isLinux).thenReturn(true);
     when(mockPlatform.environment).thenReturn(Map<String, String>.unmodifiable(<String, String>{}));
     testbed = Testbed(setup: () {
+      buildSystem = BuildSystem(
+        fileSystem: globals.fs,
+        logger: globals.logger,
+        platform: globals.platform,
+        artifacts: globals.artifacts,
+      );
       Cache.flutterRoot = '';
       environment = Environment(
         outputDir: globals.fs.currentDirectory,

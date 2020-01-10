@@ -4,56 +4,71 @@
 
 import 'dart:typed_data';
 
+import 'package:file/memory.dart';
+import 'package:flutter_tools/src/artifacts.dart';
 import 'package:flutter_tools/src/base/file_system.dart';
+import 'package:flutter_tools/src/base/logger.dart';
+import 'package:flutter_tools/src/base/terminal.dart';
 import 'package:flutter_tools/src/build_system/build_system.dart';
 import 'package:flutter_tools/src/build_system/file_hash_store.dart';
-import 'package:flutter_tools/src/globals.dart' as globals;
 import 'package:mockito/mockito.dart';
+import 'package:platform/platform.dart';
+
 
 import '../../src/common.dart';
-import '../../src/context.dart';
-import '../../src/testbed.dart';
+import '../../src/fake_process_manager.dart';
 
 void main() {
-  Testbed testbed;
   Environment environment;
+  FileSystem fileSystem;
+  BufferLogger logger;
+  MockPlatform platform;
 
   setUp(() {
-    testbed = Testbed(setup: () {
-      globals.fs.directory('build').createSync();
-      environment = Environment(
-        outputDir: globals.fs.currentDirectory,
-        projectDir: globals.fs.currentDirectory,
-      );
-      environment.buildDir.createSync(recursive: true);
-    });
+    platform = MockPlatform();
+    fileSystem = MemoryFileSystem();
+    logger = BufferLogger(
+      terminal: null,
+      outputPreferences: OutputPreferences.test(),
+    );
+    fileSystem.directory('build').createSync();
+    environment = Environment(
+      outputDir: fileSystem.currentDirectory,
+      projectDir: fileSystem.currentDirectory,
+      artifacts: MockArtifacts(),
+      fileSystem: fileSystem,
+      logger: logger,
+      processManager: FakeProcessManager.any(),
+      platform: platform,
+    );
+    environment.buildDir.createSync(recursive: true);
   });
 
-  test('Initializes file cache', () => testbed.run(() {
-    final FileHashStore fileCache = FileHashStore(environment, globals.fs);
+  testWithoutContext('Initializes file cache', () {
+    final FileHashStore fileCache = FileHashStore(environment, fileSystem, logger);
     fileCache.initialize();
     fileCache.persist();
 
-    expect(globals.fs.file(globals.fs.path.join(environment.buildDir.path, '.filecache')).existsSync(), true);
+    expect(fileSystem.file(fileSystem.path.join(environment.buildDir.path, '.filecache')).existsSync(), true);
 
-    final Uint8List buffer = globals.fs.file(globals.fs.path.join(environment.buildDir.path, '.filecache'))
+    final Uint8List buffer = fileSystem.file(fileSystem.path.join(environment.buildDir.path, '.filecache'))
         .readAsBytesSync();
     final FileStorage fileStorage = FileStorage.fromBuffer(buffer);
 
     expect(fileStorage.files, isEmpty);
     expect(fileStorage.version, 2);
-  }));
+  });
 
-  test('saves and restores to file cache', () => testbed.run(() async {
-    final File file = globals.fs.file('foo.dart')
+  testWithoutContext('saves and restores to file cache', () async {
+    final File file = fileSystem.file('foo.dart')
       ..createSync()
       ..writeAsStringSync('hello');
-    final FileHashStore fileCache = FileHashStore(environment, globals.fs);
+    final FileHashStore fileCache = FileHashStore(environment, fileSystem, logger);
     fileCache.initialize();
     await fileCache.hashFiles(<File>[file]);
     fileCache.persist();
     final String currentHash =  fileCache.currentHashes[file.path];
-    final Uint8List buffer = globals.fs.file(globals.fs.path.join(environment.buildDir.path, '.filecache'))
+    final Uint8List buffer = fileSystem.file(fileSystem.path.join(environment.buildDir.path, '.filecache'))
         .readAsBytesSync();
     FileStorage fileStorage = FileStorage.fromBuffer(buffer);
 
@@ -61,7 +76,7 @@ void main() {
     expect(fileStorage.files.single.path, file.path);
 
 
-    final FileHashStore newFileCache = FileHashStore(environment, globals.fs);
+    final FileHashStore newFileCache = FileHashStore(environment, fileSystem, logger);
     newFileCache.initialize();
     expect(newFileCache.currentHashes, isEmpty);
     expect(newFileCache.previousHashes['foo.dart'],  currentHash);
@@ -72,35 +87,35 @@ void main() {
 
     expect(fileStorage.files.single.hash, currentHash);
     expect(fileStorage.files.single.path, file.path);
-  }));
+  });
 
-  test('handles persisting with a missing build directory', () => testbed.run(() async {
-    final File file = globals.fs.file('foo.dart')
+  testWithoutContext('handles persisting with a missing build directory', () async {
+    final File file = fileSystem.file('foo.dart')
       ..createSync()
       ..writeAsStringSync('hello');
-    final FileHashStore fileCache = FileHashStore(environment, globals.fs);
+    final FileHashStore fileCache = FileHashStore(environment, fileSystem, logger);
     fileCache.initialize();
     environment.buildDir.deleteSync(recursive: true);
 
     await fileCache.hashFiles(<File>[file]);
     // Does not throw.
     fileCache.persist();
-  }));
+  });
 
-  test('handles hashing missing files', () => testbed.run(() async {
-    final FileHashStore fileCache = FileHashStore(environment, globals.fs);
+  testWithoutContext('handles hashing missing files', () async {
+    final FileHashStore fileCache = FileHashStore(environment, fileSystem, logger);
     fileCache.initialize();
 
-    final List<File> results = await fileCache.hashFiles(<File>[globals.fs.file('hello.dart')]);
+    final List<File> results = await fileCache.hashFiles(<File>[fileSystem.file('hello.dart')]);
 
     expect(results, hasLength(1));
     expect(results.single.path, 'hello.dart');
-    expect(fileCache.currentHashes, isNot(contains(globals.fs.path.absolute('hello.dart'))));
-  }));
+    expect(fileCache.currentHashes, isNot(contains(fileSystem.path.absolute('hello.dart'))));
+  });
 
-  test('handles failure to persist file cache', () => testbed.run(() async {
-    final FakeForwardingFileSystem fakeForwardingFileSystem = FakeForwardingFileSystem(globals.fs);
-    final FileHashStore fileCache = FileHashStore(environment, fakeForwardingFileSystem);
+  testWithoutContext('handles failure to persist file cache', () async {
+    final FakeForwardingFileSystem fakeForwardingFileSystem = FakeForwardingFileSystem(fileSystem);
+    final FileHashStore fileCache = FileHashStore(environment, fileSystem, logger);
     final String cacheFile = environment.buildDir.childFile('.filecache').path;
     final MockFile mockFile = MockFile();
     when(mockFile.writeAsBytesSync(any)).thenThrow(const FileSystemException('Out of space!'));
@@ -110,12 +125,16 @@ void main() {
     fakeForwardingFileSystem.files[cacheFile] = mockFile;
     fileCache.persist();
 
-    expect(testLogger.errorText, contains('Out of space!'));
-  }));
+    expect(logger.errorText, contains('Out of space!'));
+  });
 
-  test('handles failure to restore file cache', () => testbed.run(() async {
-    final FakeForwardingFileSystem fakeForwardingFileSystem = FakeForwardingFileSystem(globals.fs);
-    final FileHashStore fileCache = FileHashStore(environment, fakeForwardingFileSystem);
+  testWithoutContext('handles failure to restore file cache', () async {
+    final FakeForwardingFileSystem fakeForwardingFileSystem = FakeForwardingFileSystem(fileSystem);
+    final FileHashStore fileCache = FileHashStore(
+      environment,
+      fakeForwardingFileSystem,
+      logger,
+    );
     final String cacheFile = environment.buildDir.childFile('.filecache').path;
     final MockFile mockFile = MockFile();
     when(mockFile.readAsBytesSync()).thenThrow(const FileSystemException('Out of space!'));
@@ -124,8 +143,8 @@ void main() {
     fakeForwardingFileSystem.files[cacheFile] = mockFile;
     fileCache.initialize();
 
-    expect(testLogger.errorText, contains('Out of space!'));
-  }));
+    expect(logger.errorText, contains('Out of space!'));
+  });
 }
 
 class FakeForwardingFileSystem extends ForwardingFileSystem {
@@ -136,4 +155,7 @@ class FakeForwardingFileSystem extends ForwardingFileSystem {
   @override
   File file(dynamic path) => files[path] ?? super.file(path);
 }
+
 class MockFile extends Mock implements File {}
+class MockArtifacts extends Mock implements Artifacts {}
+class MockPlatform extends Mock implements Platform {}

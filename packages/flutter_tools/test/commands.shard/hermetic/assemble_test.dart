@@ -23,7 +23,7 @@ void main() {
   });
 
   testbed.test('Can run a build', () async {
-    when(buildSystem.build(any, any, buildSystemConfig: anyNamed('buildSystemConfig')))
+    when(globals.buildSystem.build(any, any, buildSystemConfig: anyNamed('buildSystemConfig')))
       .thenAnswer((Invocation invocation) async {
         return BuildResult(success: true);
       });
@@ -34,7 +34,7 @@ void main() {
   });
 
   testbed.test('Can parse defines whose values contain =', () async {
-    when(buildSystem.build(any, any, buildSystemConfig: anyNamed('buildSystemConfig')))
+    when(globals.buildSystem.build(any, any, buildSystemConfig: anyNamed('buildSystemConfig')))
       .thenAnswer((Invocation invocation) async {
         expect((invocation.positionalArguments[1] as Environment).defines, containsPair('FooBar', 'fizz=2'));
         return BuildResult(success: true);
@@ -46,7 +46,7 @@ void main() {
   });
 
   testbed.test('Throws ToolExit if not provided with output', () async {
-    when(buildSystem.build(any, any, buildSystemConfig: anyNamed('buildSystemConfig')))
+    when(globals.buildSystem.build(any, any, buildSystemConfig: anyNamed('buildSystemConfig')))
       .thenAnswer((Invocation invocation) async {
         return BuildResult(success: true);
       });
@@ -57,7 +57,7 @@ void main() {
   });
 
   testbed.test('Throws ToolExit if called with non-existent rule', () async {
-    when(buildSystem.build(any, any, buildSystemConfig: anyNamed('buildSystemConfig')))
+    when(globals.buildSystem.build(any, any, buildSystemConfig: anyNamed('buildSystemConfig')))
       .thenAnswer((Invocation invocation) async {
         return BuildResult(success: true);
       });
@@ -69,7 +69,7 @@ void main() {
 
   testbed.test('Does not log stack traces during build failure', () async {
     final StackTrace testStackTrace = StackTrace.current;
-    when(buildSystem.build(any, any, buildSystemConfig: anyNamed('buildSystemConfig')))
+    when(globals.buildSystem.build(any, any, buildSystemConfig: anyNamed('buildSystemConfig')))
       .thenAnswer((Invocation invocation) async {
         return BuildResult(success: false, exceptions: <String, ExceptionMeasurement>{
           'hello': ExceptionMeasurement('hello', 'bar', testStackTrace),
@@ -84,7 +84,7 @@ void main() {
   });
 
   testbed.test('Only writes input and output files when the values change', () async {
-    when(buildSystem.build(any, any, buildSystemConfig: anyNamed('buildSystemConfig')))
+    when(globals.buildSystem.build(any, any, buildSystemConfig: anyNamed('buildSystemConfig')))
       .thenAnswer((Invocation invocation) async {
         return BuildResult(
           success: true,
@@ -121,7 +121,7 @@ void main() {
     expect(inputs.lastModifiedSync(), theDistantPast);
     expect(outputs.lastModifiedSync(), theDistantPast);
 
-    when(buildSystem.build(any, any, buildSystemConfig: anyNamed('buildSystemConfig')))
+    when(globals.buildSystem.build(any, any, buildSystemConfig: anyNamed('buildSystemConfig')))
       .thenAnswer((Invocation invocation) async {
         return BuildResult(
           success: true,

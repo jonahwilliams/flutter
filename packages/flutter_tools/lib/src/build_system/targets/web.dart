@@ -8,7 +8,6 @@ import '../../base/io.dart';
 import '../../build_info.dart';
 import '../../compile.dart';
 import '../../dart/package_map.dart';
-import '../../globals.dart' as globals;
 import '../../project.dart';
 import '../build_system.dart';
 import '../depfile.dart';
@@ -54,7 +53,7 @@ class WebEntrypointTarget extends Target {
     final String targetFile = environment.defines[kTargetFile];
     final bool shouldInitializePlatform = environment.defines[kInitializePlatform] == 'true';
     final bool hasPlugins = environment.defines[kHasWebPlugins] == 'true';
-    final String importPath = globals.fs.path.absolute(targetFile);
+    final String importPath = environment.fileSystem.path.absolute(targetFile);
 
     // Use the package uri mapper to find the correct package-scheme import path
     // for the user application. If the application has a mix of package-scheme
@@ -67,13 +66,15 @@ class WebEntrypointTarget extends Target {
       PackageMap.globalPackagesPath,
       null,
       null,
+      environment.fileSystem,
+      environment.platform,
     );
 
     // By construction, this will only be null if the .packages file does not
     // have an entry for the user's application or if the main file is
     // outside of the lib/ directory.
     final String mainImport = packageUriMapper.map(importPath)?.toString()
-      ?? globals.fs.file(importPath).absolute.uri.toString();
+      ?? environment.fileSystem.file(importPath).absolute.uri.toString();
 
     String contents;
     if (hasPlugins) {
@@ -151,15 +152,18 @@ class Dart2JSTarget extends Target {
     final String dart2jsOptimization = environment.defines[kDart2jsOptimization];
     final bool csp = environment.defines[kCspMode] == 'true';
     final BuildMode buildMode = getBuildModeForName(environment.defines[kBuildMode]);
-    final String specPath = globals.fs.path.join(globals.artifacts.getArtifactPath(Artifact.flutterWebSdk), 'libraries.json');
-    final String packageFile = FlutterProject.fromDirectory(environment.projectDir).hasBuilders
+    final String specPath = environment.fileSystem.path
+      .join(environment.artifacts.getArtifactPath(Artifact.flutterWebSdk), 'libraries.json');
+    // TODO(jonahwilliams): remove once FlutterProject no longer uses context.
+    final FlutterProjectFactory _flutterProjectFactory = FlutterProjectFactory(environment.fileSystem);
+    final String packageFile = _flutterProjectFactory.fromDirectory(environment.projectDir).hasBuilders
       ? PackageMap.globalGeneratedPackagesPath
       : PackageMap.globalPackagesPath;
     final File outputFile = environment.buildDir.childFile('main.dart.js');
 
-    final ProcessResult result = await globals.processManager.run(<String>[
-      globals.artifacts.getArtifactPath(Artifact.engineDartBinary),
-      globals.artifacts.getArtifactPath(Artifact.dart2jsSnapshot),
+    final ProcessResult result = await environment.processManager.run(<String>[
+      environment.artifacts.getArtifactPath(Artifact.engineDartBinary),
+      environment.artifacts.getArtifactPath(Artifact.dart2jsSnapshot),
       '--libraries-spec=$specPath',
       if (dart2jsOptimization != null)
         '-$dart2jsOptimization'
@@ -186,7 +190,7 @@ class Dart2JSTarget extends Target {
     final File dart2jsDeps = environment.buildDir
       .childFile('main.dart.js.deps');
     if (!dart2jsDeps.existsSync()) {
-      globals.printError('Warning: dart2js did not produced expected deps list at '
+      environment.logger.printError('Warning: dart2js did not produced expected deps list at '
         '${dart2jsDeps.path}');
       return;
     }
@@ -194,7 +198,10 @@ class Dart2JSTarget extends Target {
       environment.buildDir.childFile('main.dart.js.deps'),
       outputFile,
     );
-    depfile.writeToFile(environment.buildDir.childFile('dart2js.d'));
+    depfile.writeToFile(
+      environment.buildDir.childFile('dart2js.d'),
+      environment.platform.isWindows,
+    );
   }
 }
 
@@ -231,17 +238,20 @@ class WebReleaseBundle extends Target {
   @override
   Future<void> build(Environment environment) async {
     for (final File outputFile in environment.buildDir.listSync(recursive: true).whereType<File>()) {
-      if (!globals.fs.path.basename(outputFile.path).contains('main.dart.js')) {
+      if (!environment.fileSystem.path.basename(outputFile.path).contains('main.dart.js')) {
         continue;
       }
       outputFile.copySync(
-        environment.outputDir.childFile(globals.fs.path.basename(outputFile.path)).path
+        environment.outputDir.childFile(environment.fileSystem.path.basename(outputFile.path)).path
       );
     }
     final Directory outputDirectory = environment.outputDir.childDirectory('assets');
     outputDirectory.createSync(recursive: true);
     final Depfile depfile = await copyAssets(environment, environment.outputDir.childDirectory('assets'));
-    depfile.writeToFile(environment.buildDir.childFile('flutter_assets.d'));
+    depfile.writeToFile(
+      environment.buildDir.childFile('flutter_assets.d'),
+      environment.platform.isWindows,
+    );
 
     final Directory webResources = environment.projectDir
       .childDirectory('web');
@@ -253,9 +263,9 @@ class WebReleaseBundle extends Target {
     // Copy other resource files out of web/ directory.
     final List<File> outputResourcesFiles = <File>[];
     for (final File inputFile in inputResourceFiles) {
-      final File outputFile = globals.fs.file(globals.fs.path.join(
+      final File outputFile = environment.fileSystem.file(environment.fileSystem.path.join(
         environment.outputDir.path,
-        globals.fs.path.relative(inputFile.path, from: webResources.path)));
+        environment.fileSystem.path.relative(inputFile.path, from: webResources.path)));
       if (!outputFile.parent.existsSync()) {
         outputFile.parent.createSync(recursive: true);
       }
@@ -263,7 +273,10 @@ class WebReleaseBundle extends Target {
       outputResourcesFiles.add(outputFile);
     }
     final Depfile resourceFile = Depfile(inputResourceFiles, outputResourcesFiles);
-    resourceFile.writeToFile(environment.buildDir.childFile('web_resources.d'));
+    resourceFile.writeToFile(
+      environment.buildDir.childFile('web_resources.d'),
+      environment.platform.isWindows,
+    );
 
   }
 }

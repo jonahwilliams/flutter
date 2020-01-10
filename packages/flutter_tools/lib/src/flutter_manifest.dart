@@ -26,11 +26,12 @@ class FlutterManifest {
   }
 
   /// Returns null on invalid manifest. Returns empty manifest on missing file.
-  static FlutterManifest createFromPath(String path) {
-    if (path == null || !globals.fs.isFileSync(path)) {
+  // TODO(jonahwilliams): remove ?? once FlutterManifest is migrated from context.
+  static FlutterManifest createFromPath(String path, [FileSystem fileSystem]) {
+    if (path == null || !(fileSystem ?? globals.fs).isFileSync(path)) {
       return _createFromYaml(null);
     }
-    final String manifest = globals.fs.file(path).readAsStringSync();
+    final String manifest = (fileSystem ?? globals.fs).file(path).readAsStringSync();
     return createFromString(manifest);
   }
 

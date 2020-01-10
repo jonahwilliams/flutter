@@ -110,6 +110,11 @@ Future<void> buildWithAssemble({
   // If the precompiled flag was not passed, force us into debug mode.
   buildMode = precompiled ? buildMode : BuildMode.debug;
   final Environment environment = Environment(
+    fileSystem: globals.fs,
+    logger: globals.logger,
+    artifacts: globals.artifacts,
+    processManager: globals.processManager,
+    platform: globals.platform,
     projectDir: flutterProject.directory,
     outputDir: globals.fs.directory(outputDir),
     buildDir: flutterProject.dartTool.childDirectory('flutter_build'),
@@ -123,7 +128,7 @@ Future<void> buildWithAssemble({
   final Target target = buildMode == BuildMode.debug
     ? const CopyFlutterBundle()
     : const ReleaseCopyFlutterBundle();
-  final BuildResult result = await buildSystem.build(target, environment);
+  final BuildResult result = await globals.buildSystem.build(target, environment);
 
   if (!result.success) {
     for (final ExceptionMeasurement measurement in result.exceptions.values) {
@@ -141,7 +146,7 @@ Future<void> buildWithAssemble({
     if (!outputDepfile.parent.existsSync()) {
       outputDepfile.parent.createSync(recursive: true);
     }
-    depfile.writeToFile(outputDepfile);
+    depfile.writeToFile(outputDepfile, environment.platform.isWindows,);
   }
 }
 

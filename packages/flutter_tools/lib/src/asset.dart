@@ -4,10 +4,12 @@
 
 import 'dart:async';
 
+import 'package:meta/meta.dart';
 import 'package:yaml/yaml.dart';
 
 import 'base/context.dart';
 import 'base/file_system.dart';
+import 'base/logger.dart';
 import 'base/utils.dart';
 import 'build_info.dart';
 import 'cache.dart';
@@ -17,7 +19,7 @@ import 'devfs.dart';
 import 'flutter_manifest.dart';
 import 'globals.dart' as globals;
 
-const AssetBundleFactory _kManifestFactory = _ManifestAssetBundleFactory();
+final AssetBundleFactory _kManifestFactory = ManifestAssetBundleFactory(logger: globals.logger, fileSystem: globals.fs);
 
 const String defaultManifestPath = 'pubspec.yaml';
 
@@ -49,17 +51,25 @@ abstract class AssetBundle {
   });
 }
 
-class _ManifestAssetBundleFactory implements AssetBundleFactory {
-  const _ManifestAssetBundleFactory();
+class ManifestAssetBundleFactory implements AssetBundleFactory {
+  ManifestAssetBundleFactory({@required Logger logger, @required FileSystem fileSystem})
+    : _logger = logger,
+      _fileSystem = fileSystem;
+
+  final Logger _logger;
+  final FileSystem _fileSystem;
 
   @override
-  AssetBundle createBundle() => _ManifestAssetBundle();
+  AssetBundle createBundle() => _ManifestAssetBundle(_logger, _fileSystem);
 }
 
 class _ManifestAssetBundle implements AssetBundle {
   /// Constructs an [_ManifestAssetBundle] that gathers the set of assets from the
   /// pubspec.yaml manifest.
-  _ManifestAssetBundle();
+  _ManifestAssetBundle(this._logger, this._fileSystem);
+
+  final Logger _logger;
+  final FileSystem _fileSystem;
 
   @override
   final Map<String, DevFSContent> entries = <String, DevFSContent>{};
@@ -115,14 +125,14 @@ class _ManifestAssetBundle implements AssetBundle {
     bool includeDefaultFonts = true,
     bool reportLicensedPackages = false,
   }) async {
-    assetDirPath ??= getAssetBuildDirectory();
-    packagesPath ??= globals.fs.path.absolute(PackageMap.globalPackagesPath);
+    assetDirPath ??= getAssetBuildDirectory(_fileSystem);
+    packagesPath ??= _fileSystem.path.absolute(PackageMap.globalPackagesPath);
     FlutterManifest flutterManifest;
     try {
-      flutterManifest = FlutterManifest.createFromPath(manifestPath);
+      flutterManifest = FlutterManifest.createFromPath(manifestPath, _fileSystem);
     } catch (e) {
-      globals.printStatus('Error detected in pubspec.yaml:', emphasis: true);
-      globals.printError('$e');
+      _logger.printStatus('Error detected in pubspec.yaml:', emphasis: true);
+      _logger.printError('$e');
       return 1;
     }
     if (flutterManifest == null) {
@@ -206,8 +216,8 @@ class _ManifestAssetBundle implements AssetBundle {
     // asset in entries.
     for (final _Asset asset in assetVariants.keys) {
       if (!asset.assetFileExists && assetVariants[asset].isEmpty) {
-        globals.printStatus('Error detected in pubspec.yaml:', emphasis: true);
-        globals.printError('No file or variants found for $asset.\n');
+        _logger.printStatus('Error detected in pubspec.yaml:', emphasis: true);
+        _logger.printError('No file or variants found for $asset.\n');
         return 1;
       }
       // The file name for an asset's "main" entry is whatever appears in
@@ -246,7 +256,7 @@ class _ManifestAssetBundle implements AssetBundle {
 
     // TODO(ianh): Only do the following line if we've changed packages or if our LICENSE file changed
     entries[_license] = _obtainLicenses(packageMap, assetBasePath, reportPackages: reportLicensedPackages);
-
+    print(entries);
     return 0;
   }
 }

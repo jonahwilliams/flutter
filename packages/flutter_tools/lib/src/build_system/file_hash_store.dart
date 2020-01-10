@@ -7,12 +7,12 @@ import 'dart:collection';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter_tools/src/base/logger.dart';
 import 'package:pool/pool.dart';
 
 import '../base/file_system.dart';
 import '../base/utils.dart';
 import '../convert.dart';
-import '../globals.dart' as globals;
 import 'build_system.dart';
 
 /// An encoded representation of all file hashes.
@@ -71,9 +71,10 @@ class FileHash {
 ///
 /// The format of the file store is subject to change and not part of its API.
 class FileHashStore {
-  FileHashStore(this.environment, this.fileSystem) :
+  FileHashStore(this.environment, this.fileSystem, this.logger) :
     _cachePath = environment.buildDir.childFile(_kFileCache).path;
 
+  final Logger logger;
   final FileSystem fileSystem;
   final String _cachePath;
   final Environment environment;
@@ -88,7 +89,7 @@ class FileHashStore {
 
   /// Read file hashes from disk.
   void initialize() {
-    globals.printTrace('Initializing file store');
+    logger.printTrace('Initializing file store');
     final File cacheFile = fileSystem.file(_cachePath);
     if (!cacheFile.existsSync()) {
       return;
@@ -97,7 +98,7 @@ class FileHashStore {
     try {
       data = cacheFile.readAsBytesSync();
     } on FileSystemException catch (err) {
-      globals.printError(
+      logger.printError(
         'Failed to read file store at ${cacheFile.path} due to $err.\n'
         'Build artifacts will not be cached. Try clearing the cache directories '
         'with "flutter clean"',
@@ -109,24 +110,24 @@ class FileHashStore {
     try {
       fileStorage = FileStorage.fromBuffer(data);
     } catch (err) {
-      globals.printTrace('Filestorage format changed');
+      logger.printTrace('Filestorage format changed');
       cacheFile.deleteSync();
       return;
     }
     if (fileStorage.version != _kVersion) {
-      globals.printTrace('file cache format updating, clearing old hashes.');
+      logger.printTrace('file cache format updating, clearing old hashes.');
       cacheFile.deleteSync();
       return;
     }
     for (final FileHash fileHash in fileStorage.files) {
       previousHashes[fileHash.path] = fileHash.hash;
     }
-    globals.printTrace('Done initializing file store');
+    logger.printTrace('Done initializing file store');
   }
 
   /// Persist file hashes to disk.
   void persist() {
-    globals.printTrace('Persisting file store');
+    logger.printTrace('Persisting file store');
     final File cacheFile = fileSystem.file(_cachePath);
     if (!cacheFile.existsSync()) {
       cacheFile.createSync(recursive: true);
@@ -143,13 +144,13 @@ class FileHashStore {
     try {
       cacheFile.writeAsBytesSync(buffer);
     } on FileSystemException catch (err) {
-      globals.printError(
+      logger.printError(
         'Failed to persist file store at ${cacheFile.path} due to $err.\n'
         'Build artifacts will not be cached. Try clearing the cache directories '
         'with "flutter clean"',
       );
     }
-    globals.printTrace('Done persisting file store');
+    logger.printTrace('Done persisting file store');
   }
 
   /// Computes a hash of the provided files and returns a list of entities

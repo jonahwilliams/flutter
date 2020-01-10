@@ -141,7 +141,12 @@ class AssembleCommand extends FlutterCommand {
       output = globals.fs.path.join(flutterProject.directory.path, output);
     }
     final Environment result = Environment(
+      fileSystem: globals.fs,
+      logger: globals.logger,
+      artifacts: globals.artifacts,
+      processManager: globals.processManager,
       outputDir: globals.fs.directory(output),
+      platform: globals.platform,
       buildDir: flutterProject.directory
           .childDirectory('.dart_tool')
           .childDirectory('flutter_build'),
@@ -173,7 +178,7 @@ class AssembleCommand extends FlutterCommand {
   Future<FlutterCommandResult> runCommand() async {
     final List<Target> targets = this.targets;
     final Target target = targets.length == 1 ? targets.single : _CompositeTarget(targets);
-    final BuildResult result = await buildSystem.build(target, environment, buildSystemConfig: BuildSystemConfig(
+    final BuildResult result = await globals.buildSystem.build(target, environment, buildSystemConfig: BuildSystemConfig(
       resourcePoolSize: argResults.wasParsed('resource-pool-size')
         ? int.tryParse(stringArg('resource-pool-size'))
         : null,
@@ -198,7 +203,7 @@ class AssembleCommand extends FlutterCommand {
     if (argResults.wasParsed('depfile')) {
       final File depfileFile = globals.fs.file(stringArg('depfile'));
       final Depfile depfile = Depfile(result.inputFiles, result.outputFiles);
-      depfile.writeToFile(globals.fs.file(depfileFile));
+      depfile.writeToFile(globals.fs.file(depfileFile), globals.platform.isWindows);
     }
     return null;
   }

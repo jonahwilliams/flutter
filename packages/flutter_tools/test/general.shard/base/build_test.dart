@@ -92,7 +92,10 @@ void main() {
     MockProcess mockProc;
 
     setUp(() async {
-      genSnapshot = const GenSnapshot();
+      genSnapshot = GenSnapshot(
+        artifacts: globals.artifacts,
+        processUtils: processUtils
+      );
       mockArtifacts = MockArtifacts();
       mockProcessManager = MockProcessManager();
       mockProc = MockProcess();
@@ -238,8 +241,21 @@ void main() {
       fs.file(fs.path.join(skyEnginePath, 'sdk_ext', 'vmservice_io.dart')).createSync();
 
       genSnapshot = _FakeGenSnapshot();
-      snapshotter = AOTSnapshotter();
-      snapshotterWithTimings = AOTSnapshotter(reportTimings: true);
+      snapshotter = AOTSnapshotter(
+        artifacts: null,
+        fileSystem: null,
+        genSnapshot: null,
+        logger: null,
+        xcode: null,
+      );
+      snapshotterWithTimings = AOTSnapshotter(
+        artifacts: null,
+        fileSystem: null,
+        genSnapshot: null,
+        logger: null,
+        xcode: null,
+        reportTimings: true,
+      );
       mockAndroidSdk = MockAndroidSdk();
       mockArtifacts = MockArtifacts();
       mockXcode = MockXcode();

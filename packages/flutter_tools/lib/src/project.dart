@@ -26,7 +26,9 @@ import 'template.dart';
 FlutterProjectFactory get projectFactory => context.get<FlutterProjectFactory>() ?? FlutterProjectFactory();
 
 class FlutterProjectFactory {
-  FlutterProjectFactory();
+  FlutterProjectFactory([this._fileSystem]);
+
+  final FileSystem _fileSystem;
 
   @visibleForTesting
   final Map<String, FlutterProject> projects =
@@ -39,11 +41,13 @@ class FlutterProjectFactory {
     return projects.putIfAbsent(directory.path, /* ifAbsent */ () {
       final FlutterManifest manifest = FlutterProject._readManifest(
         directory.childFile(bundle.defaultManifestPath).path,
+        _fileSystem,
       );
       final FlutterManifest exampleManifest = FlutterProject._readManifest(
         FlutterProject._exampleDirectory(directory)
             .childFile(bundle.defaultManifestPath)
             .path,
+        _fileSystem
       );
       return FlutterProject(directory, manifest, exampleManifest);
     });
@@ -186,10 +190,10 @@ class FlutterProject {
   ///
   /// Completes with an empty [FlutterManifest], if the file does not exist.
   /// Completes with a ToolExit on validation error.
-  static FlutterManifest _readManifest(String path) {
+  static FlutterManifest _readManifest(String path, [FileSystem fileSystem]) {
     FlutterManifest manifest;
     try {
-      manifest = FlutterManifest.createFromPath(path);
+      manifest = FlutterManifest.createFromPath(path, fileSystem);
     } on YamlException catch (e) {
       globals.printStatus('Error detected in pubspec.yaml:', emphasis: true);
       globals.printError('$e');

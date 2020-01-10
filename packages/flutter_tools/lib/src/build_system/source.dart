@@ -5,7 +5,6 @@
 import '../artifacts.dart';
 import '../base/file_system.dart';
 import '../build_info.dart';
-import '../globals.dart' as globals;
 import 'build_system.dart';
 import 'exceptions.dart';
 
@@ -56,20 +55,20 @@ class SourceVisitor implements ResolvedFiles {
     final String contents = depfile.readAsStringSync();
     final List<String> colonSeparated = contents.split(': ');
     if (colonSeparated.length != 2) {
-      globals.printError('Invalid depfile: ${depfile.path}');
+      environment.logger.printError('Invalid depfile: ${depfile.path}');
       return;
     }
     if (inputs) {
-      sources.addAll(_processList(colonSeparated[1].trim()));
+      sources.addAll(_processList(colonSeparated[1].trim(), environment.fileSystem));
     } else {
-      sources.addAll(_processList(colonSeparated[0].trim()));
+      sources.addAll(_processList(colonSeparated[0].trim(), environment.fileSystem));
     }
   }
 
   final RegExp _separatorExpr = RegExp(r'([^\\]) ');
   final RegExp _escapeExpr = RegExp(r'\\(.)');
 
-  Iterable<File> _processList(String rawText) {
+  Iterable<File> _processList(String rawText, FileSystem fileSystem) {
     return rawText
     // Put every file on right-hand side on the separate line
         .replaceAllMapped(_separatorExpr, (Match match) => '${match.group(1)}\n')
@@ -78,7 +77,7 @@ class SourceVisitor implements ResolvedFiles {
         .map<String>((String path) => path.replaceAllMapped(_escapeExpr, (Match match) => match.group(1)).trim())
         .where((String path) => path.isNotEmpty)
         .toSet()
-        .map((String path) => globals.fs.file(path));
+        .map((String path) => fileSystem.file(path));
   }
 
   /// Visit a [Source] which contains a file URL.
@@ -101,35 +100,35 @@ class SourceVisitor implements ResolvedFiles {
     switch (rawParts.first) {
       case Environment.kProjectDirectory:
         segments.addAll(
-            globals.fs.path.split(environment.projectDir.resolveSymbolicLinksSync()));
+            environment.fileSystem.path.split(environment.projectDir.resolveSymbolicLinksSync()));
         break;
       case Environment.kBuildDirectory:
-        segments.addAll(globals.fs.path.split(
+        segments.addAll(environment.fileSystem.path.split(
             environment.buildDir.resolveSymbolicLinksSync()));
         break;
       case Environment.kCacheDirectory:
         segments.addAll(
-            globals.fs.path.split(environment.cacheDir.resolveSymbolicLinksSync()));
+            environment.fileSystem.path.split(environment.cacheDir.resolveSymbolicLinksSync()));
         break;
       case Environment.kFlutterRootDirectory:
         // flutter root will not contain a symbolic link.
         segments.addAll(
-            globals.fs.path.split(environment.flutterRootDir.absolute.path));
+            environment.fileSystem.path.split(environment.flutterRootDir.absolute.path));
         break;
       case Environment.kOutputDirectory:
         segments.addAll(
-            globals.fs.path.split(environment.outputDir.resolveSymbolicLinksSync()));
+            environment.fileSystem.path.split(environment.outputDir.resolveSymbolicLinksSync()));
         break;
       default:
         throw InvalidPatternException(pattern);
     }
     rawParts.skip(1).forEach(segments.add);
-    final String filePath = globals.fs.path.joinAll(segments);
+    final String filePath = environment.fileSystem.path.joinAll(segments);
     if (!hasWildcard) {
-      if (optional && !globals.fs.isFileSync(filePath)) {
+      if (optional && !environment.fileSystem.isFileSync(filePath)) {
         return;
       }
-      sources.add(globals.fs.file(globals.fs.path.normalize(filePath)));
+      sources.add(environment.fileSystem.file(environment.fileSystem.path.normalize(filePath)));
       return;
     }
     // Perform a simple match by splitting the wildcard containing file one
@@ -143,21 +142,21 @@ class SourceVisitor implements ResolvedFiles {
     if (wildcardSegments.length > 2) {
       throw InvalidPatternException(pattern);
     }
-    if (!globals.fs.directory(filePath).existsSync()) {
+    if (!environment.fileSystem.directory(filePath).existsSync()) {
       throw Exception('$filePath does not exist!');
     }
-    for (final FileSystemEntity entity in globals.fs.directory(filePath).listSync()) {
-      final String filename = globals.fs.path.basename(entity.path);
+    for (final FileSystemEntity entity in environment.fileSystem.directory(filePath).listSync()) {
+      final String filename = environment.fileSystem.path.basename(entity.path);
       if (wildcardSegments.isEmpty) {
-        sources.add(globals.fs.file(entity.absolute));
+        sources.add(environment.fileSystem.file(entity.absolute));
       } else if (wildcardSegments.length == 1) {
         if (filename.startsWith(wildcardSegments[0]) ||
             filename.endsWith(wildcardSegments[0])) {
-          sources.add(globals.fs.file(entity.absolute));
+          sources.add(environment.fileSystem.file(entity.absolute));
         }
       } else if (filename.startsWith(wildcardSegments[0])) {
         if (filename.substring(wildcardSegments[0].length).endsWith(wildcardSegments[1])) {
-          sources.add(globals.fs.file(entity.absolute));
+          sources.add(environment.fileSystem.file(entity.absolute));
         }
       }
     }
@@ -167,15 +166,15 @@ class SourceVisitor implements ResolvedFiles {
   ///
   /// If the [Artifact] points to a directory then all child files are included.
   void visitArtifact(Artifact artifact, TargetPlatform platform, BuildMode mode) {
-    final String path = globals.artifacts.getArtifactPath(artifact, platform: platform, mode: mode);
-    if (globals.fs.isDirectorySync(path)) {
+    final String path = environment.artifacts.getArtifactPath(artifact, platform: platform, mode: mode);
+    if (environment.fileSystem.isDirectorySync(path)) {
       sources.addAll(<File>[
-        for (FileSystemEntity entity in globals.fs.directory(path).listSync(recursive: true))
+        for (FileSystemEntity entity in environment.fileSystem.directory(path).listSync(recursive: true))
           if (entity is File)
             entity,
       ]);
     } else {
-      sources.add(globals.fs.file(path));
+      sources.add(environment.fileSystem.file(path));
     }
   }
 }

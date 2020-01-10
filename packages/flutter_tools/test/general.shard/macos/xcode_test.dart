@@ -26,7 +26,11 @@ void main() {
     setUp(() {
       mockProcessManager = MockProcessManager();
       mockXcodeProjectInterpreter = MockXcodeProjectInterpreter();
-      xcode = Xcode();
+      xcode = Xcode(
+        fileSystem: null,
+        platform: null,
+        processUtils: null,
+      );
       mockPlatform = MockPlatform();
     });
 

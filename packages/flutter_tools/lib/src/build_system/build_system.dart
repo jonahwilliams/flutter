@@ -7,23 +7,22 @@ import 'dart:async';
 import 'package:async/async.dart';
 import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart';
+import 'package:flutter_tools/src/base/logger.dart';
 import 'package:meta/meta.dart';
+import 'package:platform/platform.dart';
 import 'package:pool/pool.dart';
+import 'package:process/process.dart';
 
-import '../base/context.dart';
+import '../artifacts.dart';
 import '../base/file_system.dart';
 import '../base/utils.dart';
 import '../cache.dart';
 import '../convert.dart';
-import '../globals.dart' as globals;
 import 'exceptions.dart';
 import 'file_hash_store.dart';
 import 'source.dart';
 
 export 'source.dart';
-
-/// The [BuildSystem] instance.
-BuildSystem get buildSystem => context.get<BuildSystem>();
 
 /// A reasonable amount of files to open at the same time.
 ///
@@ -138,7 +137,8 @@ abstract class Target {
       inputsFiles.sources,
       outputFiles.sources,
       <Node>[
-        for (final Target target in dependencies) target._toNode(environment),
+        for (final Target target in dependencies)
+          target._toNode(environment),
       ],
       environment,
       inputsFiles.containsNewDepfile,
@@ -179,16 +179,31 @@ abstract class Target {
 
   /// Resolve the set of input patterns and functions into a concrete list of
   /// files.
-  ResolvedFiles resolveInputs(Environment environment) {
-    return _resolveConfiguration(inputs, depfiles, environment, implicit: true, inputs: true);
+  ResolvedFiles resolveInputs(
+    Environment environment,
+  ) {
+    return _resolveConfiguration(
+      inputs,
+      depfiles,
+      environment,
+      implicit: true,
+      inputs: true,
+    );
   }
 
   /// Find the current set of declared outputs, including wildcard directories.
   ///
   /// The [implicit] flag controls whether it is safe to evaluate [Source]s
   /// which uses functions, behaviors, or patterns.
-  ResolvedFiles resolveOutputs(Environment environment) {
-    return _resolveConfiguration(outputs, depfiles, environment, inputs: false);
+  ResolvedFiles resolveOutputs(
+    Environment environment,
+  ) {
+    return _resolveConfiguration(
+      outputs,
+      depfiles,
+      environment,
+      inputs: false,
+    );
   }
 
   /// Performs a fold across this target and its dependencies.
@@ -203,17 +218,21 @@ abstract class Target {
   ///
   /// This requires constants from the [Environment] to resolve the paths of
   /// inputs and the output stamp.
-  Map<String, Object> toJson(Environment environment) {
+  Map<String, Object> toJson(
+    Environment environment,
+  ) {
     return <String, Object>{
       'name': name,
       'dependencies': <String>[
         for (final Target target in dependencies) target.name,
       ],
       'inputs': <String>[
-        for (final File file in resolveInputs(environment).sources) file.path,
+        for (final File file in resolveInputs(environment).sources)
+          file.path,
       ],
       'outputs': <String>[
-        for (final File file in resolveOutputs(environment).sources) file.path,
+        for (final File file in resolveOutputs(environment).sources)
+          file.path,
       ],
       'stamp': _findStampFile(environment).absolute.path,
     };
@@ -225,10 +244,14 @@ abstract class Target {
     return environment.buildDir.childFile(fileName);
   }
 
-  static ResolvedFiles _resolveConfiguration(List<Source> config,
-    List<String> depfiles, Environment environment, { bool implicit = true, bool inputs = true,
+  static ResolvedFiles _resolveConfiguration(List<Source> config, List<String> depfiles, Environment environment, {
+      bool implicit = true,
+      bool inputs = true,
   }) {
-    final SourceVisitor collector = SourceVisitor(environment, inputs);
+    final SourceVisitor collector = SourceVisitor(
+      environment,
+      inputs,
+    );
     for (final Source source in config) {
       source.accept(collector);
     }
@@ -283,7 +306,14 @@ class Environment {
   factory Environment({
     @required Directory projectDir,
     @required Directory outputDir,
+    @required FileSystem fileSystem,
+    @required Artifacts artifacts,
+    @required ProcessManager processManager,
+    @required Logger logger,
+    @required Platform platform,
     Directory buildDir,
+    Directory cacheDir,
+    Directory flutterRootDir,
     Map<String, String> defines = const <String, String>{},
   }) {
     // Compute a unique hash of this build's particular environment.
@@ -308,9 +338,14 @@ class Environment {
       projectDir: projectDir,
       buildDir: buildDirectory,
       rootBuildDir: rootBuildDir,
-      cacheDir: globals.cache.getRoot(),
+      cacheDir: cacheDir,
       defines: defines,
-      flutterRootDir: globals.fs.directory(Cache.flutterRoot),
+      flutterRootDir: flutterRootDir,
+      fileSystem: fileSystem,
+      logger: logger,
+      processManager: processManager,
+      artifacts: artifacts,
+      platform: platform,
     );
   }
 
@@ -322,6 +357,11 @@ class Environment {
     @required this.cacheDir,
     @required this.defines,
     @required this.flutterRootDir,
+    @required this.fileSystem,
+    @required this.processManager,
+    @required this.artifacts,
+    @required this.logger,
+    @required this.platform,
   });
 
   /// The [Source] value which is substituted with the path to [projectDir].
@@ -375,6 +415,12 @@ class Environment {
 
   /// The root build directory shared by all builds.
   final Directory rootBuildDir;
+
+  final FileSystem fileSystem;
+  final ProcessManager processManager;
+  final Artifacts artifacts;
+  final Logger logger;
+  final Platform platform;
 }
 
 /// The result information from the build system.
@@ -398,7 +444,20 @@ class BuildResult {
 
 /// The build system is responsible for invoking and ordering [Target]s.
 class BuildSystem {
-  const BuildSystem();
+  const BuildSystem({
+    @required FileSystem fileSystem,
+    @required Logger logger,
+    @required Platform platform,
+    @required Artifacts artifacts,
+  }) : _fileSystem = fileSystem,
+       _logger = logger,
+       _platform = platform,
+       _artifacts = artifacts;
+
+  final FileSystem _fileSystem;
+  final Logger _logger;
+  final Platform _platform;
+  final Artifacts _artifacts;
 
   /// Build `target` and all of its dependencies.
   Future<BuildResult> build(
@@ -410,14 +469,22 @@ class BuildSystem {
     environment.outputDir.createSync(recursive: true);
 
     // Load file hash store from previous builds.
-    final FileHashStore fileCache = FileHashStore(environment, globals.fs)
+    final FileHashStore fileCache = FileHashStore(environment, _fileSystem, _logger)
       ..initialize();
 
     // Perform sanity checks on build.
     checkCycles(target);
 
     final Node node = target._toNode(environment);
-    final _BuildInstance buildInstance = _BuildInstance(environment, fileCache, buildSystemConfig);
+    final _BuildInstance buildInstance = _BuildInstance(
+      environment,
+      fileCache,
+      buildSystemConfig,
+      _logger,
+      _fileSystem,
+      _artifacts,
+      _platform,
+    );
     bool passed = true;
     try {
       passed = await buildInstance.invokeTarget(node);
@@ -459,11 +526,21 @@ class BuildSystem {
 
 /// An active instance of a build.
 class _BuildInstance {
-  _BuildInstance(this.environment, this.fileCache, this.buildSystemConfig)
-    : resourcePool = Pool(buildSystemConfig.resourcePoolSize ?? globals.platform?.numberOfProcessors ?? 1);
+  _BuildInstance(
+    this.environment,
+    this.fileCache,
+    this.buildSystemConfig,
+    this.logger,
+    this.fileSystem,
+    this.artifacts,
+    Platform platform,
+  ) : resourcePool = Pool(buildSystemConfig.resourcePoolSize ?? platform?.numberOfProcessors ?? 1);
 
   final BuildSystemConfig buildSystemConfig;
   final Pool resourcePool;
+  final Logger logger;
+  final FileSystem fileSystem;
+  final Artifacts artifacts;
   final Map<String, AsyncMemoizer<bool>> pending = <String, AsyncMemoizer<bool>>{};
   final Environment environment;
   final FileHashStore fileCache;
@@ -522,13 +599,13 @@ class _BuildInstance {
 
       if (canSkip) {
         skipped = true;
-        globals.printTrace('Skipping target: ${node.target.name}');
+        logger.printTrace('Skipping target: ${node.target.name}');
         updateGraph();
         return passed;
       }
-      globals.printTrace('${node.target.name}: Starting due to ${node.invalidatedReasons}');
+      logger.printTrace('${node.target.name}: Starting due to ${node.invalidatedReasons}');
       await node.target.build(environment);
-      globals.printTrace('${node.target.name}: Complete');
+      logger.printTrace('${node.target.name}: Complete');
 
       node.inputs
         ..clear()
@@ -554,7 +631,7 @@ class _BuildInstance {
         if (outputFiles.containsKey(previousOutput)) {
           continue;
         }
-        final File previousFile = globals.fs.file(previousOutput);
+        final File previousFile = fileSystem.file(previousOutput);
         if (previousFile.existsSync()) {
           previousFile.deleteSync();
         }
@@ -649,7 +726,7 @@ class Node {
     this.inputs,
     this.outputs,
     this.dependencies,
-    Environment environment,
+    this.environment,
     this.missingDepfile,
   ) {
     final File stamp = target._findStampFile(environment);
@@ -721,6 +798,9 @@ class Node {
   /// May be empty if the task was skipped.
   final Set<InvalidatedReason> invalidatedReasons = <InvalidatedReason>{};
 
+  /// The filesystem containing environment this node was created in.
+  final Environment environment;
+
   /// Whether this node needs an action performed.
   bool get dirty => _dirty;
   bool _dirty = false;
@@ -768,7 +848,7 @@ class Node {
         // if this isn't a current output file there is no reason to compute the hash.
         continue;
       }
-      final File file = globals.fs.file(previousOutput);
+      final File file = environment.fileSystem.file(previousOutput);
       if (!file.existsSync()) {
         invalidatedReasons.add(InvalidatedReason.outputMissing);
         _dirty = true;
@@ -792,8 +872,6 @@ class Node {
     // always being rerun.
     if (missingInputs.isNotEmpty) {
       _dirty = true;
-      final String missingMessage = missingInputs.map((File file) => file.path).join(', ');
-      globals.printTrace('invalidated build due to missing files: $missingMessage');
       invalidatedReasons.add(InvalidatedReason.inputMissing);
     }
 

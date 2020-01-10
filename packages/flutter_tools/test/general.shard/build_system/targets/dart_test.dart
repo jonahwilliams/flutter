@@ -24,7 +24,7 @@ import '../../../src/mocks.dart';
 import '../../../src/testbed.dart';
 
 void main() {
-  const BuildSystem buildSystem = BuildSystem();
+  BuildSystem buildSystem;
   Testbed testbed;
   Environment androidEnvironment;
   Environment iosEnvironment;
@@ -39,6 +39,12 @@ void main() {
     mockXcode = MockXcode();
     mockProcessManager = MockProcessManager();
     testbed = Testbed(setup: () {
+      buildSystem = BuildSystem(
+        fileSystem: globals.fs,
+        logger: globals.logger,
+        platform: globals.platform,
+        artifacts: globals.artifacts,
+      );
       androidEnvironment = Environment(
         outputDir: globals.fs.currentDirectory,
         projectDir: globals.fs.currentDirectory,

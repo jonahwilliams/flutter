@@ -12,12 +12,18 @@ import '../../../src/common.dart';
 import '../../../src/testbed.dart';
 
 void main() {
-  const BuildSystem buildSystem = BuildSystem();
+  BuildSystem buildSystem;
   Environment environment;
   Testbed testbed;
 
   setUp(() {
     testbed = Testbed(setup: () {
+      buildSystem = BuildSystem(
+        fileSystem: globals.fs,
+        logger: globals.logger,
+        platform: globals.platform,
+        artifacts: globals.artifacts,
+      );
       environment = Environment(
         outputDir: globals.fs.currentDirectory,
         projectDir: globals.fs.currentDirectory,

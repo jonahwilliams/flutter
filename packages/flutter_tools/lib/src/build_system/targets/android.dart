@@ -61,7 +61,10 @@ abstract class AndroidAssetBundle extends Target {
     }
     if (_copyAssets) {
       final Depfile assetDepfile = await copyAssets(environment, outputDirectory);
-      assetDepfile.writeToFile(environment.buildDir.childFile('flutter_assets.d'));
+      assetDepfile.writeToFile(
+        environment.buildDir.childFile('flutter_assets.d'),
+        environment.platform.isWindows,
+      );
     }
   }
 

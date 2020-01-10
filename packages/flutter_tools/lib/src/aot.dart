@@ -210,7 +210,12 @@ class AotBuilder {
       ? const ProfileCopyFlutterAotBundle()
       : const ReleaseCopyFlutterAotBundle();
 
-    final BuildResult result = await buildSystem.build(target, Environment(
+    final BuildResult result = await globals.buildSystem.build(target, Environment(
+      fileSystem: globals.fs,
+      logger: globals.logger,
+      artifacts: globals.artifacts,
+      processManager: globals.processManager,
+      platform: globals.platform,
       projectDir: flutterProject.directory,
       outputDir: globals.fs.directory(outputDir),
       buildDir: flutterProject.directory

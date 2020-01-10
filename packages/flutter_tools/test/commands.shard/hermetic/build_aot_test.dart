@@ -34,7 +34,7 @@ void main() {
     globals.fs.file('pubspec.yaml').createSync();
     globals.fs.file('.packages').createSync();
     globals.fs.file(globals.fs.path.join('lib', 'main.dart')).createSync(recursive: true);
-    when(buildSystem.build(any, any)).thenAnswer((Invocation invocation) async {
+    when(globals.buildSystem.build(any, any)).thenAnswer((Invocation invocation) async {
       return BuildResult(success: true);
     });
     final BuildCommand command = BuildCommand();
@@ -47,7 +47,7 @@ void main() {
       '--no-pub',
     ]);
 
-    final Environment environment = verify(buildSystem.build(any, captureAny)).captured.single as Environment;
+    final Environment environment = verify(globals.buildSystem.build(any, captureAny)).captured.single as Environment;
     expect(environment.defines, <String, String>{
       kTargetFile: globals.fs.path.absolute(globals.fs.path.join('lib', 'main.dart')),
       kBuildMode: 'release',

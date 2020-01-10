@@ -4,18 +4,15 @@
 
 import 'package:package_config/packages_file.dart' as packages_file;
 
+import '../base/file_system.dart';
 import '../globals.dart' as globals;
 
 const String kPackagesFileName = '.packages';
 
-Map<String, Uri> _parse(String packagesPath) {
-  final List<int> source = globals.fs.file(packagesPath).readAsBytesSync();
-  return packages_file.parse(source,
-      Uri.file(packagesPath, windows: globals.platform.isWindows));
-}
 
 class PackageMap {
-  PackageMap(this.packagesPath);
+  // TODO(jonahwilliams): remove when fully migrating to context free.
+  PackageMap(this.packagesPath, [this._fileSystem, this._isWindows]);
 
   static String get globalPackagesPath => _globalPackagesPath ?? kPackagesFileName;
 
@@ -30,10 +27,17 @@ class PackageMap {
   static String _globalPackagesPath;
 
   final String packagesPath;
+  final FileSystem _fileSystem;
+  final bool _isWindows;
 
   /// Load and parses the .packages file.
   void load() {
     _map ??= _parse(packagesPath);
+  }
+
+  Map<String, Uri> _parse(String packagesPath) {
+    final List<int> source = (_fileSystem ?? globals.fs).file(packagesPath).readAsBytesSync();
+    return packages_file.parse(source, Uri.file(packagesPath, windows: _isWindows ?? globals.platform.isWindows));
   }
 
   Map<String, Uri> get map {
@@ -54,17 +58,18 @@ class PackageMap {
     if (packageBase == null) {
       return null;
     }
-    final String packageRelativePath = globals.fs.path.joinAll(pathSegments);
-    return packageBase.resolveUri(globals.fs.path.toUri(packageRelativePath));
+    final String packageRelativePath = (_fileSystem ?? globals.fs).path.joinAll(pathSegments);
+    return packageBase.resolveUri((_fileSystem ?? globals.fs).path.toUri(packageRelativePath));
   }
 
   String checkValid() {
-    if (globals.fs.isFileSync(packagesPath)) {
+    if ((_fileSystem ?? globals.fs).isFileSync(packagesPath)) {
       return null;
     }
     String message = '$packagesPath does not exist.';
-    final String pubspecPath = globals.fs.path.absolute(globals.fs.path.dirname(packagesPath), 'pubspec.yaml');
-    if (globals.fs.isFileSync(pubspecPath)) {
+    final String pubspecPath = (_fileSystem ?? globals.fs).path
+      .absolute((_fileSystem ?? globals.fs).path.dirname(packagesPath), 'pubspec.yaml');
+    if ((_fileSystem ?? globals.fs).isFileSync(pubspecPath)) {
       message += '\nDid you run "flutter pub get" in this directory?';
     } else {
       message += '\nDid you run this command from the same directory as your pubspec.yaml file?';

@@ -38,7 +38,7 @@ void main() {
   });
 
   testUsingContext('Can map main.dart to correct package', () async {
-    final PackageUriMapper packageUriMapper = PackageUriMapper('/example/lib/main.dart', '.packages', null, null);
+    final PackageUriMapper packageUriMapper = PackageUriMapper('/example/lib/main.dart', '.packages', null, null, globals.fs, globals.platform);
     expect(packageUriMapper.map('/example/lib/main.dart').toString(),
         'package:example/main.dart');
   }, overrides: <Type, Generator>{
@@ -47,7 +47,7 @@ void main() {
   });
 
   testUsingContext('single-root maps file from other package to null', () async {
-    final PackageUriMapper packageUriMapper = PackageUriMapper('/example/lib/main.dart', '.packages', null, null);
+    final PackageUriMapper packageUriMapper = PackageUriMapper('/example/lib/main.dart', '.packages', null, null, globals.fs, globals.platform);
     expect(packageUriMapper.map('/xml/lib/xml.dart'), null);
   }, overrides: <Type, Generator>{
     FileSystem: () => mockFileSystem,
@@ -55,7 +55,7 @@ void main() {
   });
 
   testUsingContext('single-root maps non-main file from same package', () async {
-    final PackageUriMapper packageUriMapper = PackageUriMapper('/example/lib/main.dart', '.packages', null, null);
+    final PackageUriMapper packageUriMapper = PackageUriMapper('/example/lib/main.dart', '.packages', null, null, globals.fs, globals.platform);
     expect(packageUriMapper.map('/example/lib/src/foo.dart').toString(),
         'package:example/src/foo.dart');
   }, overrides: <Type, Generator>{
@@ -71,10 +71,13 @@ void main() {
     when(mockFile.readAsBytesSync())
         .thenReturn(utf8.encode(multiRootPackagesContents) as Uint8List);
     final PackageUriMapper packageUriMapper = PackageUriMapper(
-        '/example/lib/main.dart',
-        '.packages',
-        'org-dartlang-app',
-        <String>['/example/lib/', '/gen/lib/']);
+      '/example/lib/main.dart',
+      '.packages',
+      'org-dartlang-app',
+      <String>['/example/lib/', '/gen/lib/'],
+      globals.fs,
+      globals.platform
+    );
     expect(packageUriMapper.map('/example/lib/main.dart').toString(),
         'package:example/main.dart');
   }, overrides: <Type, Generator>{

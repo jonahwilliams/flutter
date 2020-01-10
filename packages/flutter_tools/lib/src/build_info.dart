@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import 'base/context.dart';
+import 'base/file_system.dart';
 import 'base/utils.dart';
 import 'globals.dart' as globals;
 
@@ -521,9 +522,13 @@ HostPlatform getCurrentHostPlatform() {
 }
 
 /// Returns the top-level build output directory.
-String getBuildDirectory() {
+// TODO(jonahwilliams): remove this function.
+String getBuildDirectory([FileSystem fileSystem]) {
   // TODO(johnmccutchan): Stop calling this function as part of setting
   // up command line argument processing.
+  if (fileSystem != null) {
+    return 'build'; // This is a workaround for context-free assemble.
+  }
   if (context == null || globals.config == null) {
     return 'build';
   }
@@ -548,8 +553,9 @@ String getAotBuildDirectory() {
 }
 
 /// Returns the asset build output directory.
-String getAssetBuildDirectory() {
-  return globals.fs.path.join(getBuildDirectory(), 'flutter_assets');
+// TODO(jonahwilliams): remove entirely once context is migrated.
+String getAssetBuildDirectory([FileSystem fileSystem]) {
+  return (fileSystem ?? globals.fs).path.join(getBuildDirectory(fileSystem), 'flutter_assets');
 }
 
 /// Returns the iOS build output directory.

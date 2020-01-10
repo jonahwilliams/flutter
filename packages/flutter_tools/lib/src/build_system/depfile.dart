@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 import '../base/file_system.dart';
-import '../globals.dart' as globals;
 
 /// A class for representing depfile formats.
 class Depfile {
@@ -17,11 +16,10 @@ class Depfile {
     final String contents = file.readAsStringSync();
     final List<String> colonSeparated = contents.split(': ');
     if (colonSeparated.length != 2) {
-      globals.printError('Invalid depfile: ${file.path}');
       return const Depfile(<File>[], <File>[]);
     }
-    final List<File> inputs = _processList(colonSeparated[1].trim());
-    final List<File> outputs = _processList(colonSeparated[0].trim());
+    final List<File> inputs = _processList(colonSeparated[1].trim(), file.fileSystem);
+    final List<File> outputs = _processList(colonSeparated[0].trim(), file.fileSystem);
     return Depfile(inputs, outputs);
   }
 
@@ -42,7 +40,7 @@ class Depfile {
       if (fileUri.scheme != 'file') {
         continue;
       }
-      inputs.add(globals.fs.file(fileUri));
+      inputs.add(file.fileSystem.file(fileUri));
     }
     return Depfile(inputs, <File>[output]);
   }
@@ -57,7 +55,7 @@ class Depfile {
   ///
   /// If either [inputs] or [outputs] is empty, ensures the file does not
   /// exist.
-  void writeToFile(File depfile) {
+  void writeToFile(File depfile, bool isWindows) {
     if (inputs.isEmpty || outputs.isEmpty) {
       if (depfile.existsSync()) {
         depfile.deleteSync();
@@ -65,15 +63,15 @@ class Depfile {
       return;
     }
     final StringBuffer buffer = StringBuffer();
-    _writeFilesToBuffer(outputs, buffer);
+    _writeFilesToBuffer(outputs, buffer, isWindows);
     buffer.write(': ');
-    _writeFilesToBuffer(inputs, buffer);
+    _writeFilesToBuffer(inputs, buffer, isWindows);
     depfile.writeAsStringSync(buffer.toString());
   }
 
-  void _writeFilesToBuffer(List<File> files, StringBuffer buffer) {
+  void _writeFilesToBuffer(List<File> files, StringBuffer buffer, bool isWindows) {
     for (final File outputFile in files) {
-      if (globals.platform.isWindows) {
+      if (isWindows) {
         // Paths in a depfile have to be escaped on windows.
         final String escapedPath = outputFile.path.replaceAll(r'\', r'\\');
         buffer.write(' $escapedPath');
@@ -86,7 +84,7 @@ class Depfile {
   static final RegExp _separatorExpr = RegExp(r'([^\\]) ');
   static final RegExp _escapeExpr = RegExp(r'\\(.)');
 
-  static List<File> _processList(String rawText) {
+  static List<File> _processList(String rawText, FileSystem fileSystem) {
     return rawText
     // Put every file on right-hand side on the separate line
         .replaceAllMapped(_separatorExpr, (Match match) => '${match.group(1)}\n')
@@ -97,7 +95,7 @@ class Depfile {
     // The tool doesn't write duplicates to these lists. This call is an attempt to
     // be resillient to the outputs of other tools which write or user edits to depfiles.
         .toSet()
-        .map((String path) => globals.fs.file(path))
+        .map(fileSystem.file)
         .toList();
   }
 }

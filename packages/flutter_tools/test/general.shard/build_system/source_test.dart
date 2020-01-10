@@ -2,172 +2,181 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'package:file/memory.dart';
 import 'package:flutter_tools/src/artifacts.dart';
 import 'package:flutter_tools/src/base/file_system.dart';
-
+import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/build_info.dart';
 import 'package:flutter_tools/src/build_system/build_system.dart';
 import 'package:flutter_tools/src/build_system/exceptions.dart';
 import 'package:flutter_tools/src/build_system/source.dart';
-import 'package:flutter_tools/src/globals.dart' as globals;
 import 'package:mockito/mockito.dart';
 import 'package:platform/platform.dart';
 
 import '../../src/common.dart';
-import '../../src/testbed.dart';
+import '../../src/fake_process_manager.dart';
 
 void main() {
-  Testbed testbed;
   SourceVisitor visitor;
   Environment environment;
-  MockPlatform mockPlatform;
+  MockPlatform platform;
+  FileSystem fileSystem;
+  Logger logger;
+  Artifacts artifacts;
 
   setUp(() {
-    mockPlatform = MockPlatform();
-    when(mockPlatform.isWindows).thenReturn(true);
-    testbed = Testbed(setup: () {
-      globals.fs.directory('cache').createSync();
-      final Directory outputs = globals.fs.directory('outputs')
-          ..createSync();
-      environment = Environment(
-        outputDir: outputs,
-        projectDir: globals.fs.currentDirectory,
-        buildDir: globals.fs.directory('build'),
-      );
-      visitor = SourceVisitor(environment);
-      environment.buildDir.createSync(recursive: true);
-    });
+    platform = MockPlatform();
+    fileSystem = MemoryFileSystem();
+    logger = MockLogger();
+    artifacts = MockArtifacts();
+
+    when(platform.isWindows).thenReturn(true);
+    fileSystem.directory('cache').createSync();
+    final Directory outputs = fileSystem.directory('outputs')
+        ..createSync();
+    environment = Environment(
+      fileSystem: fileSystem,
+      logger: logger,
+      artifacts: artifacts,
+      platform: platform,
+      processManager: FakeProcessManager.any(),
+      outputDir: outputs,
+      projectDir: fileSystem.currentDirectory,
+      buildDir: fileSystem.directory('build'),
+      cacheDir: fileSystem.directory('cache')
+        ..createSync(),
+      flutterRootDir: fileSystem.directory('flutter')
+        ..createSync(),
+    );
+    visitor = SourceVisitor(environment);
+    environment.buildDir.createSync(recursive: true);
   });
 
-  test('configures implicit vs explict correctly', () => testbed.run(() {
+  testWithoutContext('configures implicit vs explict correctly', () {
     expect(const Source.pattern('{PROJECT_DIR}/foo').implicit, false);
     expect(const Source.pattern('{PROJECT_DIR}/*foo').implicit, true);
-  }));
+  });
 
-  test('can substitute {PROJECT_DIR}/foo', () => testbed.run(() {
-    globals.fs.file('foo').createSync();
+  testWithoutContext('can substitute {PROJECT_DIR}/foo', () {
+    fileSystem.file('foo').createSync();
     const Source fooSource = Source.pattern('{PROJECT_DIR}/foo');
     fooSource.accept(visitor);
 
-    expect(visitor.sources.single.path, globals.fs.path.absolute('foo'));
-  }));
+    expect(visitor.sources.single.path, fileSystem.path.absolute('foo'));
+  });
 
-  test('can substitute {OUTPUT_DIR}/foo', () => testbed.run(() {
-    globals.fs.file('foo').createSync();
+  testWithoutContext('can substitute {OUTPUT_DIR}/foo', () {
+    fileSystem.file('foo').createSync();
     const Source fooSource = Source.pattern('{OUTPUT_DIR}/foo');
     fooSource.accept(visitor);
 
-    expect(visitor.sources.single.path, globals.fs.path.absolute(globals.fs.path.join('outputs', 'foo')));
-  }));
+    expect(visitor.sources.single.path, fileSystem.path.absolute(fileSystem.path.join('outputs', 'foo')));
+  });
 
-
-  test('can substitute {BUILD_DIR}/bar', () => testbed.run(() {
-    final String path = globals.fs.path.join(environment.buildDir.path, 'bar');
-    globals.fs.file(path).createSync();
+  testWithoutContext('can substitute {BUILD_DIR}/bar', () {
+    final String path = fileSystem.path.join(environment.buildDir.path, 'bar');
+    fileSystem.file(path).createSync();
     const Source barSource = Source.pattern('{BUILD_DIR}/bar');
     barSource.accept(visitor);
 
-    expect(visitor.sources.single.path, globals.fs.path.absolute(path));
-  }));
+    expect(visitor.sources.single.path, fileSystem.path.absolute(path));
+  });
 
-  test('can substitute {FLUTTER_ROOT}/foo', () => testbed.run(() {
-    final String path = globals.fs.path.join(environment.flutterRootDir.path, 'foo');
-    globals.fs.file(path).createSync();
+  testWithoutContext('can substitute {FLUTTER_ROOT}/foo', () {
+    final String path = fileSystem.path.join(environment.flutterRootDir.path, 'foo');
+    fileSystem.file(path).createSync();
     const Source barSource = Source.pattern('{FLUTTER_ROOT}/foo');
     barSource.accept(visitor);
 
-    expect(visitor.sources.single.path, globals.fs.path.absolute(path));
-  }));
+    expect(visitor.sources.single.path, fileSystem.path.absolute(path));
+  });
 
-  test('can substitute Artifact', () => testbed.run(() {
-    final String path = globals.fs.path.join(
-      globals.cache.getArtifactDirectory('engine').path,
-      'windows-x64',
-      'foo',
-    );
-    globals.fs.file(path).createSync(recursive: true);
+  testWithoutContext('can substitute Artifact', () {
+    fileSystem.file('example').createSync();
+    when(artifacts.getArtifactPath(any, mode: anyNamed('mode'), platform: anyNamed('platform')))
+      .thenReturn('example');
     const Source fizzSource = Source.artifact(Artifact.windowsDesktopPath, platform: TargetPlatform.windows_x64);
     fizzSource.accept(visitor);
 
-    expect(visitor.sources.single.resolveSymbolicLinksSync(), globals.fs.path.absolute(path));
-  }));
+    expect(visitor.sources.single.resolveSymbolicLinksSync(), fileSystem.path.absolute('example'));
+  });
 
-  test('can substitute {PROJECT_DIR}/*.fizz', () => testbed.run(() {
+  testWithoutContext('can substitute {PROJECT_DIR}/*.fizz', () {
     const Source fizzSource = Source.pattern('{PROJECT_DIR}/*.fizz');
     fizzSource.accept(visitor);
 
     expect(visitor.sources, isEmpty);
 
-    globals.fs.file('foo.fizz').createSync();
-    globals.fs.file('foofizz').createSync();
+    fileSystem.file('foo.fizz').createSync();
+    fileSystem.file('foofizz').createSync();
 
 
     fizzSource.accept(visitor);
 
-    expect(visitor.sources.single.path, globals.fs.path.absolute('foo.fizz'));
-  }));
+    expect(visitor.sources.single.path, fileSystem.path.absolute('foo.fizz'));
+  });
 
-  test('can substitute {PROJECT_DIR}/fizz.*', () => testbed.run(() {
+  testWithoutContext('can substitute {PROJECT_DIR}/fizz.*', () {
     const Source fizzSource = Source.pattern('{PROJECT_DIR}/fizz.*');
     fizzSource.accept(visitor);
 
     expect(visitor.sources, isEmpty);
 
-    globals.fs.file('fizz.foo').createSync();
-    globals.fs.file('fizz').createSync();
+    fileSystem.file('fizz.foo').createSync();
+    fileSystem.file('fizz').createSync();
 
     fizzSource.accept(visitor);
 
-    expect(visitor.sources.single.path, globals.fs.path.absolute('fizz.foo'));
-  }));
+    expect(visitor.sources.single.path, fileSystem.path.absolute('fizz.foo'));
+  });
 
 
-  test('can substitute {PROJECT_DIR}/a*bc', () => testbed.run(() {
+  testWithoutContext('can substitute {PROJECT_DIR}/a*bc', () {
     const Source fizzSource = Source.pattern('{PROJECT_DIR}/bc*bc');
     fizzSource.accept(visitor);
 
     expect(visitor.sources, isEmpty);
 
-    globals.fs.file('bcbc').createSync();
-    globals.fs.file('bc').createSync();
+    fileSystem.file('bcbc').createSync();
+    fileSystem.file('bc').createSync();
 
     fizzSource.accept(visitor);
 
-    expect(visitor.sources.single.path, globals.fs.path.absolute('bcbc'));
-  }));
+    expect(visitor.sources.single.path, fileSystem.path.absolute('bcbc'));
+  });
 
 
-  test('crashes on bad substitute of two **', () => testbed.run(() {
+  testWithoutContext('crashes on bad substitute of two **', () {
     const Source fizzSource = Source.pattern('{PROJECT_DIR}/*.*bar');
 
-    globals.fs.file('abcd.bar').createSync();
+    fileSystem.file('abcd.bar').createSync();
 
     expect(() => fizzSource.accept(visitor), throwsA(isInstanceOf<InvalidPatternException>()));
-  }));
+  });
 
 
-  test('can\'t substitute foo', () => testbed.run(() {
+  testWithoutContext('can\'t substitute foo', () {
     const Source invalidBase = Source.pattern('foo');
 
     expect(() => invalidBase.accept(visitor), throwsA(isInstanceOf<InvalidPatternException>()));
-  }));
+  });
 
-  test('can substitute optional files', () => testbed.run(() {
+  testWithoutContext('can substitute optional files', () {
     const Source missingSource = Source.pattern('{PROJECT_DIR}/foo', optional: true);
 
-    expect(globals.fs.file('foo').existsSync(), false);
+    expect(fileSystem.file('foo').existsSync(), false);
     missingSource.accept(visitor);
     expect(visitor.sources, isEmpty);
-  }));
+  });
 
-  test('can resolve a missing depfile', () => testbed.run(() {
+  testWithoutContext('can resolve a missing depfile', () {
     visitor.visitDepfile('foo.d');
 
     expect(visitor.sources, isEmpty);
     expect(visitor.containsNewDepfile, true);
-  }));
+  });
 
-  test('can resolve a populated depfile', () => testbed.run(() {
+  testWithoutContext('can resolve a populated depfile', () {
     environment.buildDir.childFile('foo.d')
       .writeAsStringSync('a.dart : c.dart');
 
@@ -180,36 +189,37 @@ void main() {
 
     expect(outputVisitor.sources.single.path, 'a.dart');
     expect(outputVisitor.containsNewDepfile, false);
-  }));
+  });
 
-  test('does not crash on completely invalid depfile', () => testbed.run(() {
+  testWithoutContext('does not crash on completely invalid depfile', () {
     environment.buildDir.childFile('foo.d')
         .writeAsStringSync('hello, world');
 
     visitor.visitDepfile('foo.d');
     expect(visitor.sources, isEmpty);
     expect(visitor.containsNewDepfile, false);
-  }));
+  });
 
-  test('can parse depfile with windows paths', () => testbed.run(() {
+  testWithoutContext('can parse depfile with windows paths', () {
+    fileSystem = MemoryFileSystem(style: FileSystemStyle.windows);
     environment.buildDir.childFile('foo.d')
         .writeAsStringSync(r'a.dart: C:\\foo\\bar.txt');
 
     visitor.visitDepfile('foo.d');
     expect(visitor.sources.single.path, r'C:\foo\bar.txt');
     expect(visitor.containsNewDepfile, false);
-  }, overrides: <Type, Generator>{
-    Platform: () => mockPlatform,
-  }));
+  });
 
-  test('can parse depfile with spaces in paths', () => testbed.run(() {
+  testWithoutContext('can parse depfile with spaces in paths', () {
     environment.buildDir.childFile('foo.d')
         .writeAsStringSync(r'a.dart: foo\ bar.txt');
 
     visitor.visitDepfile('foo.d');
     expect(visitor.sources.single.path, r'foo bar.txt');
     expect(visitor.containsNewDepfile, false);
-  }));
+  });
 }
 
 class MockPlatform extends Mock implements Platform {}
+class MockLogger extends Mock implements Logger {}
+class MockArtifacts extends Mock implements Artifacts {}

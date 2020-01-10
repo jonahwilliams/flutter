@@ -150,7 +150,7 @@ class UrlLauncherPlugin {}
 
     // Process calls. We're not testing that these invocations are correct because
     // that is covered in targets/web_test.dart.
-    when(buildSystem.build(any, any)).thenAnswer((Invocation invocation) async {
+    when(globals.buildSystem.build(any, any)).thenAnswer((Invocation invocation) async {
       return BuildResult(success: true);
     });
     await runner.run(<String>['build', 'web']);

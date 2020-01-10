@@ -5,11 +5,13 @@
 import 'dart:async';
 
 import 'package:meta/meta.dart';
+import 'package:platform/platform.dart';
 import 'package:usage/uuid/uuid.dart';
 
 import 'artifacts.dart';
 import 'base/common.dart';
 import 'base/context.dart';
+import 'base/file_system.dart';
 import 'base/io.dart';
 import 'base/terminal.dart';
 import 'build_info.dart';
@@ -195,9 +197,20 @@ class StdoutHandler {
 
 /// Converts filesystem paths to package URIs.
 class PackageUriMapper {
-  PackageUriMapper(String scriptPath, String packagesPath, String fileSystemScheme, List<String> fileSystemRoots) {
-    final Map<String, Uri> packageMap = PackageMap(globals.fs.path.absolute(packagesPath)).map;
-    final String scriptUri = Uri.file(scriptPath, windows: globals.platform.isWindows).toString();
+  PackageUriMapper(
+    String scriptPath,
+    String packagesPath,
+    String fileSystemScheme,
+    List<String> fileSystemRoots,
+    this._fileSystem,
+    this._platform,
+  ) {
+    final Map<String, Uri> packageMap = PackageMap(
+      _fileSystem.path.absolute(packagesPath),
+      _fileSystem,
+      _platform.isWindows
+    ).map;
+    final String scriptUri = Uri.file(scriptPath, windows: _platform.isWindows).toString();
     for (final String packageName in packageMap.keys) {
       final String prefix = packageMap[packageName].toString();
       // Only perform a multi-root mapping if there are multiple roots.
@@ -207,7 +220,7 @@ class PackageUriMapper {
         && prefix.contains(fileSystemScheme)) {
         _packageName = packageName;
         _uriPrefixes = fileSystemRoots
-          .map((String name) => Uri.file(name, windows:globals.platform.isWindows).toString())
+          .map((String name) => Uri.file(name, windows: _platform.isWindows).toString())
           .toList();
         return;
       }
@@ -221,12 +234,14 @@ class PackageUriMapper {
 
   String _packageName;
   List<String> _uriPrefixes;
+  final FileSystem _fileSystem;
+  final Platform _platform;
 
   Uri map(String scriptPath) {
     if (_packageName == null) {
       return null;
     }
-    final String scriptUri = Uri.file(scriptPath, windows: globals.platform.isWindows).toString();
+    final String scriptUri = Uri.file(scriptPath, windows: _platform.isWindows).toString();
     for (final String uriPrefix in _uriPrefixes) {
       if (scriptUri.startsWith(uriPrefix)) {
         return Uri.parse('package:$_packageName/${scriptUri.substring(uriPrefix.length)}');
@@ -236,7 +251,14 @@ class PackageUriMapper {
   }
 
   static Uri findUri(String scriptPath, String packagesPath, String fileSystemScheme, List<String> fileSystemRoots) {
-    return PackageUriMapper(scriptPath, packagesPath, fileSystemScheme, fileSystemRoots).map(scriptPath);
+    return PackageUriMapper(
+      scriptPath,
+      packagesPath,
+      fileSystemScheme,
+      fileSystemRoots,
+      globals.fs,
+      globals.platform,
+    ).map(scriptPath);
   }
 }
 
@@ -589,6 +611,8 @@ class DefaultResidentCompiler implements ResidentCompiler {
         request.packagesFilePath ?? packagesPath,
         fileSystemScheme,
         fileSystemRoots,
+        globals.fs,
+        globals.platform,
       );
     }
 

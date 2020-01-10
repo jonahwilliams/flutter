@@ -13,6 +13,7 @@ import 'base/file_system.dart';
 import 'base/io.dart';
 import 'base/logger.dart';
 import 'base/terminal.dart';
+import 'build_system/build_system.dart';
 import 'cache.dart';
 
 Logger get logger => context.get<Logger>();
@@ -111,3 +112,6 @@ final AnsiTerminal _defaultAnsiTerminal = AnsiTerminal(
 
 /// The global Stdio wrapper.
 Stdio get stdio => context.get<Stdio>() ?? const Stdio();
+
+/// The [BuildSystem] instance.
+BuildSystem get buildSystem => context.get<BuildSystem>();

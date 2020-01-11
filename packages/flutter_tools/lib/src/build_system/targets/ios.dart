@@ -24,7 +24,25 @@ abstract class AotAssemblyBase extends Target {
 
   @override
   Future<void> build(Environment environment) async {
-    final AOTSnapshotter snapshotter = AOTSnapshotter(reportTimings: false);
+    final ProcessUtils processUtils = ProcessUtils(
+      logger: environment.logger,
+      processManager: environment.processManager,
+    );
+    final AOTSnapshotter snapshotter = AOTSnapshotter(
+      fileSystem: environment.fileSystem,
+      reportTimings: false,
+      artifacts: environment.artifacts,
+      logger: environment.logger,
+      xcode: Xcode(
+        fileSystem: environment.fileSystem,
+        platform: environment.platform,
+        processUtils: processUtils
+      ),
+      genSnapshot: GenSnapshot(
+        artifacts: environment.artifacts,
+        processUtils: processUtils,
+      ),
+    );
     final String buildOutputPath = environment.buildDir.path;
     if (environment.defines[kBuildMode] == null) {
       throw MissingDefineException(kBuildMode, 'aot_assembly');

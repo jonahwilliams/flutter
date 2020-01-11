@@ -7,6 +7,7 @@ import '../../base/build.dart';
 import '../../base/file_system.dart';
 import '../../build_info.dart';
 import '../../globals.dart' as globals;
+import '../../macos/xcode.dart';
 import '../build_system.dart';
 import '../depfile.dart';
 import '../exceptions.dart';
@@ -203,7 +204,14 @@ class AndroidAot extends AotElfBase {
 
   @override
   Future<void> build(Environment environment) async {
-    final AOTSnapshotter snapshotter = AOTSnapshotter(reportTimings: false);
+    final AOTSnapshotter snapshotter = AOTSnapshotter(
+      reportTimings: false,
+      artifacts: globals.artifacts,
+      fileSystem: globals.fs,
+      genSnapshot: genSnapshot,
+      logger: globals.logger,
+      xcode: xcode,
+    );
     final Directory output = environment.buildDir.childDirectory(_androidAbiName);
     if (environment.defines[kBuildMode] == null) {
       throw MissingDefineException(kBuildMode, 'aot_elf');

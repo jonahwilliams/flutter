@@ -46,6 +46,11 @@ void main() {
         artifacts: globals.artifacts,
       );
       androidEnvironment = Environment(
+        artifacts: globals.artifacts,
+        fileSystem: globals.fs,
+        logger: globals.logger,
+        platform: globals.platform,
+        processManager: globals.processManager,
         outputDir: globals.fs.currentDirectory,
         projectDir: globals.fs.currentDirectory,
         defines: <String, String>{
@@ -54,6 +59,11 @@ void main() {
         },
       );
       iosEnvironment = Environment(
+        artifacts: globals.artifacts,
+        fileSystem: globals.fs,
+        logger: globals.logger,
+        platform: globals.platform,
+        processManager: globals.processManager,
         outputDir: globals.fs.currentDirectory,
         projectDir: globals.fs.currentDirectory,
         defines: <String, String>{
@@ -271,12 +281,18 @@ flutter_tools:lib/''');
     });
 
     await const KernelSnapshot().build(Environment(
+      artifacts: globals.artifacts,
+      fileSystem: globals.fs,
+      logger: globals.logger,
+      platform: globals.platform,
+      processManager: globals.processManager,
       outputDir: globals.fs.currentDirectory,
       projectDir: globals.fs.currentDirectory,
       defines: <String, String>{
         kBuildMode: 'debug',
         kTargetPlatform: getNameForTargetPlatform(TargetPlatform.android_arm),
-      }));
+      },
+    ));
   }, overrides: <Type, Generator>{
     KernelCompilerFactory: () => MockKernelCompilerFactory(),
   }));

@@ -17,6 +17,7 @@ import 'package:platform/platform.dart';
 
 import '../../src/common.dart';
 import '../../src/fake_process_manager.dart';
+import '../../src/mocks.dart';
 
 void main() {
   Environment environment;
@@ -28,7 +29,7 @@ void main() {
     platform = MockPlatform();
     fileSystem = MemoryFileSystem();
     logger = BufferLogger(
-      terminal: null,
+      terminal: AnsiTerminal(platform: platform, stdio: MockStdio()),
       outputPreferences: OutputPreferences.test(),
     );
     fileSystem.directory('build').createSync();
@@ -115,7 +116,16 @@ void main() {
 
   testWithoutContext('handles failure to persist file cache', () async {
     final FakeForwardingFileSystem fakeForwardingFileSystem = FakeForwardingFileSystem(fileSystem);
-    final FileHashStore fileCache = FileHashStore(environment, fileSystem, logger);
+    environment = Environment(
+      outputDir: fakeForwardingFileSystem.currentDirectory,
+      projectDir: fakeForwardingFileSystem.currentDirectory,
+      artifacts: MockArtifacts(),
+      fileSystem: fakeForwardingFileSystem,
+      logger: logger,
+      processManager: FakeProcessManager.any(),
+      platform: platform,
+    );
+    final FileHashStore fileCache = FileHashStore(environment, fakeForwardingFileSystem, logger);
     final String cacheFile = environment.buildDir.childFile('.filecache').path;
     final MockFile mockFile = MockFile();
     when(mockFile.writeAsBytesSync(any)).thenThrow(const FileSystemException('Out of space!'));

@@ -2,44 +2,59 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'dart:io';
+import 'dart:io' as io;
 
+import 'package:file/memory.dart';
+import 'package:file_testing/file_testing.dart';
+import 'package:flutter_tools/src/artifacts.dart';
+import 'package:flutter_tools/src/base/file_system.dart';
+import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/build_system/build_system.dart';
 import 'package:flutter_tools/src/build_system/targets/assets.dart';
-import 'package:flutter_tools/src/globals.dart' as globals;
+import 'package:mockito/mockito.dart';
+import 'package:platform/platform.dart';
 
 import '../../../src/common.dart';
-import '../../../src/testbed.dart';
+import '../../../src/context.dart';
 
 void main() {
-  BuildSystem buildSystem;
   Environment environment;
-  Testbed testbed;
+  FileSystem fileSystem;
+  ProcessManager processManager;
+  Logger logger;
+  Artifacts artifacts;
+  Platform platform;
 
   setUp(() {
-    testbed = Testbed(setup: () {
-      buildSystem = BuildSystem(
-        fileSystem: globals.fs,
-        logger: globals.logger,
-        platform: globals.platform,
-        artifacts: globals.artifacts,
-      );
-      environment = Environment(
-        outputDir: globals.fs.currentDirectory,
-        projectDir: globals.fs.currentDirectory,
-      );
-      globals.fs.file(globals.fs.path.join('packages', 'flutter_tools', 'lib', 'src',
-          'build_system', 'targets', 'assets.dart'))
-        ..createSync(recursive: true);
-      globals.fs.file(globals.fs.path.join('assets', 'foo', 'bar.png'))
-        ..createSync(recursive: true);
-      globals.fs.file(globals.fs.path.join('assets', 'wildcard', '#bar.png'))
-        ..createSync(recursive: true);
-      globals.fs.file('.packages')
-        ..createSync();
-      globals.fs.file('pubspec.yaml')
-        ..createSync()
-        ..writeAsStringSync('''
+    fileSystem = MemoryFileSystem();
+    processManager = FakeProcessManager.any();
+    logger = MockLogger();
+    artifacts = MockArtifacts();
+    platform = MockPlatform();
+    environment = Environment(
+      artifacts: artifacts,
+      fileSystem: fileSystem,
+      logger: logger,
+      platform: platform,
+      processManager: processManager,
+      outputDir: fileSystem.currentDirectory,
+      projectDir: fileSystem.currentDirectory,
+      cacheDir: fileSystem.currentDirectory,
+      flutterRootDir: fileSystem.currentDirectory,
+    );
+    environment.buildDir.createSync(recursive: true);
+    fileSystem.file(fileSystem.path.join('packages', 'flutter_tools', 'lib', 'src',
+        'build_system', 'targets', 'assets.dart'))
+      ..createSync(recursive: true);
+    fileSystem.file(fileSystem.path.join('assets', 'foo', 'bar.png'))
+      ..createSync(recursive: true);
+    fileSystem.file(fileSystem.path.join('assets', 'wildcard', '#bar.png'))
+      ..createSync(recursive: true);
+    fileSystem.file('.packages')
+      ..createSync();
+    fileSystem.file('pubspec.yaml')
+      ..createSync()
+      ..writeAsStringSync('''
 name: example
 
 flutter:
@@ -47,27 +62,33 @@ flutter:
     - assets/foo/bar.png
     - assets/wildcard/
 ''');
-    });
+    when(platform.isWindows).thenReturn(false);
   });
 
-  test('Copies files to correct asset directory', () => testbed.run(() async {
-    await buildSystem.build(const CopyAssets(), environment);
+  testWithoutContext('Copies files to correct asset directory', () async {
+    await const CopyAssets().build(environment);
 
-    expect(globals.fs.file(globals.fs.path.join(environment.buildDir.path, 'flutter_assets', 'AssetManifest.json')).existsSync(), true);
-    expect(globals.fs.file(globals.fs.path.join(environment.buildDir.path, 'flutter_assets', 'FontManifest.json')).existsSync(), true);
-    expect(globals.fs.file(globals.fs.path.join(environment.buildDir.path, 'flutter_assets', 'LICENSE')).existsSync(), true);
+    expect(fileSystem.file(fileSystem.path.join(environment.buildDir.path, 'flutter_assets', 'AssetManifest.json')), exists);
+    expect(fileSystem.file(fileSystem.path.join(environment.buildDir.path, 'flutter_assets', 'FontManifest.json')), exists);
+    expect(fileSystem.file(fileSystem.path.join(environment.buildDir.path, 'flutter_assets', 'LICENSE')), exists);
     // See https://github.com/flutter/flutter/issues/35293
-    expect(globals.fs.file(globals.fs.path.join(environment.buildDir.path, 'flutter_assets', 'assets/foo/bar.png')).existsSync(), true);
+    expect(fileSystem.file(fileSystem.path.join(environment.buildDir.path, 'flutter_assets', 'assets/foo/bar.png')), exists);
     // See https://github.com/flutter/flutter/issues/46163
-    expect(globals.fs.file(globals.fs.path.join(environment.buildDir.path, 'flutter_assets', 'assets/wildcard/%23bar.png')).existsSync(), true);
-  }));
+    expect(fileSystem.file(fileSystem.path.join(environment.buildDir.path, 'flutter_assets', 'assets/wildcard/%23bar.png')), exists);
+  });
 
-  test('Does not leave stale files in build directory', () => testbed.run(() async {
+  testWithoutContext('Does not leave stale files in build directory', () async {
+    final BuildSystem buildSystem = BuildSystem(
+      artifacts: artifacts,
+      fileSystem: fileSystem,
+      logger: logger,
+      platform: platform
+    );
     await buildSystem.build(const CopyAssets(), environment);
 
-    expect(globals.fs.file(globals.fs.path.join(environment.buildDir.path, 'flutter_assets', 'assets/foo/bar.png')).existsSync(), true);
+    expect(fileSystem.file(fileSystem.path.join(environment.buildDir.path, 'flutter_assets', 'assets/foo/bar.png')), exists);
     // Modify manifest to remove asset.
-    globals.fs.file('pubspec.yaml')
+    fileSystem.file('pubspec.yaml')
       ..createSync()
       ..writeAsStringSync('''
 name: example
@@ -77,18 +98,10 @@ flutter:
     await buildSystem.build(const CopyAssets(), environment);
 
     // See https://github.com/flutter/flutter/issues/35293
-    expect(globals.fs.file(globals.fs.path.join(environment.buildDir.path, 'flutter_assets', 'assets/foo/bar.png')).existsSync(), false);
-  }), skip: Platform.isWindows); // See https://github.com/google/file.dart/issues/131
-
-  test('FlutterPlugins updates required files as needed', () => testbed.run(() async {
-    globals.fs.file('pubspec.yaml')
-      ..writeAsStringSync('name: foo\ndependencies:\n  foo: any\n');
-
-    await const FlutterPlugins().build(Environment(
-      outputDir: globals.fs.currentDirectory,
-      projectDir: globals.fs.currentDirectory,
-    ));
-
-    expect(globals.fs.file('.flutter-plugins').existsSync(), true);
-  }));
+    expect(fileSystem.file(fileSystem.path.join(environment.buildDir.path, 'flutter_assets', 'assets/foo/bar.png')), isNot(exists));
+  }, skip: io.Platform.isWindows); // See https://github.com/google/file.dart/issues/131
 }
+
+class MockLogger extends Mock implements Logger {}
+class MockArtifacts extends Mock implements Artifacts {}
+class MockPlatform extends Mock implements Platform {}

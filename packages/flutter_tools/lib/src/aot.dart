@@ -17,6 +17,7 @@ import 'build_system/targets/dart.dart';
 import 'dart/package_map.dart';
 import 'globals.dart' as globals;
 import 'ios/bitcode.dart';
+import 'macos/xcode.dart';
 import 'project.dart';
 
 /// Builds AOT snapshots given a platform, build mode and a path to a Dart
@@ -67,7 +68,14 @@ class AotBuilder {
       );
     }
     try {
-      final AOTSnapshotter snapshotter = AOTSnapshotter(reportTimings: reportTimings);
+      final AOTSnapshotter snapshotter = AOTSnapshotter(
+        reportTimings: reportTimings,
+        artifacts: globals.artifacts,
+        fileSystem: globals.fs,
+        genSnapshot: genSnapshot,
+        logger: globals.logger,
+        xcode: xcode,
+      );
 
       // Compile to kernel.
       final String kernelOut = await snapshotter.compileKernel(

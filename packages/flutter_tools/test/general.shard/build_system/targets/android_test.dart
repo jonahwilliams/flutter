@@ -23,6 +23,11 @@ void main() {
 
   testbed.test('debug bundle contains expected resources', () async {
     final Environment environment = Environment(
+      artifacts: globals.artifacts,
+      fileSystem: globals.fs,
+      logger: globals.logger,
+      platform: globals.platform,
+      processManager: globals.processManager,
       outputDir: globals.fs.directory('out')..createSync(),
       projectDir: globals.fs.currentDirectory,
       buildDir: globals.fs.currentDirectory,
@@ -51,6 +56,11 @@ void main() {
 
   testbed.test('profile bundle contains expected resources', () async {
     final Environment environment = Environment(
+      artifacts: globals.artifacts,
+      fileSystem: globals.fs,
+      logger: globals.logger,
+      platform: globals.platform,
+      processManager: globals.processManager,
       outputDir: globals.fs.directory('out')..createSync(),
       projectDir: globals.fs.currentDirectory,
       buildDir: globals.fs.currentDirectory,
@@ -71,6 +81,11 @@ void main() {
 
   testbed.test('release bundle contains expected resources', () async {
     final Environment environment = Environment(
+      artifacts: globals.artifacts,
+      fileSystem: globals.fs,
+      logger: globals.logger,
+      platform: globals.platform,
+      processManager: globals.processManager,
       outputDir: globals.fs.directory('out')..createSync(),
       projectDir: globals.fs.currentDirectory,
       buildDir: globals.fs.currentDirectory,
@@ -91,6 +106,11 @@ void main() {
 
   testbed.test('AndroidAot can build provided target platform', () async {
     final Environment environment = Environment(
+      artifacts: globals.artifacts,
+      fileSystem: globals.fs,
+      logger: globals.logger,
+      platform: globals.platform,
+      processManager: globals.processManager,
       outputDir: globals.fs.directory('out')..createSync(),
       projectDir: globals.fs.currentDirectory,
       buildDir: globals.fs.currentDirectory,
@@ -127,6 +147,11 @@ void main() {
 
   testbed.test('kExtraGenSnapshotOptions passes values to gen_snapshot', () async {
     final Environment environment = Environment(
+      artifacts: globals.artifacts,
+      fileSystem: globals.fs,
+      logger: globals.logger,
+      platform: globals.platform,
+      processManager: globals.processManager,
       outputDir: globals.fs.directory('out')..createSync(),
       projectDir: globals.fs.currentDirectory,
       buildDir: globals.fs.currentDirectory,
@@ -162,6 +187,11 @@ void main() {
 
   testbed.test('android aot bundle copies so from abi directory', () async {
     final Environment environment = Environment(
+      artifacts: globals.artifacts,
+      fileSystem: globals.fs,
+      logger: globals.logger,
+      platform: globals.platform,
+      processManager: globals.processManager,
       outputDir: globals.fs.directory('out')..createSync(),
       projectDir: globals.fs.currentDirectory,
       buildDir: globals.fs.currentDirectory,

@@ -5,10 +5,11 @@
 import '../../artifacts.dart';
 import '../../base/build.dart';
 import '../../base/file_system.dart';
+import '../../base/process.dart';
 import '../../build_info.dart';
 import '../../compile.dart';
 import '../../convert.dart';
-import '../../globals.dart' as globals;
+import '../../macos/xcode.dart';
 import '../../project.dart';
 import '../build_system.dart';
 import '../depfile.dart';
@@ -99,13 +100,15 @@ class CopyFlutterBundle extends Target {
 
     // Only copy the prebuilt runtimes and kernel blob in debug mode.
     if (buildMode == BuildMode.debug) {
-      final String vmSnapshotData = globals.artifacts.getArtifactPath(Artifact.vmSnapshotData, mode: BuildMode.debug);
-      final String isolateSnapshotData = globals.artifacts.getArtifactPath(Artifact.isolateSnapshotData, mode: BuildMode.debug);
+      final String vmSnapshotData = environment.artifacts
+        .getArtifactPath(Artifact.vmSnapshotData, mode: BuildMode.debug);
+      final String isolateSnapshotData = environment.artifacts
+        .getArtifactPath(Artifact.isolateSnapshotData, mode: BuildMode.debug);
       environment.buildDir.childFile('app.dill')
           .copySync(environment.outputDir.childFile('kernel_blob.bin').path);
-      globals.fs.file(vmSnapshotData)
+      environment.fileSystem.file(vmSnapshotData)
           .copySync(environment.outputDir.childFile('vm_snapshot_data').path);
-      globals.fs.file(isolateSnapshotData)
+      environment.fileSystem.file(isolateSnapshotData)
           .copySync(environment.outputDir.childFile('isolate_snapshot_data').path);
     }
     final Depfile assetDepfile = await copyAssets(environment, environment.outputDir);
@@ -183,9 +186,10 @@ class KernelSnapshot extends Target {
       throw MissingDefineException(kTargetPlatform, 'kernel_snapshot');
     }
     final BuildMode buildMode = getBuildModeForName(environment.defines[kBuildMode]);
-    final String targetFile = environment.defines[kTargetFile] ?? globals.fs.path.join('lib', 'main.dart');
+    final String targetFile = environment.defines[kTargetFile]
+      ?? environment.fileSystem.path.join('lib', 'main.dart');
     final String packagesPath = environment.projectDir.childFile('.packages').path;
-    final String targetFileAbsolute = globals.fs.file(targetFile).absolute.path;
+    final String targetFileAbsolute = environment.fileSystem.file(targetFile).absolute.path;
     // everything besides 'false' is considered to be enabled.
     final bool trackWidgetCreation = environment.defines[kTrackWidgetCreation] != 'false';
     final TargetPlatform targetPlatform = getTargetPlatformForName(environment.defines[kTargetPlatform]);
@@ -217,7 +221,7 @@ class KernelSnapshot extends Target {
     }
 
     final CompilerOutput output = await compiler.compile(
-      sdkRoot: globals.artifacts.getArtifactPath(
+      sdkRoot: environment.artifacts.getArtifactPath(
         Artifact.flutterPatchedSdkPath,
         platform: targetPlatform,
         mode: buildMode,
@@ -248,7 +252,25 @@ abstract class AotElfBase extends Target {
 
   @override
   Future<void> build(Environment environment) async {
-    final AOTSnapshotter snapshotter = AOTSnapshotter(reportTimings: false);
+    final ProcessUtils processUtils = ProcessUtils(
+      logger: environment.logger,
+      processManager: environment.processManager,
+    );
+    final AOTSnapshotter snapshotter = AOTSnapshotter(
+      fileSystem: environment.fileSystem,
+      reportTimings: false,
+      artifacts: environment.artifacts,
+      logger: environment.logger,
+      xcode: Xcode(
+        fileSystem: environment.fileSystem,
+        platform: environment.platform,
+        processUtils: processUtils
+      ),
+      genSnapshot: GenSnapshot(
+        artifacts: environment.artifacts,
+        processUtils: processUtils,
+      ),
+    );
     final String outputPath = environment.buildDir.path;
     if (environment.defines[kBuildMode] == null) {
       throw MissingDefineException(kBuildMode, 'aot_elf');

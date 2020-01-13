@@ -719,6 +719,8 @@ class TestFeatureFlags implements FeatureFlags {
     this.isWindowsEnabled = false,
     this.isAndroidEmbeddingV2Enabled = false,
     this.isWebIncrementalCompilerEnabled = false,
+    this.isLazyAsyncStackTracesEnabled = false,
+    this.isStrippedAotEnabled = false,
 });
 
   @override
@@ -738,6 +740,12 @@ class TestFeatureFlags implements FeatureFlags {
 
   @override
   final bool isWebIncrementalCompilerEnabled;
+
+  @override
+  final bool isLazyAsyncStackTracesEnabled;
+
+  @override
+  final bool isStrippedAotEnabled;
 
   @override
   bool isEnabled(Feature feature) {

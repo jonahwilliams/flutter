@@ -16,6 +16,7 @@ import 'build_info.dart';
 import 'codegen.dart';
 import 'convert.dart';
 import 'dart/package_map.dart';
+import 'features.dart';
 import 'globals.dart' as globals;
 import 'project.dart';
 
@@ -313,7 +314,8 @@ class KernelCompiler {
       '--sdk-root',
       sdkRoot,
       '--target=$targetModel',
-      '-Ddart.developer.causal_async_stacks=$causalAsyncStacks',
+      '-Ddart.developer.causal_async_stacks=${!featureFlags.isLazyAsyncStackTracesEnabled}',
+      '-Ddart.developer.lazy_async_stacks=${featureFlags.isLazyAsyncStackTracesEnabled}',
       for (final Object dartDefine in dartDefines)
         '-D$dartDefine',
       ..._buildModeOptions(buildMode),

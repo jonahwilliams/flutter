@@ -57,7 +57,7 @@ IF NOT EXIST "%cache_dir%" (
   EXIT /B 1
 )
 
-
+SET FLUTTER_TOOL_ARGS="--no-causal-async-stacks --lazy-async-stacks"
 REM To debug the tool, you can uncomment the following lines to enable checked mode and set an observatory port:
 REM SET FLUTTER_TOOL_ARGS="--enable-asserts %FLUTTER_TOOL_ARGS%"
 REM SET FLUTTER_TOOL_ARGS="%FLUTTER_TOOL_ARGS% --observe=65432"

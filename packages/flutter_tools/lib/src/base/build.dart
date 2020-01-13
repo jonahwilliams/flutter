@@ -11,6 +11,7 @@ import '../build_info.dart';
 import '../bundle.dart';
 import '../compile.dart';
 import '../dart/package_map.dart';
+import '../features.dart';
 import '../globals.dart' as globals;
 import '../macos/xcode.dart';
 import '../project.dart';
@@ -144,6 +145,10 @@ class AOTSnapshotter {
       genSnapshotArgs.add('--snapshot_kind=app-aot-elf');
       genSnapshotArgs.add('--elf=$aotSharedLibrary');
       genSnapshotArgs.add('--strip');
+      if (featureFlags.isStrippedAotEnabled) {
+        genSnapshotArgs.add('--dwarf-stack-traces');
+        genSnapshotArgs.add('--save-debugging-info=app.so.debug');
+      }
     }
 
     if (platform == TargetPlatform.android_arm || darwinArch == DarwinArch.armv7) {

@@ -41,6 +41,12 @@ class FeatureFlags {
   /// Whether the web incremental compiler is enabled.
   bool get isWebIncrementalCompilerEnabled => isEnabled(flutterWebIncrementalCompiler);
 
+  /// Whether Dart uses lazy async strack traces.
+  bool get isLazyAsyncStackTracesEnabled => isEnabled(dartLazyAsyncStackTraces);
+
+  /// Whether AOT binaries are stripped of debugging information.
+  bool get isStrippedAotEnabled => isEnabled(dartStrippedBinaries);
+
   /// Whether a particular feature is enabled for the current channel.
   ///
   /// Prefer using one of the specific getters above instead of this API.
@@ -74,6 +80,8 @@ const List<Feature> allFeatures = <Feature>[
   flutterWindowsDesktopFeature,
   flutterAndroidEmbeddingV2Feature,
   flutterWebIncrementalCompiler,
+  dartLazyAsyncStackTraces,
+  dartStrippedBinaries,
 ];
 
 /// The [Feature] for flutter web.
@@ -165,6 +173,55 @@ const Feature flutterWebIncrementalCompiler = Feature(
     enabledByDefault: false,
   ),
   dev: FeatureChannelSetting(
+    available: true,
+    enabledByDefault: false,
+  ),
+);
+
+/// The [Feature] to enable lazy async stack traces.
+///
+/// These stack traces are formatted slightly differently, but should
+/// improve performance.
+const Feature dartLazyAsyncStackTraces = Feature(
+  name: 'Enable lazy async strack traces',
+  configSetting: 'enable-lazy-async-stack-traces',
+  master: FeatureChannelSetting(
+    available: true,
+    enabledByDefault: false,
+  ),
+  dev: FeatureChannelSetting(
+    available: true,
+    enabledByDefault: false,
+  ),
+  beta: FeatureChannelSetting(
+    available: true,
+    enabledByDefault: false,
+  ),
+  stable: FeatureChannelSetting(
+    available: true,
+    enabledByDefault: false,
+  ),
+);
+
+/// The [Feature] for stripping AOT binaries.
+///
+/// This removes debugging information, but will reduce overall codesize.
+const Feature dartStrippedBinaries = Feature(
+  name: 'Enable a stripped AOT binary',
+  configSetting: 'enable-stripped-aot-binary',
+  master: FeatureChannelSetting(
+    available: true,
+    enabledByDefault: false,
+  ),
+  dev: FeatureChannelSetting(
+    available: true,
+    enabledByDefault: false,
+  ),
+  beta: FeatureChannelSetting(
+    available: true,
+    enabledByDefault: false,
+  ),
+  stable: FeatureChannelSetting(
     available: true,
     enabledByDefault: false,
   ),

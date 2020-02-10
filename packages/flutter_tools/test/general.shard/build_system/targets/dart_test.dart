@@ -30,6 +30,8 @@ void main() {
   Environment iosEnvironment;
   MockProcessManager mockProcessManager;
   MockXcode mockXcode;
+  GenSnapshot genSnapshot;
+  AOTSnapshotter aotSnapshotter;
 
   setUpAll(() {
     Cache.disableLocking();
@@ -37,6 +39,7 @@ void main() {
 
   setUp(() {
     mockXcode = MockXcode();
+    genSnapshot = FakeGenSnapshot();
     mockProcessManager = MockProcessManager();
     testbed = Testbed(setup: () {
       androidEnvironment = Environment.test(
@@ -63,6 +66,13 @@ void main() {
       } else {
         assert(false);
       }
+      aotSnapshotter = AOTSnapshotter(
+        xcode: globals.xcode,
+        artifacts: globals.artifacts,
+        fileSystem: globals.fs,
+        genSnapshot: genSnapshot,
+        logger: globals.logger,
+      );
 
       final String engineArtifacts = globals.fs.path.join('bin', 'cache',
           'artifacts', 'engine');
@@ -87,7 +97,7 @@ void main() {
       }
     }, overrides: <Type, Generator>{
       KernelCompilerFactory: () => FakeKernelCompilerFactory(),
-      GenSnapshot: () => FakeGenSnapshot(),
+      AOTSnapshotter: () => aotSnapshotter,
     });
   });
 
@@ -437,6 +447,11 @@ class FakeGenSnapshot implements GenSnapshot {
     globals.fs.file(assembly).createSync();
     globals.fs.file(assembly.replaceAll('.S', '.o')).createSync();
     return 0;
+  }
+
+  @override
+  String getSnapshotterPath(SnapshotType snapshotType) {
+    return 'gen_snapshot';
   }
 }
 

@@ -202,7 +202,14 @@ class AndroidAot extends AotElfBase {
 
   @override
   Future<void> build(Environment environment) async {
-    final AOTSnapshotter snapshotter = AOTSnapshotter(reportTimings: false);
+    final AOTSnapshotter snapshotter = AOTSnapshotter(
+      reportTimings: false,
+      artifacts: globals.artifacts,
+      fileSystem: globals.fs,
+      genSnapshot: GenSnapshot(artifacts: globals.artifacts),
+      logger: globals.logger,
+      xcode: globals.xcode,
+    );
     final Directory output = environment.buildDir.childDirectory(_androidAbiName);
     final String splitDebugInfo = environment.defines[kSplitDebugInfo];
     if (environment.defines[kBuildMode] == null) {

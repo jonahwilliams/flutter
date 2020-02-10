@@ -17,8 +17,22 @@ import '../../../src/common.dart';
 import '../../../src/testbed.dart';
 
 void main() {
+  AOTSnapshotter aotSnapshotter;
+  MockGenSnapshot mockGenSnapshot;
+
   final Testbed testbed = Testbed(overrides: <Type, Generator>{
     Cache: () => FakeCache(),
+    AOTSnapshotter: () => aotSnapshotter,
+  }, setup: () {
+      mockGenSnapshot = MockGenSnapshot();
+      aotSnapshotter = AOTSnapshotter(
+      reportTimings: false,
+      artifacts: globals.artifacts,
+      fileSystem: globals.fs,
+      genSnapshot: mockGenSnapshot,
+      logger: globals.logger,
+      xcode: globals.xcode,
+    );
   });
 
   testbed.test('debug bundle contains expected resources', () async {
@@ -94,7 +108,7 @@ void main() {
         kBuildMode: 'release',
       }
     );
-    when(genSnapshot.run(
+    when(mockGenSnapshot.run(
       snapshotType: anyNamed('snapshotType'),
       darwinArch: anyNamed('darwinArch'),
       additionalArgs: anyNamed('additionalArgs'),
@@ -109,7 +123,7 @@ void main() {
 
     await androidAot.build(environment);
 
-    final SnapshotType snapshotType = verify(genSnapshot.run(
+    final SnapshotType snapshotType = verify(mockGenSnapshot.run(
       snapshotType: captureAnyNamed('snapshotType'),
       darwinArch: anyNamed('darwinArch'),
       additionalArgs: anyNamed('additionalArgs')
@@ -136,7 +150,7 @@ void main() {
     environment.projectDir.childFile('.packages')
       .writeAsStringSync('sky_engine:file:///\n');
 
-    when(genSnapshot.run(
+    when(mockGenSnapshot.run(
       snapshotType: anyNamed('snapshotType'),
       darwinArch: anyNamed('darwinArch'),
       additionalArgs: captureAnyNamed('additionalArgs'),

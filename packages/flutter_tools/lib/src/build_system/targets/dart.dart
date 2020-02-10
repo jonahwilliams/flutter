@@ -250,7 +250,14 @@ abstract class AotElfBase extends Target {
 
   @override
   Future<void> build(Environment environment) async {
-    final AOTSnapshotter snapshotter = AOTSnapshotter(reportTimings: false);
+    final AOTSnapshotter snapshotter = AOTSnapshotter(
+      reportTimings: false,
+      artifacts: globals.artifacts,
+      fileSystem: globals.fs,
+      genSnapshot: GenSnapshot(artifacts: globals.artifacts),
+      logger: globals.logger,
+      xcode: globals.xcode,
+    );
     final String outputPath = environment.buildDir.path;
     if (environment.defines[kBuildMode] == null) {
       throw MissingDefineException(kBuildMode, 'aot_elf');

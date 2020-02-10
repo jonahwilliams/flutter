@@ -53,7 +53,14 @@ class AotBuilder {
       );
     }
     try {
-      final AOTSnapshotter snapshotter = AOTSnapshotter(reportTimings: reportTimings);
+      final AOTSnapshotter snapshotter = AOTSnapshotter(
+        reportTimings: reportTimings,
+        artifacts: globals.artifacts,
+        fileSystem: globals.fs,
+        genSnapshot: GenSnapshot(artifacts: globals.artifacts),
+        logger: globals.logger,
+        xcode: globals.xcode,
+      );
 
       // Compile to kernel.
       final String kernelOut = await snapshotter.compileKernel(

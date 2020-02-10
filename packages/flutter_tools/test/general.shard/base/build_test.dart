@@ -70,6 +70,11 @@ class _FakeGenSnapshot implements GenSnapshot {
     });
     return 0;
   }
+
+  @override
+  String getSnapshotterPath(SnapshotType snapshotType) {
+    return 'gen_snapshot';
+  }
 }
 
 void main() {
@@ -92,10 +97,12 @@ void main() {
     MockProcess mockProc;
 
     setUp(() async {
-      genSnapshot = const GenSnapshot();
       mockArtifacts = MockArtifacts();
       mockProcessManager = MockProcessManager();
       mockProc = MockProcess();
+      genSnapshot = GenSnapshot(
+        artifacts: mockArtifacts,
+      );
     });
 
     final Map<Type, Generator> contextOverrides = <Type, Generator>{
@@ -233,13 +240,26 @@ void main() {
       fs.file(fs.path.join(skyEnginePath, '.packages')).createSync();
       fs.file(fs.path.join(skyEnginePath, 'lib', 'ui', 'ui.dart')).createSync();
       fs.file(fs.path.join(skyEnginePath, 'sdk_ext', 'vmservice_io.dart')).createSync();
-
-      genSnapshot = _FakeGenSnapshot();
-      snapshotter = AOTSnapshotter();
-      snapshotterWithTimings = AOTSnapshotter(reportTimings: true);
-      mockAndroidSdk = MockAndroidSdk();
       mockArtifacts = MockArtifacts();
       mockXcode = MockXcode();
+      genSnapshot = _FakeGenSnapshot();
+      snapshotter = AOTSnapshotter(
+        reportTimings: false,
+        artifacts: mockArtifacts,
+        fileSystem: globals.fs,
+        genSnapshot: GenSnapshot(artifacts: globals.artifacts),
+        logger: globals.logger,
+        xcode: mockXcode,
+      );
+      snapshotterWithTimings = AOTSnapshotter(
+        reportTimings: true,
+        artifacts: mockArtifacts,
+        fileSystem: globals.fs,
+        genSnapshot: GenSnapshot(artifacts: globals.artifacts),
+        logger: globals.logger,
+        xcode: mockXcode,
+      );
+      mockAndroidSdk = MockAndroidSdk();
       when(mockXcode.sdkLocation(any)).thenAnswer((_) => Future<String>.value(kSDKPath));
 
       for (final BuildMode mode in BuildMode.values) {

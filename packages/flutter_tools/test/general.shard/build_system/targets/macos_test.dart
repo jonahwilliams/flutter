@@ -50,6 +50,8 @@ void main() {
   Environment environment;
   MockPlatform mockPlatform;
   MockXcode mockXcode;
+  AOTSnapshotter aotSnapshotter;
+  MockGenSnapshot mockGenSnapshot;
 
   setUpAll(() {
     Cache.disableLocking();
@@ -59,6 +61,8 @@ void main() {
   setUp(() {
     mockXcode = MockXcode();
     mockPlatform = MockPlatform();
+    mockGenSnapshot = MockGenSnapshot();
+
     when(mockPlatform.isWindows).thenReturn(false);
     when(mockPlatform.isMacOS).thenReturn(true);
     when(mockPlatform.isLinux).thenReturn(false);
@@ -68,10 +72,18 @@ void main() {
           'ui.dart')).createSync(recursive: true);
       globals.fs.file(globals.fs.path.join('bin', 'cache', 'pkg', 'sky_engine', 'sdk_ext',
           'vmservice_io.dart')).createSync(recursive: true);
+      aotSnapshotter = AOTSnapshotter(
+        reportTimings: false,
+        artifacts: globals.artifacts,
+        fileSystem: globals.fs,
+        genSnapshot: mockGenSnapshot,
+        logger: globals.logger,
+        xcode: globals.xcode,
+      );
 
-    environment = Environment.test(
-      globals.fs.currentDirectory,
-      defines: <String, String>{
+      environment = Environment.test(
+        globals.fs.currentDirectory,
+        defines: <String, String>{
           kBuildMode: 'debug',
           kTargetPlatform: 'darwin-x64',
         },
@@ -79,6 +91,7 @@ void main() {
     }, overrides: <Type, Generator>{
       ProcessManager: () => MockProcessManager(),
       Platform: () => mockPlatform,
+      AOTSnapshotter: () => aotSnapshotter,
     });
   });
 
@@ -195,7 +208,7 @@ void main() {
   }));
 
   test('release/profile macOS compilation uses correct gen_snapshot', () => testbed.run(() async {
-    when(genSnapshot.run(
+    when(mockGenSnapshot.run(
       snapshotType: anyNamed('snapshotType'),
       additionalArgs: anyNamed('additionalArgs'),
       darwinArch: anyNamed('darwinArch'),
@@ -219,7 +232,6 @@ sky_engine:file:///bin/cache/pkg/sky_engine/lib/
 flutter_tools:lib/''');
     await const CompileMacOSFramework().build(environment..defines[kBuildMode] = 'release');
   }, overrides: <Type, Generator>{
-    GenSnapshot: () => MockGenSnapshot(),
     Xcode: () => mockXcode,
   }));
 }

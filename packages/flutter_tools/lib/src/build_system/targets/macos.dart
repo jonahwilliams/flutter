@@ -201,7 +201,15 @@ class CompileMacOSFramework extends Target {
       throw Exception('precompiled macOS framework only supported in release/profile builds.');
     }
     final String splitDebugInfo = environment.defines[kSplitDebugInfo];
-    final int result = await AOTSnapshotter(reportTimings: false).build(
+    final AOTSnapshotter snapshotter = AOTSnapshotter(
+      reportTimings: false,
+      artifacts: globals.artifacts,
+      fileSystem: globals.fs,
+      genSnapshot: GenSnapshot(artifacts: globals.artifacts),
+      logger: globals.logger,
+      xcode: globals.xcode,
+    );
+    final int result = await snapshotter.build(
       bitcode: false,
       buildMode: buildMode,
       mainPath: environment.buildDir.childFile('app.dill').path,

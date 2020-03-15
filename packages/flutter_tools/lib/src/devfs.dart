@@ -6,6 +6,8 @@ import 'dart:async';
 
 import 'package:json_rpc_2/json_rpc_2.dart' as rpc;
 import 'package:meta/meta.dart';
+import 'package:package_config/package_config.dart';
+import 'package:package_config/package_config_types.dart';
 
 import 'asset.dart';
 import 'base/context.dart';
@@ -459,6 +461,7 @@ class DevFS {
     @required String pathToReload,
     @required List<Uri> invalidatedFiles,
     bool skipAssets = false,
+    PackageConfig packageConfig,
   }) async {
     assert(trackWidgetCreation != null);
     assert(generator != null);
@@ -500,8 +503,10 @@ class DevFS {
     final CompilerOutput compilerOutput = await generator.recompile(
       mainPath,
       invalidatedFiles,
-      outputPath:  dillOutputPath ?? getDefaultApplicationKernelPath(trackWidgetCreation: trackWidgetCreation),
-      packagesFilePath : _packagesFilePath,
+      outputPath: dillOutputPath
+        ?? getDefaultApplicationKernelPath(trackWidgetCreation: trackWidgetCreation),
+      packagesPath: _packagesFilePath,
+      packageConfig: packageConfig,
     );
     if (compilerOutput == null || compilerOutput.errorCount > 0) {
       return UpdateFSReport(success: false);

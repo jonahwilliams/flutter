@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:meta/meta.dart';
+import 'package:package_config/package_config.dart';
 
 import 'application_package.dart';
 import 'artifacts.dart';
@@ -540,6 +541,7 @@ class FlutterDevice {
     String pathToReload,
     @required String dillOutputPath,
     @required List<Uri> invalidatedFiles,
+    @required PackageConfig packageConfig,
   }) async {
     final Status devFSStatus = globals.logger.startProgress(
       'Syncing files to device ${device.name}...',
@@ -560,6 +562,7 @@ class FlutterDevice {
         projectRootPath: projectRootPath,
         pathToReload: pathToReload,
         invalidatedFiles: invalidatedFiles,
+        packageConfig: packageConfig,
       );
     } on DevFSException {
       devFSStatus.cancel();
@@ -631,6 +634,9 @@ abstract class ResidentRunner {
   @visibleForTesting
   final List<FlutterDevice> flutterDevices;
 
+  @protected
+  PackageConfig packageConfig;
+
   final String target;
   final DebuggingOptions debuggingOptions;
   final bool stayResident;
@@ -686,6 +692,21 @@ abstract class ResidentRunner {
     return flutterDevices.every((FlutterDevice device) {
       return device.device.supportsHotRestart;
     });
+  }
+
+  /// Update the runners package configuration file.
+  @protected
+  Future<void> updatePackageConfig() async {
+    packageConfig = await findPackageConfigUri(
+      globals.fs.file(packagesFilePath).uri,
+      loader: (Uri uri) {
+        final File file = globals.fs.file(uri);
+        if (!file.existsSync()) {
+          return null;
+        }
+        return globals.fs.file(uri).readAsBytes();
+      },
+    );
   }
 
   /// Invoke an RPC extension method on the first attached ui isolate of the first device.

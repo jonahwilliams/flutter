@@ -5,7 +5,7 @@
 import 'package:file/memory.dart';
 import 'package:flutter_tools/src/asset.dart';
 import 'package:flutter_tools/src/base/file_system.dart';
-import 'package:flutter_tools/src/dart/package_map.dart';
+import 'package:package_config/package_config.dart';
 
 import '../src/common.dart';
 
@@ -257,11 +257,11 @@ void main() {
       ..createSync(recursive: true)
       ..writeAsStringSync(_kMitLicense); // intentionally a duplicate
 
-    final PackageMap packageMap = PackageMap.test(<String, Uri>{
-      'foo': Uri.parse('file:///foo/lib/'),
-      'bar': Uri.parse('file:///bar/lib/'),
-      'fizz': Uri.parse('file:///fizz/lib/'),
-    });
+    final Map<String, Package> packageMap = <String, Package>{
+      'foo': Package('foo', Uri.parse('file:///foo/lib/')),
+      'bar': Package('foo', Uri.parse('file:///bar/lib/')),
+      'fizz': Package('foo', Uri.parse('file:///fizz/lib/')),
+    };
 
     final LicenseResult result = licenseCollector.obtainLicenses(packageMap);
 

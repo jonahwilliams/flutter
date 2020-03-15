@@ -13,6 +13,8 @@ import 'package:mime/mime.dart' as mime;
 // TODO(bkonyi): remove deprecated member usage, https://github.com/flutter/flutter/issues/51951
 // ignore: deprecated_member_use
 import 'package:package_config/discovery.dart';
+import 'package:package_config/package_config.dart';
+import 'package:package_config/package_config_types.dart';
 // TODO(bkonyi): remove deprecated member usage, https://github.com/flutter/flutter/issues/51951
 // ignore: deprecated_member_use
 import 'package:package_config/packages.dart';
@@ -526,6 +528,7 @@ class WebDevFS implements DevFS {
     String pathToReload,
     List<Uri> invalidatedFiles,
     bool skipAssets = false,
+    @required PackageConfig packageConfig,
   }) async {
     assert(trackWidgetCreation != null);
     assert(generator != null);
@@ -579,7 +582,8 @@ class WebDevFS implements DevFS {
       invalidatedFiles,
       outputPath: dillOutputPath ??
         getDefaultApplicationKernelPath(trackWidgetCreation: trackWidgetCreation),
-      packagesFilePath: packagesFilePath,
+      packagesPath: packagesFilePath,
+      packageConfig: packageConfig,
     );
     if (compilerOutput == null || compilerOutput.errorCount > 0) {
       return UpdateFSReport(success: false);

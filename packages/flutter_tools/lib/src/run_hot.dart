@@ -168,6 +168,7 @@ class HotRunner extends ResidentRunner {
         pathToReload: getReloadPath(fullRestart: false),
         invalidatedFiles: invalidated,
         dillOutputPath: dillOutputPath,
+        packageConfig: packageConfig,
       ));
     }
     if (!results.success) {
@@ -340,6 +341,7 @@ class HotRunner extends ResidentRunner {
     }
 
     firstBuildTime = DateTime.now();
+    await updatePackageConfig();
 
     final List<Future<bool>> startupTasks = <Future<bool>>[];
     for (final FlutterDevice device in flutterDevices) {
@@ -354,7 +356,9 @@ class HotRunner extends ResidentRunner {
             <Uri>[],
             outputPath: dillOutputPath ??
               getDefaultApplicationKernelPath(trackWidgetCreation: debuggingOptions.buildInfo.trackWidgetCreation),
-            packagesFilePath : packagesFilePath,
+            packagesPath : packagesFilePath,
+            packageConfig: packageConfig,
+
           ).then((CompilerOutput output) => output?.errorCount == 0)
         );
       }
@@ -404,12 +408,17 @@ class HotRunner extends ResidentRunner {
 
     // Picking up first device's compiler as a source of truth - compilers
     // for all devices should be in sync.
-    final List<Uri> invalidatedFiles = await projectFileInvalidator.findInvalidated(
+    final InvalidationResult invalidationResult = await projectFileInvalidator.findInvalidated(
       lastCompiled: flutterDevices[0].devFS.lastCompiled,
       urisToMonitor: flutterDevices[0].devFS.sources,
       packagesPath: packagesFilePath,
       asyncScanning: hotRunnerConfig.asyncScanning,
     );
+    // If the package config changed or is null, recompute it.
+    if (invalidationResult.packagesInvalidated) {
+      await updatePackageConfig();
+    }
+
     final UpdateFSReport results = UpdateFSReport(success: true);
     for (final FlutterDevice device in flutterDevices) {
       results.incorporateResults(await device.updateDevFS(
@@ -422,8 +431,9 @@ class HotRunner extends ResidentRunner {
         fullRestart: fullRestart,
         projectRootPath: projectRootPath,
         pathToReload: getReloadPath(fullRestart: fullRestart),
-        invalidatedFiles: invalidatedFiles,
+        invalidatedFiles: invalidationResult.files,
         dillOutputPath: dillOutputPath,
+        packageConfig: packageConfig,
       ));
     }
     return results;
@@ -1166,14 +1176,14 @@ class ProjectFileInvalidator {
   static const String _pubCachePathWindows = 'Pub/Cache';
 
   // As of writing, Dart supports up to 32 asynchronous I/O threads per
-  // isolate.  We also want to avoid hitting platform limits on open file
+  // isolate. We also want to avoid hitting platform limits on open file
   // handles/descriptors.
   //
   // This value was chosen based on empirical tests scanning a set of
   // ~2000 files.
   static const int _kMaxPendingStats = 8;
 
-  Future<List<Uri>> findInvalidated({
+  Future<InvalidationResult> findInvalidated({
     @required DateTime lastCompiled,
     @required List<Uri> urisToMonitor,
     @required String packagesPath,
@@ -1185,7 +1195,10 @@ class ProjectFileInvalidator {
     if (lastCompiled == null) {
       // Initial load.
       assert(urisToMonitor.isEmpty);
-      return <Uri>[];
+      return const InvalidationResult(
+        files: <Uri>[],
+        packagesInvalidated: true,
+      );
     }
 
     final Stopwatch stopwatch = Stopwatch()..start();
@@ -1193,9 +1206,6 @@ class ProjectFileInvalidator {
       // Don't watch pub cache directories to speed things up a little.
       for (final Uri uri in urisToMonitor)
         if (_isNotInPubCache(uri)) uri,
-
-      // We need to check the .packages file too since it is not used in compilation.
-      _fileSystem.file(packagesPath).uri,
     ];
     final List<Uri> invalidatedFiles = <Uri>[];
 
@@ -1229,11 +1239,28 @@ class ProjectFileInvalidator {
       '${stopwatch.elapsedMilliseconds}ms'
       '${asyncScanning ? " (async)" : ""}',
     );
-    return invalidatedFiles;
+    // THIS IS WRONG. Need to know what package file resolver chose.
+    // We need to check the .packages file too since it is not used in compilation.
+    final bool packagesInvalidated = _fileSystem
+      .file(packagesPath).statSync().modified.isAfter(lastCompiled);
+    return InvalidationResult(
+      files: invalidatedFiles,
+      packagesInvalidated: packagesInvalidated,
+    );
   }
 
   bool _isNotInPubCache(Uri uri) {
     return !(_platform.isWindows && uri.path.contains(_pubCachePathWindows))
         && !uri.path.contains(_pubCachePathLinuxAndMac);
   }
+}
+
+class InvalidationResult {
+  const InvalidationResult({
+    this.packagesInvalidated,
+    this.files,
+  });
+
+  final bool packagesInvalidated;
+  final List<Uri> files;
 }

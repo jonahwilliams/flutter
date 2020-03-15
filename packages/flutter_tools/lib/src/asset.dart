@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:package_config/package_config.dart';
 import 'package:meta/meta.dart';
 import 'package:yaml/yaml.dart';
 
@@ -148,7 +149,20 @@ class _ManifestAssetBundle implements AssetBundle {
 
     final String assetBasePath = globals.fs.path.dirname(globals.fs.path.absolute(manifestPath));
 
-    final PackageMap packageMap = PackageMap(packagesPath);
+    final PackageConfig packageConfig = await findPackageConfigUri(
+      globals.fs.file(packagesPath).uri,
+      loader: (Uri uri) {
+        final File file = globals.fs.file(uri);
+        if (!file.existsSync()) {
+          return null;
+        }
+        return globals.fs.file(uri).readAsBytes();
+      },
+    );
+    final Map<String, Package> packageMap = <String, Package>{
+      for (final Package package in packageConfig.packages)
+        package.name: package,
+    };
     final List<Uri> wildcardDirectories = <Uri>[];
 
     // The _assetVariants map contains an entry for each asset listed
@@ -174,10 +188,10 @@ class _ManifestAssetBundle implements AssetBundle {
     );
 
     // Add fonts and assets from packages.
-    for (final String packageName in packageMap.map.keys) {
-      final Uri package = packageMap.map[packageName];
-      if (package != null && package.scheme == 'file') {
-        final String packageManifestPath = globals.fs.path.fromUri(package.resolve('../pubspec.yaml'));
+    for (final String packageName in packageMap.keys) {
+      final Package package = packageMap[packageName];
+      if (package != null && package.packageUriRoot.scheme == 'file') {
+        final String packageManifestPath = globals.fs.path.fromUri(package.packageUriRoot.resolve('../pubspec.yaml'));
         final FlutterManifest packageFlutterManifest = FlutterManifest.createFromPath(packageManifestPath);
         if (packageFlutterManifest == null) {
           continue;
@@ -383,18 +397,18 @@ class LicenseCollector {
 
   /// Obtain licenses from the `packageMap` into a single result.
   LicenseResult obtainLicenses(
-    PackageMap packageMap,
+    Map<String, Package> packageMap,
   ) {
     final Map<String, Set<String>> packageLicenses = <String, Set<String>>{};
     final Set<String> allPackages = <String>{};
     final List<File> dependencies = <File>[];
 
-    for (final String packageName in packageMap.map.keys) {
-      final Uri package = packageMap.map[packageName];
-      if (package == null || package.scheme != 'file') {
+    for (final String packageName in packageMap.keys) {
+      final Package package = packageMap[packageName];
+      if (package == null || package.packageUriRoot.scheme != 'file') {
         continue;
       }
-      final File file = _fileSystem.file(package.resolve('../LICENSE'));
+      final File file = _fileSystem.file(package.packageUriRoot.resolve('../LICENSE'));
       if (!file.existsSync()) {
         continue;
       }
@@ -476,7 +490,7 @@ DevFSContent _createAssetManifest(Map<_Asset, List<_Asset>> assetVariants) {
 List<Map<String, dynamic>> _parseFonts(
   FlutterManifest manifest,
   bool includeDefaultFonts,
-  PackageMap packageMap, {
+  Map<String, Package> packageMap, {
   String packageName,
 }) {
   return <Map<String, dynamic>>[
@@ -498,7 +512,7 @@ List<Map<String, dynamic>> _parseFonts(
 List<Font> _parsePackageFonts(
   FlutterManifest manifest,
   String packageName,
-  PackageMap packageMap,
+  Map<String, Package> packageMap,
 ) {
   final List<Font> packageFonts = <Font>[];
   for (final Font font in manifest.fonts) {
@@ -506,7 +520,8 @@ List<Font> _parsePackageFonts(
     for (final FontAsset fontAsset in font.fontAssets) {
       final Uri assetUri = fontAsset.assetUri;
       if (assetUri.pathSegments.first == 'packages' &&
-          !globals.fs.isFileSync(globals.fs.path.fromUri(packageMap.map[packageName].resolve('../${assetUri.path}')))) {
+          !globals.fs.isFileSync(globals.fs.path.fromUri(
+            packageMap[packageName].packageUriRoot.resolve('../${assetUri.path}')))) {
         packageFontAssets.add(FontAsset(
           fontAsset.assetUri,
           weight: fontAsset.weight,
@@ -605,7 +620,7 @@ class _AssetDirectoryCache {
 ///
 
 Map<_Asset, List<_Asset>> _parseAssets(
-  PackageMap packageMap,
+  Map<String, Package> packageMap,
   FlutterManifest flutterManifest,
   List<Uri> wildcardDirectories,
   String assetBase, {
@@ -650,7 +665,7 @@ Map<_Asset, List<_Asset>> _parseAssets(
 }
 
 void _parseAssetsFromFolder(
-  PackageMap packageMap,
+  Map<String, Package> packageMap,
   FlutterManifest flutterManifest,
   String assetBase,
   _AssetDirectoryCache cache,
@@ -682,7 +697,7 @@ void _parseAssetsFromFolder(
 }
 
 void _parseAssetFromFile(
-  PackageMap packageMap,
+  Map<String, Package> packageMap,
   FlutterManifest flutterManifest,
   String assetBase,
   _AssetDirectoryCache cache,
@@ -718,7 +733,7 @@ void _parseAssetFromFile(
 }
 
 _Asset _resolveAsset(
-  PackageMap packageMap,
+  Map<String, Package> packageMap,
   String assetsBaseDir,
   Uri assetUri,
   String packageName,
@@ -742,14 +757,14 @@ _Asset _resolveAsset(
   );
 }
 
-_Asset _resolvePackageAsset(Uri assetUri, PackageMap packageMap) {
+_Asset _resolvePackageAsset(Uri assetUri, Map<String, Package> packageMap) {
   assert(assetUri.pathSegments.first == 'packages');
   if (assetUri.pathSegments.length > 1) {
     final String packageName = assetUri.pathSegments[1];
-    final Uri packageUri = packageMap.map[packageName];
-    if (packageUri != null && packageUri.scheme == 'file') {
+    final Package package = packageMap[packageName];
+    if (package != null && package.packageUriRoot.scheme == 'file') {
       return _Asset(
-        baseDir: globals.fs.path.fromUri(packageUri),
+        baseDir: globals.fs.path.fromUri(package.packageUriRoot),
         entryUri: assetUri,
         relativeUri: Uri(pathSegments: assetUri.pathSegments.sublist(2)),
       );

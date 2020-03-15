@@ -801,14 +801,6 @@ abstract class FlutterCommand extends Command<void> {
       if (changedDirectory) {
         globals.printStatus('Changing current working directory to: ${globals.fs.currentDirectory.path}');
       }
-
-      // Validate the current package map only if we will not be running "pub get" later.
-      if (parent?.name != 'pub' && !(_usesPubOption && boolArg('pub'))) {
-        final String error = PackageMap(PackageMap.globalPackagesPath).checkValid();
-        if (error != null) {
-          throw ToolExit(error);
-        }
-      }
     }
 
     if (_usesTargetOption) {

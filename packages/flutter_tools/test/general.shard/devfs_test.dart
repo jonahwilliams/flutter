@@ -270,7 +270,8 @@ void main() {
         any,
         any,
         outputPath: anyNamed('outputPath'),
-        packagesFilePath: anyNamed('packagesFilePath'),
+        packagesPath: anyNamed('packagesFilePath'),
+        packageConfig: anyNamed('packageConfig'),
       )).thenAnswer((Invocation invocation) {
         return Future<CompilerOutput>.value(const CompilerOutput('example', 2, <Uri>[]));
       });
@@ -302,7 +303,8 @@ void main() {
         any,
         any,
         outputPath: anyNamed('outputPath'),
-        packagesFilePath: anyNamed('packagesFilePath'),
+        packagesPath: anyNamed('packagesFilePath'),
+        packageConfig: anyNamed('packageConfig'),
       )).thenAnswer((Invocation invocation) {
         fs.file('example').createSync();
         return Future<CompilerOutput>.value(CompilerOutput('example', 0, <Uri>[sourceFile.uri]));

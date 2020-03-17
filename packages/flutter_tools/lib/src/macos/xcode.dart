@@ -8,6 +8,7 @@ import 'package:meta/meta.dart';
 import 'package:platform/platform.dart';
 import 'package:process/process.dart';
 
+import '../artifacts.dart';
 import '../base/common.dart';
 import '../base/file_system.dart';
 import '../base/io.dart';
@@ -350,10 +351,13 @@ class XCDevice {
         name: device['name'] as String,
         cpuArchitecture: _cpuArchitecture(deviceProperties),
         sdkVersion: _sdkVersion(deviceProperties),
-        artifacts: globals.artifacts,
         fileSystem: globals.fs,
         iosDeploy: globals.iosDeploy,
         platform: globals.platform,
+        iproxyPath: globals.artifacts.getArtifactPath(
+          Artifact.iosDeploy,
+          platform: TargetPlatform.ios,
+        ),
       ));
     }
     return devices;

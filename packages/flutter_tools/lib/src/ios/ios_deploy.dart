@@ -8,11 +8,8 @@ import 'package:meta/meta.dart';
 import 'package:platform/platform.dart';
 import 'package:process/process.dart';
 
-import '../artifacts.dart';
 import '../base/logger.dart';
 import '../base/process.dart';
-import '../build_info.dart';
-import '../cache.dart';
 import 'code_signing.dart';
 
 // Error message patterns from ios-deploy output
@@ -23,22 +20,39 @@ const String unknownAppLaunchError = 'Error 0xe8000022';
 
 class IOSDeploy {
   IOSDeploy({
-    @required Artifacts artifacts,
-    @required Cache cache,
     @required Logger logger,
     @required Platform platform,
     @required ProcessManager processManager,
+    @required MapEntry<String, String> dyLdLibEntry,
+    @required String binaryPath,
   }) : _platform = platform,
-       _cache = cache,
        _processUtils = ProcessUtils(processManager: processManager, logger: logger),
        _logger = logger,
-       _binaryPath = artifacts.getArtifactPath(Artifact.iosDeploy, platform: TargetPlatform.ios);
+       _dyLdLibEntry = dyLdLibEntry,
+       _binaryPath = binaryPath;
 
-  final Cache _cache;
+  /// Create an [IOSDeploy] for testing.
+  factory IOSDeploy.test({
+    @required Logger logger,
+    @required Platform platform,
+    @required ProcessManager processManager,
+  }) {
+    return IOSDeploy(
+      logger: logger,
+      platform: platform,
+      processManager: processManager,
+      dyLdLibEntry: const MapEntry<String, String>(
+        'DYLD_LIBRARY_PATH', '/path/to/libs',
+      ),
+      binaryPath: 'ios-deploy',
+    );
+  }
+
   final String _binaryPath;
   final Logger _logger;
   final Platform _platform;
   final ProcessUtils _processUtils;
+  final MapEntry<String, String> _dyLdLibEntry;
 
   Map<String, String> get iosDeployEnv {
     // Push /usr/bin to the front of PATH to pick up default system python, package 'six'.
@@ -49,7 +63,7 @@ class IOSDeploy {
     // Ensure that we pick up the system install of python, which includes it.
     final Map<String, String> environment = Map<String, String>.from(_platform.environment);
     environment['PATH'] = '/usr/bin:${environment['PATH']}';
-    environment.addEntries(<MapEntry<String, String>>[_cache.dyLdLibEntry]);
+    environment.addEntries(<MapEntry<String, String>>[_dyLdLibEntry]);
     return environment;
   }
 

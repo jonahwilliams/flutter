@@ -22,6 +22,7 @@ import 'base/signals.dart';
 import 'base/terminal.dart';
 import 'base/time.dart';
 import 'base/user_messages.dart';
+import 'build_info.dart';
 import 'build_system/build_system.dart';
 import 'cache.dart';
 import 'compile.dart';
@@ -129,13 +130,25 @@ Future<T> runInContext<T>(
       GenSnapshot: () => const GenSnapshot(),
       GradleUtils: () => GradleUtils(),
       HotRunnerConfig: () => HotRunnerConfig(),
-      IMobileDevice: () => IMobileDevice(),
+      IMobileDevice: () => IMobileDevice(
+        logger: globals.logger,
+        processManager: globals.processManager,
+        idevicesyslogPath: globals.artifacts.getArtifactPath(
+          Artifact.idevicesyslog,
+          platform: TargetPlatform.ios,
+        ),
+        idevicescreenshotPath: globals.artifacts.getArtifactPath(
+          Artifact.idevicescreenshot,
+          platform: TargetPlatform.ios,
+        ),
+        dyLdLibEntry: globals.cache.dyLdLibEntry,
+      ),
       IOSDeploy: () => IOSDeploy(
-        artifacts: globals.artifacts,
-        cache: globals.cache,
         logger: globals.logger,
         platform: globals.platform,
         processManager: globals.processManager,
+        binaryPath:  globals.artifacts.getArtifactPath(Artifact.iosDeploy, platform: TargetPlatform.ios),
+        dyLdLibEntry: globals.cache.dyLdLibEntry,
       ),
       IOSSimulatorUtils: () => IOSSimulatorUtils(
         simControl: globals.simControl,

@@ -7,9 +7,10 @@ import 'dart:math' as math;
 
 import 'package:meta/meta.dart';
 import 'package:platform/platform.dart';
+import 'package:process/process.dart';
 
 import '../application_package.dart';
-import '../artifacts.dart';
+
 import '../base/common.dart';
 import '../base/file_system.dart';
 import '../base/io.dart';
@@ -51,30 +52,22 @@ class IOSDevice extends Device {
     @required this.cpuArchitecture,
     @required String sdkVersion,
     @required Platform platform,
-    @required Artifacts artifacts,
+    @required String iproxyPath,
     @required IOSDeploy iosDeploy,
   })
-      : _sdkVersion = sdkVersion,
+      : assert(platform.isMacOS, 'Control of iOS devices or simulators only supported on Mac OS.'),
+        _sdkVersion = sdkVersion,
         _iosDeploy = iosDeploy,
         _fileSystem = fileSystem,
+        _iproxyPath = iproxyPath,
         super(
           id,
           category: Category.mobile,
           platformType: PlatformType.ios,
           ephemeral: true,
-      ) {
-    if (!platform.isMacOS) {
-      assert(false, 'Control of iOS devices or simulators only supported on Mac OS.');
-      return;
-    }
-    _iproxyPath = artifacts.getArtifactPath(
-      Artifact.iproxy,
-      platform: TargetPlatform.ios,
-    );
-  }
+      );
 
-  String _iproxyPath;
-
+  final String _iproxyPath;
   final String _sdkVersion;
   final IOSDeploy _iosDeploy;
   final FileSystem _fileSystem;
@@ -351,7 +344,11 @@ class IOSDevice extends Device {
   @override
   DeviceLogReader getLogReader({ IOSApp app }) {
     _logReaders ??= <IOSApp, DeviceLogReader>{};
-    return _logReaders.putIfAbsent(app, () => IOSDeviceLogReader(this, app));
+    return _logReaders.putIfAbsent(app, () => IOSDeviceLogReader.create(
+      device: this,
+      app: app,
+      iMobileDevice: globals.iMobileDevice,
+    ));
   }
 
   @visibleForTesting
@@ -361,7 +358,13 @@ class IOSDevice extends Device {
   }
 
   @override
-  DevicePortForwarder get portForwarder => _portForwarder ??= IOSDevicePortForwarder(this);
+  DevicePortForwarder get portForwarder => _portForwarder ??= IOSDevicePortForwarder(
+    processManager: globals.processManager,
+    logger: globals.logger,
+    dyLdLibEntry: null,
+    id: id,
+    iproxyPath: _iproxyPath,
+  );
 
   @visibleForTesting
   set portForwarder(DevicePortForwarder forwarder) {
@@ -455,7 +458,7 @@ String decodeSyslog(String line) {
 
 @visibleForTesting
 class IOSDeviceLogReader extends DeviceLogReader {
-  IOSDeviceLogReader(this.device, IOSApp app) {
+  IOSDeviceLogReader._(this._iMobileDevice, this._majorSdkVersion, this._deviceId, this.name, String appName) {
     _linesController = StreamController<String>.broadcast(
       onListen: _listenToSysLog,
       onCancel: dispose,
@@ -465,7 +468,6 @@ class IOSDeviceLogReader extends DeviceLogReader {
     //
     // iOS 9 format:  Runner[297] <Notice>:
     // iOS 10 format: Runner(Flutter)[297] <Notice>:
-    final String appName = app == null ? '' : app.name.replaceAll('.app', '');
     _runnerLineRegex = RegExp(appName + r'(\(Flutter\))?\[[\d]+\] <[A-Za-z]+>: ');
     // Similar to above, but allows ~arbitrary components instead of "Runner"
     // and "Flutter". The regex tries to strike a balance between not producing
@@ -474,7 +476,35 @@ class IOSDeviceLogReader extends DeviceLogReader {
     _loggingSubscriptions = <StreamSubscription<ServiceEvent>>[];
   }
 
-  final IOSDevice device;
+  factory IOSDeviceLogReader.create({
+    @required IOSDevice device,
+    @required IOSApp app,
+    @required IMobileDevice iMobileDevice,
+  }) {
+    final String appName = app == null ? '' : app.name.replaceAll('.app', '');
+    return IOSDeviceLogReader._(
+      iMobileDevice,
+      device.majorSdkVersion,
+      device.id,
+      device.name,
+      appName,
+    );
+  }
+
+  /// Create an [IOSDeviceLogReader] for testing.
+  factory IOSDeviceLogReader.test({
+    @required IMobileDevice iMobileDevice,
+    bool useSyslog = true,
+  }) {
+    return IOSDeviceLogReader._(
+      iMobileDevice, useSyslog ? 12 : 13, '1234', 'test', 'Runner');
+  }
+
+  @override
+  final String name;
+  final int _majorSdkVersion;
+  final String _deviceId;
+  final IMobileDevice _iMobileDevice;
 
   // Matches a syslog line from the runner.
   RegExp _runnerLineRegex;
@@ -486,9 +516,6 @@ class IOSDeviceLogReader extends DeviceLogReader {
 
   @override
   Stream<String> get logLines => _linesController.stream;
-
-  @override
-  String get name => device.name;
 
   @override
   VMService get connectedVMService => _connectedVMService;
@@ -503,7 +530,7 @@ class IOSDeviceLogReader extends DeviceLogReader {
   static const int _minimumUniversalLoggingSdkVersion = 13;
 
   Future<void> _listenToUnifiedLoggingEvents(VMService connectedVmService) async {
-    if (device.majorSdkVersion < _minimumUniversalLoggingSdkVersion) {
+    if (_majorSdkVersion < _minimumUniversalLoggingSdkVersion) {
       return;
     }
     // The VM service will not publish logging events unless the debug stream is being listened to.
@@ -519,10 +546,10 @@ class IOSDeviceLogReader extends DeviceLogReader {
 
   void _listenToSysLog () {
     // syslog is not written on iOS 13+.
-    if (device.majorSdkVersion >= _minimumUniversalLoggingSdkVersion) {
+    if (_majorSdkVersion >= _minimumUniversalLoggingSdkVersion) {
       return;
     }
-    globals.iMobileDevice.startLogger(device.id).then<void>((Process process) {
+    _iMobileDevice.startLogger(_deviceId).then<void>((Process process) {
       process.stdout.transform<String>(utf8.decoder).transform<String>(const LineSplitter()).listen(_newSyslogLineHandler());
       process.stderr.transform<String>(utf8.decoder).transform<String>(const LineSplitter()).listen(_newSyslogLineHandler());
       process.exitCode.whenComplete(() {
@@ -581,11 +608,42 @@ class IOSDeviceLogReader extends DeviceLogReader {
 
 @visibleForTesting
 class IOSDevicePortForwarder extends DevicePortForwarder {
-  IOSDevicePortForwarder(this.device) : _forwardedPorts = <ForwardedPort>[];
+  IOSDevicePortForwarder({
+    @required ProcessManager processManager,
+    @required Logger logger,
+    @required MapEntry<String, String> dyLdLibEntry,
+    @required String id,
+    @required String iproxyPath,
+  }) : _forwardedPorts = <ForwardedPort>[],
+       _logger = logger,
+       _dyLdLibEntry = dyLdLibEntry,
+       _id = id,
+       _iproxyPath = iproxyPath,
+       _processUtils = ProcessUtils(processManager: processManager, logger: logger);
 
-  final IOSDevice device;
+  /// Create a [IOSDevicePortForwarder] for testing.
+  factory IOSDevicePortForwarder.test({
+    @required ProcessManager processManager,
+    @required Logger logger,
+    String id,
+  }) {
+    return IOSDevicePortForwarder(
+      processManager: processManager,
+      logger: logger,
+      iproxyPath: 'iproxy',
+      id: id ?? '1234',
+      dyLdLibEntry: const MapEntry<String, String>(
+        'DYLD_LIBRARY_PATH', '/path/to/libs',
+      ),
+    );
+  }
 
   final List<ForwardedPort> _forwardedPorts;
+  final ProcessUtils _processUtils;
+  final Logger _logger;
+  final MapEntry<String, String> _dyLdLibEntry;
+  final String _id;
+  final String _iproxyPath;
 
   @override
   List<ForwardedPort> get forwardedPorts => _forwardedPorts;
@@ -608,17 +666,17 @@ class IOSDevicePortForwarder extends DevicePortForwarder {
 
     bool connected = false;
     while (!connected) {
-      globals.printTrace('Attempting to forward device port $devicePort to host port $hostPort');
+      _logger.printTrace('Attempting to forward device port $devicePort to host port $hostPort');
       // Usage: iproxy LOCAL_TCP_PORT DEVICE_TCP_PORT UDID
-      process = await processUtils.start(
+      process = await _processUtils.start(
         <String>[
-          device._iproxyPath,
+          _iproxyPath,
           hostPort.toString(),
           devicePort.toString(),
-          device.id,
+          _id,
         ],
         environment: Map<String, String>.fromEntries(
-          <MapEntry<String, String>>[globals.cache.dyLdLibEntry],
+          <MapEntry<String, String>>[_dyLdLibEntry],
         ),
       );
       // TODO(ianh): This is a flakey race condition, https://github.com/libimobiledevice/libimobiledevice/issues/674
@@ -641,7 +699,7 @@ class IOSDevicePortForwarder extends DevicePortForwarder {
     final ForwardedPort forwardedPort = ForwardedPort.withContext(
       hostPort, devicePort, process,
     );
-    globals.printTrace('Forwarded port $forwardedPort');
+    _logger.printTrace('Forwarded port $forwardedPort');
     _forwardedPorts.add(forwardedPort);
     return hostPort;
   }
@@ -653,7 +711,7 @@ class IOSDevicePortForwarder extends DevicePortForwarder {
       return;
     }
 
-    globals.printTrace('Unforwarding port $forwardedPort');
+    _logger.printTrace('Unforwarding port $forwardedPort');
     forwardedPort.dispose();
   }
 

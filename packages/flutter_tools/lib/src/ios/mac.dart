@@ -5,9 +5,9 @@
 import 'dart:async';
 
 import 'package:meta/meta.dart';
+import 'package:process/process.dart';
 
 import '../application_package.dart';
-import '../artifacts.dart';
 import '../base/common.dart';
 import '../base/file_system.dart';
 import '../base/io.dart';
@@ -28,21 +28,50 @@ import 'migrations/xcode_build_system_migration.dart';
 import 'xcodeproj.dart';
 
 class IMobileDevice {
-  IMobileDevice()
-      : _idevicesyslogPath = globals.artifacts.getArtifactPath(Artifact.idevicesyslog, platform: TargetPlatform.ios),
-        _idevicescreenshotPath = globals.artifacts.getArtifactPath(Artifact.idevicescreenshot, platform: TargetPlatform.ios);
+  IMobileDevice({
+    @required Logger logger,
+    @required ProcessManager processManager,
+    @required String idevicesyslogPath,
+    @required String idevicescreenshotPath,
+    @required MapEntry<String, String> dyLdLibEntry
+  }) : _processUtils = ProcessUtils(
+         logger: logger,
+         processManager: processManager,
+       ),
+       _idevicesyslogPath = idevicesyslogPath,
+       _idevicescreenshotPath = idevicescreenshotPath,
+       _dyLdLibEntry = dyLdLibEntry;
+
+  /// Create an [IMobileDevice] instance for testing.
+  ///
+  /// The paths for the idevice tooling this depends on are fixed.
+  factory IMobileDevice.test({
+    @required ProcessManager processManager,
+    Logger logger,
+  }) {
+    return IMobileDevice(
+      dyLdLibEntry: const MapEntry<String, String>('DYLD_LIBRARY_PATH', '/path/to/libs'),
+      idevicescreenshotPath: 'idevice-screenshot',
+      idevicesyslogPath: 'idevice-syslog',
+      logger: logger ?? BufferLogger.test(),
+      processManager: processManager,
+    );
+  }
+
 
   final String _idevicesyslogPath;
   final String _idevicescreenshotPath;
+  final MapEntry<String, String> _dyLdLibEntry;
+  final ProcessUtils _processUtils;
 
   bool get isInstalled {
-    _isInstalled ??= processUtils.exitsHappySync(
+    _isInstalled ??= _processUtils.exitsHappySync(
       <String>[
         _idevicescreenshotPath,
         '-h',
       ],
       environment: Map<String, String>.fromEntries(
-        <MapEntry<String, String>>[globals.cache.dyLdLibEntry]
+        <MapEntry<String, String>>[_dyLdLibEntry]
       ),
     );
     return _isInstalled;
@@ -51,28 +80,28 @@ class IMobileDevice {
 
   /// Starts `idevicesyslog` and returns the running process.
   Future<Process> startLogger(String deviceID) {
-    return processUtils.start(
+    return _processUtils.start(
       <String>[
         _idevicesyslogPath,
         '-u',
         deviceID,
       ],
       environment: Map<String, String>.fromEntries(
-        <MapEntry<String, String>>[globals.cache.dyLdLibEntry]
+        <MapEntry<String, String>>[_dyLdLibEntry]
       ),
     );
   }
 
   /// Captures a screenshot to the specified outputFile.
   Future<void> takeScreenshot(File outputFile) {
-    return processUtils.run(
+    return _processUtils.run(
       <String>[
         _idevicescreenshotPath,
         outputFile.path,
       ],
       throwOnError: true,
       environment: Map<String, String>.fromEntries(
-        <MapEntry<String, String>>[globals.cache.dyLdLibEntry]
+        <MapEntry<String, String>>[_dyLdLibEntry]
       ),
     );
   }

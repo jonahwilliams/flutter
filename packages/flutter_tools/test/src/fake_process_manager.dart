@@ -139,8 +139,12 @@ class _FakeProcess implements Process {
         }
         return _exitCode;
       }),
-      stderr = Stream<List<int>>.value(utf8.encode(_stderr)),
-      stdout = Stream<List<int>>.value(utf8.encode(_stdout));
+      stderr = _stderr.isEmpty
+        ? const Stream<List<int>>.empty()
+        : Stream<List<int>>.value(utf8.encode(_stderr)),
+      stdout = _stdout.isEmpty
+        ? const Stream<List<int>>.empty()
+        : Stream<List<int>>.value(utf8.encode(_stdout));
 
   final int _exitCode;
 

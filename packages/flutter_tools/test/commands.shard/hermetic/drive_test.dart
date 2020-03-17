@@ -351,7 +351,7 @@ void main() {
         final Device mockDevice = MockDevice();
         testDeviceManager.addDevice(mockDevice);
 
-        final MockDeviceLogReader mockDeviceLogReader = MockDeviceLogReader();
+        final FakeDeviceLogReader mockDeviceLogReader = FakeDeviceLogReader();
         when(mockDevice.getLogReader()).thenReturn(mockDeviceLogReader);
         final MockLaunchResult mockLaunchResult = MockLaunchResult();
         when(mockLaunchResult.started).thenReturn(true);
@@ -481,7 +481,7 @@ void main() {
         final Device mockDevice = MockDevice();
         testDeviceManager.addDevice(mockDevice);
 
-        final MockDeviceLogReader mockDeviceLogReader = MockDeviceLogReader();
+        final FakeDeviceLogReader mockDeviceLogReader = FakeDeviceLogReader();
         when(mockDevice.getLogReader()).thenReturn(mockDeviceLogReader);
         final MockLaunchResult mockLaunchResult = MockLaunchResult();
         when(mockLaunchResult.started).thenReturn(true);

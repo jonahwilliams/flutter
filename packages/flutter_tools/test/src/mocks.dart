@@ -599,9 +599,10 @@ class MockIOSSimulator extends Mock implements IOSSimulator {
   bool isSupportedForProject(FlutterProject flutterProject) => true;
 }
 
-class MockDeviceLogReader extends DeviceLogReader {
+/// A fake implementation of the  [DeviceLogReader] for testing.
+class FakeDeviceLogReader extends DeviceLogReader {
   @override
-  String get name => 'MockLogReader';
+  String get name => 'FakeLogReader';
 
   StreamController<String> _cachedLinesController;
 

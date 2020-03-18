@@ -227,6 +227,7 @@ IOSDevice setUpIOSDevice({
     iproxyPath: 'iproxy',
     fileSystem: fileSystem ?? MemoryFileSystem.test(),
     platform: macPlatform,
+    logger: BufferLogger.test(),
     iosDeploy: IOSDeploy.test(
       logger: logger ?? BufferLogger.test(),
       platform: macPlatform,

@@ -30,9 +30,7 @@ class FakeCommand {
     this.completer,
   }) : assert(command != null),
        assert(duration != null),
-       assert(exitCode != null),
-       assert(stdout != null),
-       assert(stderr != null);
+       assert(exitCode != null);
 
   /// The exact commands that must be matched for this [FakeCommand] to be
   /// considered correct.
@@ -139,10 +137,10 @@ class _FakeProcess implements Process {
         }
         return _exitCode;
       }),
-      stderr = _stderr.isEmpty
+      stderr = _stderr == null
         ? const Stream<List<int>>.empty()
         : Stream<List<int>>.value(utf8.encode(_stderr)),
-      stdout = _stdout.isEmpty
+      stdout = _stdout == null
         ? const Stream<List<int>>.empty()
         : Stream<List<int>>.value(utf8.encode(_stdout));
 

@@ -23,6 +23,7 @@ void main() {
         command: <String>['iproxy', '1024', '456', '1234'],
         // iproxy does not exit with 0 when it cannot forward.
         exitCode: 0,
+        stdout: null, // no stdout indicates failure.
         environment: kDyLdLibEntry,
       ),
       const FakeCommand(

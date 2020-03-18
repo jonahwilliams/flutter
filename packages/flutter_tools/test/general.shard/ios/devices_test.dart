@@ -62,6 +62,7 @@ IOSDevice setUpIOSDevice({
  );
   return IOSDevice(
     'device-123',
+    logger: BufferLogger.test(),
     fileSystem: MemoryFileSystem.test(),
     platform: platform ?? macPlatform,
     iosDeploy: IOSDeploy.test(

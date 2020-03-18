@@ -4,6 +4,7 @@
 
 import 'package:file/memory.dart';
 import 'package:flutter_tools/src/base/file_system.dart';
+import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/build_info.dart';
 import 'package:flutter_tools/src/ios/devices.dart';
 import 'package:flutter_tools/src/project.dart';
@@ -76,6 +77,7 @@ IOSDevice setUpIOSDevice(FileSystem fileSystem) {
   return IOSDevice(
     'test',
     fileSystem: fileSystem,
+    logger: BufferLogger.test(),
     iosDeploy: null, // not used in this test
     platform: FakePlatform(operatingSystem: 'macos'),
     name: 'iPhone 1',

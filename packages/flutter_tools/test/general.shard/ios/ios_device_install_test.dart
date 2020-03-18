@@ -161,6 +161,7 @@ IOSDevice setUpIOSDevice({
   return IOSDevice(
     '1234',
     name: 'iPhone 1',
+    logger: BufferLogger.test(),
     fileSystem: fileSystem ?? MemoryFileSystem.test(),
     sdkVersion: '13.3',
     cpuArchitecture: DarwinArch.arm64,

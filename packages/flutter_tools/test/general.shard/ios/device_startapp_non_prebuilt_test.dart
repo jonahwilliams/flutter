@@ -276,6 +276,7 @@ IOSDevice setUpIOSDevice({
       processManager: processManager,
     ),
     name: 'iPhone 1',
+    logger: BufferLogger.test(),
     cpuArchitecture: DarwinArch.arm64,
     sdkVersion: '13.0.0',
     iproxyPath: 'iproxy',

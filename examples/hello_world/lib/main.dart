@@ -3,8 +3,8 @@
 // found in the LICENSE file.
 
 import 'dart:typed_data';
-import 'package:flutter/material.dart';
-import 'dart:developer';
+
+import 'package:vector_math/vector_math.dart';
 
 
 final SimdMatrix4 _identityMatrix = SimdMatrix4(
@@ -99,6 +99,7 @@ class SimdMatrix4 {
   /// An implementation of matrix inversion.
   ///
   /// This is based on https://github.com/tc39/ecmascript_simd/blob/master/src/benchmarks/inverse4x4.js
+  @pragma('vm:never-inline')
   SimdMatrix4 invert() {
     final Float32x4 src0 = _column0;
     final Float32x4 src1 = _column1;
@@ -212,20 +213,163 @@ class SimdMatrix4 {
 
     return SimdMatrix4._(minor0, minor1, minor2, minor3);
   }
+
+  /// An almost complete implementation of matrix inversion based on
+  /// https://www.geometrictools.com/Documentation/LaplaceExpansionTheorem.pdf
+  @pragma('vm:never-inline')
+  SimdMatrix4 almostInvert() {
+    // Given the 4x4 matrix below:
+    //
+    //  [ a00 a01 a02 a03 ]
+    //  [ a10 a11 a12 a13 ]
+    //  [ a20 a21 a22 a23 ]
+    //  [ a30 a31 a32 a33 ]
+    //
+    // First, compute the determinants of the 12 2x2 sub-matrices:
+    //
+    // s0 = [ a00 a01 ]
+    //      [ a10 a11 ]
+    //
+    // s1 = [ a00 a02 ]
+    //      [ a10 a12 ]
+    //
+    // s2 = [ a00 a03 ]
+    //      [ a10 a13 ]
+    //
+    // s3 = [ a01 a02 ]
+    //      [ a11 a12 ]
+    //
+    // s4 = [ a01 a03 ]
+    //      [ a11 a13 ]
+    //
+    // s5 = [ a02 a03 ]
+    //      [ a12 a13 ]
+    //
+    // c5 = [ a22 a23 ]
+    //      [ a32 a33 ]
+    //
+    // c4 = [ a21 a23 ]
+    //      [ a31 a33 ]
+    //
+    // c3 = [ a21 a22 ]
+    //      [ a31 a32 ]
+    //
+    // c2 = [ a20 a23 ]
+    //      [ a30 a33 ]
+    //
+    // c1 = [ a20 a22 ]
+    //      [ a30 a32 ]
+    //
+    // c0 = [ a20 a21 ]
+    //      [ a30 a31 ]
+
+    // Using SIMD operations we can compute the determinant
+    // for the upper half `sn` and the lower half `cn` at the
+    // same time. In the resulting multiplication and shuffle,
+    // the determinant of `sn` ends up in lane `x` and the
+    // determinant of `cn` ends up in lane `z`.
+
+    // Preprocessing
+    final Float32x4 col0Process = _column0.shuffle(Float32x4.yxwz);
+    final Float32x4 col1Process = _column1.shuffle(Float32x4.yxwz);
+    final Float32x4 col2Process = _column2.shuffle(Float32x4.yxwz);
+    final Float32x4 col3Process = _column3.shuffle(Float32x4.yxwz);
+
+    // Compute s0 and c0.
+    Float32x4 tmp1 = _column0 * col1Process;
+    final Float32x4 s0c0 = tmp1 - tmp1.shuffle(Float32x4.yyww);
+
+    // Compute s1 and c1
+    tmp1 = _column0 * col2Process;
+    final Float32x4 s1c1 = tmp1 - tmp1.shuffle(Float32x4.yyww);
+
+    // Compute s2 and c2
+    tmp1 = _column0 * col3Process;
+    final Float32x4 s2c2 = tmp1 - tmp1.shuffle(Float32x4.yyww);
+
+    // Compute s3 and c3
+    tmp1 = _column1 * col2Process;
+    final Float32x4 s3c3 = tmp1 - tmp1.shuffle(Float32x4.yyww);
+
+    // Compute s4 and c4
+    tmp1 = _column1 * col3Process;
+    final Float32x4 s4c4 = tmp1 - tmp1.shuffle(Float32x4.yyww);
+
+    // Compute s5 and c5
+    tmp1 = _column2 * col3Process;
+    final Float32x4 s5c5 = tmp1 - tmp1.shuffle(Float32x4.yyww);
+
+    // The determinant of `A` can then be computed from the equation:
+    // s0c5 - s1c4 + s2c3 + s3c2 - s4c1 + s5c0
+    final Float32x4 detA =
+      s0c0.shuffle(Float32x4.xxxx) * s5c5.shuffle(Float32x4.zzzz) -
+      s1c1.shuffle(Float32x4.xxxx) * s4c4.shuffle(Float32x4.zzzz) +
+      s2c2.shuffle(Float32x4.xxxx) * s3c3.shuffle(Float32x4.zzzz) +
+      s3c3.shuffle(Float32x4.xxxx) * s2c2.shuffle(Float32x4.zzzz) -
+      s4c4.shuffle(Float32x4.xxxx) * s1c1.shuffle(Float32x4.zzzz) +
+      s5c5.shuffle(Float32x4.xxxx) * s0c0.shuffle(Float32x4.zzzz);
+    // TODO: do something about zero.
+
+    // Compute the inverse of the determinant.
+    final Float32x4 invDetA = detA.reciprocal();
+
+    // The rows of the adjugate are treated as if they were columns,
+    // and then transposed at the end.
+
+    // Preprocessing
+    final Float32x4 neg0 = Float32x4(1, -1, 1, -1);
+    final Float32x4 neg1 = Float32x4(-1, 1, -1, 1);
+    final Float32x4 s0c0Process = s0c0.shuffle(Float32x4.zzxx);
+    final Float32x4 s1c1Process = s1c1.shuffle(Float32x4.zzxx);
+    final Float32x4 s2c2Process = s2c2.shuffle(Float32x4.zzxx);
+    final Float32x4 s3c3Process = s3c3.shuffle(Float32x4.zzxx);
+    final Float32x4 s4c4Process = s4c4.shuffle(Float32x4.zzxx);
+    final Float32x4 s5c5Process = s5c5.shuffle(Float32x4.zzxx);
+
+    // Row 1
+    tmp1 = col1Process * neg0 * s5c5Process;
+    Float32x4 tmp2 = col2Process * neg1 * s4c4Process;
+    Float32x4 tmp3 = col3Process * neg0 * s3c3Process;
+    final Float32x4 row0 = (tmp1 + tmp2 + tmp3) * invDetA;
+
+    // Row 2
+    tmp1 = col0Process * neg1 * s5c5Process;
+    tmp2 = col2Process * neg0 * s2c2Process;
+    tmp3 = col3Process * neg1 * s1c1Process;
+    final Float32x4 row1 = (tmp1 + tmp2 + tmp3) * invDetA;
+
+    // Row 3
+    tmp1 = col0Process * neg0 * s4c4Process;
+    tmp2 = col1Process * neg1 * s2c2Process;
+    tmp3 = col3Process * neg0 * s0c0Process;
+    final Float32x4 row2 = (tmp1 + tmp2 + tmp3) * invDetA;
+
+    // Row 4
+    tmp1 = col0Process * neg1 * s3c3Process;
+    tmp2 = col1Process * neg0 * s1c1Process;
+    tmp3 = col2Process * neg1 * s0c0Process;
+    final Float32x4 row3 = (tmp1 + tmp2 + tmp3)* invDetA;
+
+    // Return un-transposed result.
+    return SimdMatrix4._(
+      Float32x4(row0.x, row1.x, row2.x, row3.x),
+      Float32x4(row0.y, row1.y, row2.y, row3.y),
+      Float32x4(row0.z, row1.z, row2.z, row3.z),
+      Float32x4(row0.w, row1.w, row2.w, row3.w),
+    );
+  }
+
+
 }
 
 void main() {
-  runApp(MaterialApp(
-    home: Scaffold(
-      body: Center(
-        child: MaterialButton(onPressed: bench, child: Text('bench'),),
-      )
-    )
-  ));
+  bench();
 }
 
 void bench() {
-  Timeline.startSync('bench');
+  var simdRun = <int>[];
+  var vmRun = <int>[];
+  var almostRun = <int>[];
   for (int j = 0; j < 20; j++) {
     var sw = Stopwatch()..start();
     SimdMatrix4 result;
@@ -234,9 +378,7 @@ void bench() {
       result = simd4Identity.invert();
     }
     sw.stop();
-    print(result);
-    print(
-        'SIMD: ${sw.elapsedMilliseconds}ms or ${sw.elapsedMicroseconds / 10000} microseconds per invert');
+    simdRun.add(sw.elapsedMicroseconds);
 
     sw.reset();
     sw.start();
@@ -246,9 +388,20 @@ void bench() {
       det = identity.copyInverse(Matrix4.identity());
     }
     sw.stop();
-    print(det);
-    print(
-        'VM: ${sw.elapsedMilliseconds}ms or ${sw.elapsedMicroseconds / 10000} microseconds per invert');
+    vmRun.add(sw.elapsedMicroseconds);
+
+
+    sw.reset();
+    sw.start();
+    SimdMatrix4 result2;
+    var simd4Identity2 = SimdMatrix4.identity();
+    for (var i = 0; i < 10000; i++) {
+      result = simd4Identity.almostInvert();
+    }
+    sw.stop();
+    almostRun.add(sw.elapsedMicroseconds);
   }
-   Timeline.finishSync();
+  print('SIMD: $simdRun');
+  print('SIMD-almost: $almostRun');
+  print('vector_math: $vmRun');
 }

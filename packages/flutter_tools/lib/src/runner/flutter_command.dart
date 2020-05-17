@@ -900,10 +900,16 @@ abstract class FlutterCommand extends Command<void> {
       description.length + 2,
     );
     final String help = <String>[
-      description,
+      wrapText(description,
+        columnWidth: globals.outputPreferences.wrapColumn,
+        shouldWrap: globals.outputPreferences.wrapText,
+      ),
       '',
       'Global options:',
-      runner.argParser.usage,
+      wrapText(runner.argParser.usage,
+        columnWidth: globals.outputPreferences.wrapColumn,
+        shouldWrap: globals.outputPreferences.wrapText,
+      ),
       '',
       usageWithoutDescription,
     ].join('\n');

@@ -4,8 +4,12 @@
 
 import 'dart:async';
 
+import 'package:flutter_tools/src/base/terminal.dart';
+import 'package:meta/meta.dart';
+
 import 'runner.dart' as runner;
 import 'src/base/context.dart';
+import 'src/base/io.dart';
 import 'src/base/template.dart';
 // The build_runner code generation is provided here to make it easier to
 // avoid introducing the dependency into google3. Not all build* packages
@@ -121,5 +125,44 @@ Future<void> main(List<String> args) async {
        WebRunnerFactory: () => DwdsWebRunnerFactory(),
        // The mustache dependency is different in google3
        TemplateRenderer: () => const MustacheTemplateRenderer(),
+       OutputPreferences: () {
+         final int width = determineUsageWidth(args, globals.stdio);
+         return OutputPreferences(
+           wrapColumn: width,
+           wrapText: width != null,
+           showColor: !args.contains('--no-color'),
+         );
+       },
      });
+}
+
+/// Determine the usage columns for the flutter command.
+@visibleForTesting
+int determineUsageWidth(List<String> args, Stdio stdio) {
+  if (args.contains('--no-wrap')) {
+    return null;
+  }
+  if (!stdio.hasTerminal && !args.contains('--wrap')) {
+    return null;
+  }
+  int defaultColumnWidth = 80;
+  if (stdio.hasTerminal) {
+    defaultColumnWidth = stdio.terminalColumns;
+  }
+  final String columnWidthArg = args.firstWhere(
+    (String arg) => arg.startsWith('--wrap-column='),
+    orElse: () => null,
+  );
+  if (columnWidthArg == null) {
+    return defaultColumnWidth;
+  }
+  final List<String> parts = columnWidthArg.split('=');
+  if (parts.length != 2) {
+    return defaultColumnWidth;
+  }
+  final int candidateColumns = int.tryParse(parts[1]);
+  if (candidateColumns == null || candidateColumns <= 0) {
+    return defaultColumnWidth;
+  }
+  return candidateColumns;
 }

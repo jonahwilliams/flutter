@@ -40,11 +40,10 @@ Future<int> run(
     args.removeWhere((String option) => option == '-v' || option == '--verbose');
   }
 
-  final FlutterCommandRunner runner = FlutterCommandRunner(verboseHelp: verboseHelp);
-  commands.forEach(runner.addCommand);
-
   return runInContext<int>(() async {
     reportCrashes ??= !await globals.isRunningOnBot;
+    final FlutterCommandRunner runner = FlutterCommandRunner(verboseHelp: verboseHelp);
+    commands.forEach(runner.addCommand);
 
     // Initialize the system locale.
     final String systemLocale = await intl_standalone.findSystemLocale();

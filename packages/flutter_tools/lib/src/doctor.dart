@@ -30,6 +30,7 @@ import 'linux/linux_workflow.dart';
 import 'macos/cocoapods_validator.dart';
 import 'macos/macos_workflow.dart';
 import 'macos/xcode_validator.dart';
+import 'platform_validator.dart';
 import 'proxy_validator.dart';
 import 'reporting/reporting.dart';
 import 'tester/flutter_tester.dart';
@@ -78,6 +79,11 @@ class _DefaultDoctorValidatorsProvider implements DoctorValidatorsProvider {
     ];
     _validators = <DoctorValidator>[
       FlutterValidator(),
+      PlatformValidator(
+        processManager: globals.processManager,
+        platform: globals.platform,
+      ),
+      if (globals.platform.isWindows)
       if (androidWorkflow.appliesToHostPlatform)
         GroupedValidator(<DoctorValidator>[androidValidator, androidLicenseValidator]),
       if (globals.iosWorkflow.appliesToHostPlatform || macOSWorkflow.appliesToHostPlatform)

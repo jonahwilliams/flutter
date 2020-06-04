@@ -42,7 +42,7 @@ class SceneDisplayLagSummarizer {
   /// Creates a SceneDisplayLagSummarizer given the timeline events.
   SceneDisplayLagSummarizer(this.sceneDisplayLagEvents) {
     for (final TimelineEvent event in sceneDisplayLagEvents) {
-      assert(event.name == kSceneDisplayLagEvent);
+      assert(event.json['name'] == kSceneDisplayLagEvent);
     }
   }
 

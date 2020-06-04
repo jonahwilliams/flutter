@@ -5,9 +5,8 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:json_rpc_2/json_rpc_2.dart' as rpc;
 import 'package:meta/meta.dart';
-import 'package:vm_service_client/vm_service_client.dart';
+import 'package:vm_service/vm_service.dart' hide Timeline;
 
 import '../common/diagnostics_tree.dart';
 import '../common/error.dart';
@@ -92,14 +91,13 @@ abstract class FlutterDriver {
   @visibleForTesting
   factory FlutterDriver.connectedTo({
     FlutterWebConnection webConnection,
-    VMServiceClient serviceClient,
-    rpc.Peer peer,
-    VMIsolate appIsolate,
+    VmService serviceClient,
+    Isolate appIsolate,
   }) {
     if (webConnection != null) {
       return WebFlutterDriver.connectedTo(webConnection);
     }
-    return VMServiceFlutterDriver.connectedTo(serviceClient, peer, appIsolate);
+    return VMServiceFlutterDriver.connectedTo(serviceClient, appIsolate);
   }
 
   /// Connects to a Flutter application.
@@ -161,10 +159,10 @@ abstract class FlutterDriver {
   }
 
   /// Getter of appIsolate
-  VMIsolate get appIsolate => throw UnimplementedError();
+  Isolate get appIsolate => throw UnimplementedError();
 
   /// Getter of serviceClient
-  VMServiceClient get serviceClient => throw UnimplementedError();
+  VmService get serviceClient => throw UnimplementedError();
 
   /// Sends [command] to the Flutter Driver extensions.
   /// This must be implemented by subclass.
@@ -591,7 +589,7 @@ abstract class FlutterDriver {
   /// [getFlagList]: https://github.com/dart-lang/sdk/blob/master/runtime/vm/service/service.md#getflaglist
   ///
   /// Throws [UnimplementedError] on [WebFlutterDriver] instances.
-  Future<List<Map<String, dynamic>>> getVmFlags() async {
+  Future<List<Flag>> getVmFlags() async {
     throw UnimplementedError();
   }
   /// Starts recording performance traces.
@@ -689,6 +687,7 @@ abstract class FlutterDriver {
   /// Force a garbage collection run in the VM.
   ///
   /// Throws [UnimplementedError] on [WebFlutterDriver] instances.
+  @Deprecated('This functionality has been removed from flutter_driver')
   Future<void> forceGC() async {
     throw UnimplementedError();
   }

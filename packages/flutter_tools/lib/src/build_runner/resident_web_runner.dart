@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:dwds/dwds.dart';
+import 'package:flutter_tools/src/dart/package_map.dart';
 import 'package:meta/meta.dart';
 import 'package:package_config/package_config.dart';
 import 'package:vm_service/vm_service.dart' as vmservice;
@@ -53,6 +54,7 @@ class DwdsWebRunnerFactory extends WebRunnerFactory {
     @required bool ipv6,
     @required DebuggingOptions debuggingOptions,
     @required UrlTunneller urlTunneller,
+    @required PackageLoader packageLoader,
   }) {
     return _ResidentWebRunner(
       device,
@@ -62,6 +64,7 @@ class DwdsWebRunnerFactory extends WebRunnerFactory {
       ipv6: ipv6,
       stayResident: stayResident,
       urlTunneller: urlTunneller,
+      packageLoader: packageLoader,
     );
   }
 }
@@ -78,6 +81,7 @@ abstract class ResidentWebRunner extends ResidentRunner {
     @required this.flutterProject,
     @required bool ipv6,
     @required DebuggingOptions debuggingOptions,
+    @required PackageLoader packageLoader,
     bool stayResident = true,
   }) : super(
           <FlutterDevice>[device],
@@ -85,6 +89,7 @@ abstract class ResidentWebRunner extends ResidentRunner {
           debuggingOptions: debuggingOptions,
           ipv6: ipv6,
           stayResident: stayResident,
+          packageLoader: packageLoader,
         );
 
   FlutterDevice get device => flutterDevices.first;
@@ -374,6 +379,7 @@ class _ResidentWebRunner extends ResidentWebRunner {
     @required FlutterProject flutterProject,
     @required bool ipv6,
     @required DebuggingOptions debuggingOptions,
+    @required PackageLoader packageLoader,
     bool stayResident = true,
     @required this.urlTunneller,
   }) : super(
@@ -383,6 +389,7 @@ class _ResidentWebRunner extends ResidentWebRunner {
           debuggingOptions: debuggingOptions,
           ipv6: ipv6,
           stayResident: stayResident,
+          packageLoader: packageLoader,
         );
 
   final UrlTunneller urlTunneller;

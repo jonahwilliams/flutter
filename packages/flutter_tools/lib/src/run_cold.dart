@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:flutter_tools/src/dart/package_map.dart';
 import 'package:meta/meta.dart';
 
 import 'base/file_system.dart';
@@ -23,11 +24,13 @@ class ColdRunner extends ResidentRunner {
     this.applicationBinary,
     bool ipv6 = false,
     bool stayResident = true,
+    @required PackageLoader packageLoader,
   }) : super(devices,
              target: target,
              debuggingOptions: debuggingOptions,
              hotMode: false,
              stayResident: stayResident,
+             packageLoader: packageLoader,
              ipv6: ipv6);
 
   final bool traceStartup;

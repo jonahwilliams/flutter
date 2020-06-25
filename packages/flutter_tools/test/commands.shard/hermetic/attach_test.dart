@@ -23,6 +23,7 @@ import 'package:flutter_tools/src/run_hot.dart';
 import 'package:flutter_tools/src/vmservice.dart';
 import 'package:meta/meta.dart';
 import 'package:mockito/mockito.dart';
+import 'package:package_config/package_config.dart';
 import 'package:process/process.dart';
 import 'package:vm_service/vm_service.dart' as vm_service;
 
@@ -785,6 +786,10 @@ class TestHotRunnerFactory extends HotRunnerFactory {
       dillOutputPath: dillOutputPath,
       stayResident: stayResident,
       ipv6: ipv6,
+      packageLoader: (File file, {
+        Logger logger,
+        bool throwOnError,
+      }) async => PackageConfig.empty,
     );
     return _runner;
   }

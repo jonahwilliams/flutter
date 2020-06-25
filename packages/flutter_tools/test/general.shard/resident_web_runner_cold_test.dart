@@ -6,6 +6,7 @@ import 'dart:async';
 
 import 'package:dwds/dwds.dart';
 import 'package:flutter_tools/src/base/common.dart';
+import 'package:flutter_tools/src/base/file_system.dart';
 import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/base/platform.dart';
 import 'package:flutter_tools/src/base/terminal.dart';
@@ -21,11 +22,17 @@ import 'package:flutter_tools/src/resident_runner.dart';
 import 'package:flutter_tools/src/web/chrome.dart';
 import 'package:flutter_tools/src/web/web_device.dart';
 import 'package:mockito/mockito.dart';
+import 'package:package_config/package_config.dart';
 import 'package:vm_service/vm_service.dart';
 import 'package:webkit_inspection_protocol/webkit_inspection_protocol.dart';
 
 import '../src/common.dart';
 import '../src/testbed.dart';
+
+Future<PackageConfig> testPackageLoader(File file, {
+  Logger logger,
+  bool throwOnError,
+}) async => PackageConfig.empty;
 
 void main() {
   Testbed testbed;
@@ -54,6 +61,7 @@ void main() {
           ipv6: true,
           stayResident: true,
           urlTunneller: null,
+          packageLoader: testPackageLoader,
         ) as ResidentWebRunner;
       }, overrides: <Type, Generator>{
         Pub: () => MockPub(),

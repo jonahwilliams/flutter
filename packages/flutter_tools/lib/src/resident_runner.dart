@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:devtools_server/devtools_server.dart' as devtools_server;
+import 'package:flutter_tools/src/dart/package_map.dart';
 import 'package:meta/meta.dart';
 import 'package:package_config/package_config.dart';
 import 'package:vm_service/vm_service.dart' as vm_service;
@@ -688,6 +689,7 @@ abstract class ResidentRunner {
     this.stayResident = true,
     this.hotMode = true,
     String dillOutputPath,
+    @required this.packageLoader,
   }) : mainPath = findMainDartFile(target),
        packagesFilePath = debuggingOptions.buildInfo.packagesPath,
        projectRootPath = projectRootPath ?? globals.fs.currentDirectory.path,
@@ -726,6 +728,9 @@ abstract class ResidentRunner {
   final CommandHelp commandHelp;
 
   io.HttpServer _devtoolsServer;
+
+  @protected
+  final PackageLoader packageLoader;
 
   bool _exited = false;
   Completer<int> _finished = Completer<int>();

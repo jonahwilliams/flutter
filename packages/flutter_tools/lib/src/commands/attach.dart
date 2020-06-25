@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:flutter_tools/src/dart/package_map.dart';
 import 'package:meta/meta.dart';
 
 import '../android/android_device.dart';
@@ -387,6 +388,7 @@ class AttachCommand extends FlutterCommand {
           target: targetFile,
           debuggingOptions: debuggingOptions,
           ipv6: usesIpv6,
+          packageLoader: loadPackageConfigWithLogging,
         );
   }
 
@@ -418,5 +420,6 @@ class HotRunnerFactory {
     dillOutputPath: dillOutputPath,
     stayResident: stayResident,
     ipv6: ipv6,
+    packageLoader: loadPackageConfigWithLogging,
   );
 }

@@ -4,12 +4,16 @@
 
 import 'dart:async';
 
+import 'package:flutter_tools/src/base/file_system.dart';
+import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/build_info.dart';
 import 'package:flutter_tools/src/compile.dart';
 import 'package:flutter_tools/src/device.dart';
 import 'package:flutter_tools/src/resident_runner.dart';
 import 'package:flutter_tools/src/vmservice.dart';
+import 'package:meta/meta.dart';
 import 'package:mockito/mockito.dart';
+import 'package:package_config/package_config.dart';
 
 import '../src/common.dart';
 import '../src/context.dart';
@@ -420,7 +424,14 @@ class MockResidentCompiler extends Mock implements ResidentCompiler {}
 
 class TestRunner extends ResidentRunner {
   TestRunner(List<FlutterDevice> devices)
-    : super(devices, debuggingOptions: DebuggingOptions.disabled(BuildInfo.debug));
+    : super(
+        devices,
+        debuggingOptions: DebuggingOptions.disabled(BuildInfo.debug),
+        packageLoader: (File file, {
+          @required Logger logger,
+          bool throwOnError,
+        }) async => PackageConfig.empty,
+      );
 
   bool hasHelpBeenPrinted = false;
   String receivedCommand;

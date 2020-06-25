@@ -75,6 +75,7 @@ class HotRunner extends ResidentRunner {
     String dillOutputPath,
     bool stayResident = true,
     bool ipv6 = false,
+    @required PackageLoader packageLoader,
   }) : super(devices,
              target: target,
              debuggingOptions: debuggingOptions,
@@ -82,6 +83,7 @@ class HotRunner extends ResidentRunner {
              stayResident: stayResident,
              hotMode: true,
              dillOutputPath: dillOutputPath,
+             packageLoader: packageLoader,
              ipv6: ipv6);
 
   final bool benchmarkMode;

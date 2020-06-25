@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:flutter_tools/src/dart/package_map.dart';
 import 'package:meta/meta.dart';
 import 'package:uuid/uuid.dart';
 
@@ -489,6 +490,7 @@ class AppDomain extends Domain {
         dillOutputPath: dillOutputPath,
         ipv6: ipv6,
         hostIsIde: true,
+        packageLoader: loadPackageConfigWithLogging,
       );
     } else {
       runner = ColdRunner(
@@ -497,6 +499,7 @@ class AppDomain extends Domain {
         debuggingOptions: options,
         applicationBinary: applicationBinary,
         ipv6: ipv6,
+        packageLoader: loadPackageConfigWithLogging,
       );
     }
 

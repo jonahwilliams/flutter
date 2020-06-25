@@ -4,7 +4,9 @@
 
 import 'dart:async';
 
+import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/cache.dart';
+import 'package:package_config/package_config.dart';
 import 'package:vm_service/vm_service.dart' as vm_service;
 import 'package:file/memory.dart';
 import 'package:file_testing/file_testing.dart';
@@ -31,6 +33,11 @@ import 'package:mockito/mockito.dart';
 import '../src/common.dart';
 import '../src/context.dart';
 import '../src/testbed.dart';
+
+Future<PackageConfig> testPackageLoader(File file, {
+  Logger logger,
+  bool throwOnError,
+}) async => PackageConfig.empty;
 
 final vm_service.Isolate fakeUnpausedIsolate = vm_service.Isolate(
   id: '1',
@@ -103,6 +110,7 @@ void main() {
         ],
         stayResident: false,
         debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
+        packageLoader: testPackageLoader,
       );
     });
     mockFlutterDevice = MockFlutterDevice();
@@ -222,6 +230,7 @@ void main() {
       ],
       stayResident: false,
       debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
+      packageLoader: testPackageLoader,
     );
     when(mockFlutterDevice.generator).thenReturn(residentCompiler);
     when(residentCompiler.recompile(
@@ -266,6 +275,7 @@ void main() {
       applicationBinary: globals.fs.file('app.apk'),
       stayResident: false,
       debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
+      packageLoader: testPackageLoader,
     );
     when(mockFlutterDevice.generator).thenReturn(residentCompiler);
     when(residentCompiler.recompile(
@@ -354,6 +364,7 @@ void main() {
         fastStart: true,
         startPaused: true,
       ),
+      packageLoader: testPackageLoader,
     );
     final Completer<DebugConnectionInfo> onConnectionInfo = Completer<DebugConnectionInfo>.sync();
     final Completer<void> onAppStart = Completer<void>.sync();
@@ -442,6 +453,7 @@ void main() {
         '--enable-experiment=non-nullable',
         ],
       )),
+      packageLoader: testPackageLoader,
     );
     when(mockDevice.sdkNameAndVersion).thenAnswer((Invocation invocation) async {
       return 'Example';
@@ -672,6 +684,7 @@ void main() {
       stayResident: false,
       debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
       dillOutputPath: globals.fs.path.join('foobar', 'app.dill'),
+      packageLoader: testPackageLoader,
     );
     expect(otherRunner.artifactDirectory.path, contains('foobar'));
   }));
@@ -985,6 +998,7 @@ void main() {
       ],
       stayResident: false,
       debuggingOptions: DebuggingOptions.disabled(BuildInfo.release),
+      packageLoader: testPackageLoader,
     );
     when(mockDevice.supportsScreenshot).thenReturn(true);
     when(mockDevice.takeScreenshot(any))
@@ -1122,7 +1136,8 @@ void main() {
     final FlutterDevice device = FlutterDevice(mockDevice, buildInfo: BuildInfo.debug);
     final ResidentRunner residentRunner = HotRunner(
       <FlutterDevice>[device],
-      debuggingOptions: DebuggingOptions.disabled(BuildInfo.debug)
+      debuggingOptions: DebuggingOptions.disabled(BuildInfo.debug),
+      packageLoader: testPackageLoader,
     );
 
     expect(await residentRunner.listFlutterViews(), isEmpty);
@@ -1242,6 +1257,7 @@ void main() {
       ],
       stayResident: false,
       debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug, vmserviceOutFile: 'foo'),
+      packageLoader: testPackageLoader,
     );
     when(mockFlutterDevice.runHot(
       hotRunner: anyNamed('hotRunner'),
@@ -1267,6 +1283,7 @@ void main() {
       ],
       stayResident: false,
       debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
+      packageLoader: testPackageLoader,
     );
     residentRunner.artifactDirectory.childFile('app.dill').writeAsStringSync('ABC');
     when(mockFlutterDevice.runHot(
@@ -1300,6 +1317,7 @@ void main() {
           dartDefines: <String>['a', 'b'],
         )
       ),
+      packageLoader: testPackageLoader,
     );
     residentRunner.artifactDirectory.childFile('app.dill').writeAsStringSync('ABC');
     when(mockFlutterDevice.runHot(
@@ -1328,6 +1346,7 @@ void main() {
       stayResident: false,
       dillOutputPath: 'test',
       debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
+      packageLoader: testPackageLoader,
     );
     residentRunner.artifactDirectory.childFile('app.dill').writeAsStringSync('ABC');
     when(mockFlutterDevice.runHot(
@@ -1359,6 +1378,7 @@ void main() {
         treeShakeIcons: false,
         trackWidgetCreation: true,
       )),
+      packageLoader: testPackageLoader,
     );
     residentRunner.artifactDirectory.childFile('app.dill').writeAsStringSync('ABC');
     when(mockFlutterDevice.runHot(
@@ -1387,6 +1407,7 @@ void main() {
       ],
       stayResident: false,
       debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
+      packageLoader: testPackageLoader,
     );
     when(mockFlutterDevice.runHot(
       hotRunner: anyNamed('hotRunner'),
@@ -1416,6 +1437,7 @@ void main() {
       ],
       stayResident: false,
       debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug, vmserviceOutFile: 'foo'),
+      packageLoader: testPackageLoader,
     );
     when(mockFlutterDevice.runHot(
       hotRunner: anyNamed('hotRunner'),
@@ -1444,6 +1466,7 @@ void main() {
       ],
       stayResident: false,
       debuggingOptions: DebuggingOptions.enabled(BuildInfo.profile, vmserviceOutFile: 'foo'),
+      packageLoader: testPackageLoader,
     );
     when(mockFlutterDevice.runCold(
       coldRunner: anyNamed('coldRunner'),

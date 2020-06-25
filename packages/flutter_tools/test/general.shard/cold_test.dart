@@ -6,6 +6,7 @@ import 'dart:async';
 
 import 'package:flutter_tools/src/base/file_system.dart';
 import 'package:flutter_tools/src/base/io.dart';
+import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/build_info.dart';
 import 'package:flutter_tools/src/compile.dart';
 import 'package:flutter_tools/src/device.dart';
@@ -14,10 +15,16 @@ import 'package:flutter_tools/src/run_cold.dart';
 import 'package:flutter_tools/src/vmservice.dart';
 import 'package:meta/meta.dart';
 import 'package:mockito/mockito.dart';
+import 'package:package_config/package_config.dart';
 
 import '../src/common.dart';
 import '../src/context.dart';
 import '../src/mocks.dart';
+
+Future<PackageConfig> testPackageLoader(File file, {
+  Logger logger,
+  bool throwOnError,
+}) async => PackageConfig.empty;
 
 void main() {
   testUsingContext('Exits with code 2 when when HttpException is thrown '
@@ -40,6 +47,10 @@ void main() {
 
     final int exitCode = await ColdRunner(devices,
       debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
+      packageLoader: (File file, {
+        Logger logger,
+        bool throwOnError,
+      }) async => PackageConfig.empty,
     ).attach();
     expect(exitCode, 2);
   });
@@ -62,6 +73,7 @@ void main() {
 
       await ColdRunner(devices,
         debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
+        packageLoader: testPackageLoader,
       ).cleanupAtFinish();
 
       verify(mockDevice1.dispose());
@@ -80,6 +92,7 @@ void main() {
       final int result = await ColdRunner(
         devices,
         debuggingOptions: DebuggingOptions.disabled(BuildInfo.debug),
+        packageLoader: testPackageLoader,
       ).run();
 
       expect(result, 1);
@@ -101,6 +114,7 @@ void main() {
         devices,
         applicationBinary: applicationBinary,
         debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
+        packageLoader: testPackageLoader,
       ).run();
 
       expect(result, 1);

@@ -24,6 +24,12 @@ bool get isUsingCustomPackagesPath => _globalPackagesPath != null;
 
 String _globalPackagesPath;
 
+/// The type for a package loader.
+typedef PackageLoader = Future<PackageConfig> Function(File file, {
+  @required Logger logger,
+  bool throwOnError,
+});
+
 /// Load the package configuration from [file] or throws a [ToolExit]
 /// if the operation would fail.
 ///

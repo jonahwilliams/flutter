@@ -27,6 +27,7 @@ import 'package:flutter_tools/src/vmservice.dart';
 import 'package:flutter_tools/src/web/chrome.dart';
 import 'package:flutter_tools/src/web/web_device.dart';
 import 'package:mockito/mockito.dart';
+import 'package:package_config/package_config.dart';
 import 'package:vm_service/vm_service.dart' as vm_service;
 import 'package:vm_service/vm_service.dart';
 import 'package:webkit_inspection_protocol/webkit_inspection_protocol.dart';
@@ -77,6 +78,11 @@ const List<VmServiceExpectation> kAttachExpectations = <VmServiceExpectation>[
   ...kAttachIsolateExpectations,
 ];
 
+Future<PackageConfig> testPackageLoader(File file, {
+  Logger logger,
+  bool throwOnError,
+}) async => PackageConfig.empty;
+
 void main() {
   Testbed testbed;
   ResidentWebRunner residentWebRunner;
@@ -125,6 +131,7 @@ void main() {
           ipv6: true,
           stayResident: true,
           urlTunneller: null,
+          packageLoader: testPackageLoader,
         ) as ResidentWebRunner;
       },
       overrides: <Type, Generator>{
@@ -187,6 +194,7 @@ void main() {
       ipv6: true,
       stayResident: true,
       urlTunneller: null,
+      packageLoader: testPackageLoader,
     ) as ResidentWebRunner;
 
     expect(profileResidentWebRunner.debuggingEnabled, false);
@@ -209,6 +217,7 @@ void main() {
       ipv6: true,
       stayResident: true,
       urlTunneller: null,
+      packageLoader: testPackageLoader,
     );
 
     expect(profileResidentWebRunner.uri, mockWebDevFS.baseUri);
@@ -225,6 +234,7 @@ void main() {
       ipv6: true,
       stayResident: true,
       urlTunneller: null,
+      packageLoader: testPackageLoader,
     );
 
     expect(profileResidentWebRunner.supportsServiceProtocol, false);
@@ -294,6 +304,7 @@ void main() {
       ipv6: true,
       stayResident: false,
       urlTunneller: null,
+      packageLoader: testPackageLoader,
     ) as ResidentWebRunner;
 
     expect(await residentWebRunner.run(), 0);
@@ -311,6 +322,7 @@ void main() {
       ipv6: true,
       stayResident: false,
       urlTunneller: null,
+      packageLoader: testPackageLoader,
     ) as ResidentWebRunner;
 
     expect(await residentWebRunner.run(), 0);
@@ -419,6 +431,7 @@ void main() {
       ipv6: true,
       stayResident: true,
       urlTunneller: null,
+      packageLoader: testPackageLoader,
     ) as ResidentWebRunner;
     _setupMocks();
     final Completer<DebugConnectionInfo> connectionInfoCompleter = Completer<DebugConnectionInfo>();
@@ -1225,6 +1238,7 @@ void main() {
       ipv6: true,
       stayResident: true,
       urlTunneller: null,
+      packageLoader: testPackageLoader,
     ) as ResidentWebRunner;
 
     final Completer<DebugConnectionInfo> connectionInfoCompleter = Completer<DebugConnectionInfo>();
@@ -1268,6 +1282,7 @@ void main() {
       ipv6: true,
       stayResident: true,
       urlTunneller: null,
+      packageLoader: testPackageLoader,
     ) as ResidentWebRunner;
 
     final Completer<DebugConnectionInfo> connectionInfoCompleter = Completer<DebugConnectionInfo>();

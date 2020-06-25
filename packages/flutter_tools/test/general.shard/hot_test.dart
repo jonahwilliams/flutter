@@ -6,7 +6,9 @@ import 'dart:async';
 
 import 'package:file/memory.dart';
 import 'package:flutter_tools/src/base/file_system.dart';
+import 'package:flutter_tools/src/base/logger.dart';
 import 'package:flutter_tools/src/base/platform.dart';
+import 'package:package_config/package_config.dart';
 import 'package:vm_service/vm_service.dart' as vm_service;
 import 'package:flutter_tools/src/artifacts.dart';
 import 'package:flutter_tools/src/base/io.dart';
@@ -23,6 +25,11 @@ import 'package:mockito/mockito.dart';
 import '../src/common.dart';
 import '../src/context.dart';
 import '../src/mocks.dart';
+
+Future<PackageConfig> testPackageLoader(File file, {
+  Logger logger,
+  bool throwOnError,
+}) async => PackageConfig.empty;
 
 final vm_service.Isolate fakeUnpausedIsolate = vm_service.Isolate(
   id: '1',
@@ -177,6 +184,7 @@ void main() {
       final OperationResult result = await HotRunner(
         devices,
         debuggingOptions: DebuggingOptions.disabled(BuildInfo.debug),
+        packageLoader: testPackageLoader,
       ).restart(fullRestart: true);
       // Expect hot restart failed.
       expect(result.isOk, false);
@@ -207,7 +215,8 @@ void main() {
       ];
       final OperationResult result = await HotRunner(
         devices,
-        debuggingOptions: DebuggingOptions.disabled(BuildInfo.debug)
+        debuggingOptions: DebuggingOptions.disabled(BuildInfo.debug),
+        packageLoader: testPackageLoader,
       ).restart(fullRestart: true);
       // Expect hot restart failed.
       expect(result.isOk, false);
@@ -310,6 +319,7 @@ void main() {
       final HotRunner hotRunner = HotRunner(
         devices,
         debuggingOptions: DebuggingOptions.disabled(BuildInfo.debug),
+        packageLoader: testPackageLoader,
       );
       final OperationResult result = await hotRunner.restart(fullRestart: true);
       // Expect hot restart was successful.
@@ -338,6 +348,7 @@ void main() {
       final OperationResult result = await HotRunner(
         devices,
         debuggingOptions: DebuggingOptions.disabled(BuildInfo.debug),
+        packageLoader: testPackageLoader,
       ).restart(fullRestart: true);
       expect(result.isOk, false);
       expect(result.message, 'setupHotRestart failed');
@@ -403,6 +414,7 @@ void main() {
       final HotRunner hotRunner = HotRunner(
         devices,
         debuggingOptions: DebuggingOptions.disabled(BuildInfo.debug),
+        packageLoader: testPackageLoader,
       );
       final OperationResult result = await hotRunner.restart(fullRestart: true);
       // Expect hot restart successful.
@@ -439,7 +451,8 @@ void main() {
         ];
         await HotRunner(
           devices,
-          debuggingOptions: DebuggingOptions.disabled(BuildInfo.debug)
+          debuggingOptions: DebuggingOptions.disabled(BuildInfo.debug),
+          packageLoader: testPackageLoader,
         ).cleanupAfterSignal();
         expect(shutdownTestingConfig.shutdownHookCalled, true);
       }, overrides: <Type, Generator>{
@@ -463,7 +476,8 @@ void main() {
         ];
         await HotRunner(
           devices,
-          debuggingOptions: DebuggingOptions.disabled(BuildInfo.debug)
+          debuggingOptions: DebuggingOptions.disabled(BuildInfo.debug),
+          packageLoader: testPackageLoader,
         ).preExit();
         expect(shutdownTestingConfig.shutdownHookCalled, true);
       }, overrides: <Type, Generator>{
@@ -507,6 +521,7 @@ void main() {
 
       final int exitCode = await HotRunner(devices,
         debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
+        packageLoader: testPackageLoader,
       ).attach();
       expect(exitCode, 2);
     }, overrides: <Type, Generator>{
@@ -539,6 +554,7 @@ void main() {
 
       await HotRunner(devices,
         debuggingOptions: DebuggingOptions.enabled(BuildInfo.debug),
+        packageLoader: testPackageLoader,
       ).cleanupAtFinish();
 
       verify(mockDevice1.dispose());

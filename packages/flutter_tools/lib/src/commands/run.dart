@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:args/command_runner.dart';
+import 'package:flutter_tools/src/dart/package_map.dart';
 
 import '../android/android_device.dart';
 import '../base/common.dart';
@@ -539,6 +540,7 @@ class RunCommand extends RunCommandBase {
         dillOutputPath: stringArg('output-dill'),
         stayResident: stayResident,
         ipv6: ipv6,
+        packageLoader: loadPackageConfigWithLogging,
       );
     } else if (webMode) {
       runner = webRunnerFactory.createWebRunner(
@@ -562,6 +564,7 @@ class RunCommand extends RunCommandBase {
             : globals.fs.file(applicationBinaryPath),
         ipv6: ipv6,
         stayResident: stayResident,
+        packageLoader: loadPackageConfigWithLogging,
       );
     }
 

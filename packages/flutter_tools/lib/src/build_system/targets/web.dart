@@ -414,7 +414,8 @@ self.addEventListener("install", (event) => {
   return event.waitUntil(
     caches.open(TEMP).then((cache) => {
       // Provide a no-cache param to ensure the latest version is downloaded.
-      return cache.addAll(CORE.map((value) => new Request(value, {'cache': 'no-cache'})));
+      cache.addAll(CORE.map((value) => new Request(value, {'cache': 'no-cache'})));
+      return cache;
     })
   );
 });

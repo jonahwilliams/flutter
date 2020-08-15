@@ -22,13 +22,17 @@ class LinuxDevice extends DesktopDevice {
   LinuxDevice({
     @required ProcessManager processManager,
     @required Logger logger,
-  }) : super(
-      'linux',
-      platformType: PlatformType.linux,
-      ephemeral: false,
-      logger: logger,
-      processManager: processManager,
-  );
+    @required LinuxBuilder linuxBuilder,
+  }) : _linuxBuilder = linuxBuilder,
+       super(
+        'linux',
+        platformType: PlatformType.linux,
+        ephemeral: false,
+        logger: logger,
+        processManager: processManager,
+      );
+
+  final LinuxBuilder _linuxBuilder;
 
   @override
   bool isSupported() => true;
@@ -50,7 +54,7 @@ class LinuxDevice extends DesktopDevice {
     String mainPath,
     BuildInfo buildInfo,
   }) async {
-    await buildLinux(
+    await _linuxBuilder.buildLinux(
       FlutterProject.current().linux,
       buildInfo,
       target: mainPath,
@@ -67,6 +71,7 @@ class LinuxDevices extends PollingDeviceDiscovery {
   LinuxDevices({
     @required Platform platform,
     @required FeatureFlags featureFlags,
+    @required LinuxBuilder linuxBuilder,
     ProcessManager processManager,
     Logger logger,
   }) : _platform = platform ?? globals.platform, // TODO(jonahwilliams): remove after google3 roll
@@ -76,12 +81,20 @@ class LinuxDevices extends PollingDeviceDiscovery {
        ),
        _logger = logger,
        _processManager = processManager ?? globals.processManager,
+       _linuxBuilder = linuxBuilder ?? LinuxBuilder(
+         artifacts: globals.artifacts,
+         logger: globals.logger,
+         fileSystem: globals.fs,
+         processManager: globals.processManager,
+         usage: globals.flutterUsage,
+       ),
        super('linux devices');
 
   final Platform _platform;
   final LinuxWorkflow _linuxWorkflow;
   final ProcessManager _processManager;
   final Logger _logger;
+  final LinuxBuilder _linuxBuilder;
 
   @override
   bool get supportsPlatform => _platform.isLinux;
@@ -98,6 +111,7 @@ class LinuxDevices extends PollingDeviceDiscovery {
       LinuxDevice(
         logger: _logger,
         processManager: _processManager,
+        linuxBuilder: _linuxBuilder,
       ),
     ];
   }

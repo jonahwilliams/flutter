@@ -4,6 +4,8 @@
 
 import 'dart:async';
 
+import 'package:flutter_tools/src/linux/build_linux.dart';
+
 import 'android/android_sdk.dart';
 import 'android/android_studio.dart';
 import 'android/android_workflow.dart';
@@ -145,6 +147,13 @@ Future<T> runInContext<T>(
         macOSWorkflow: MacOSWorkflow(
           platform: globals.platform,
           featureFlags: featureFlags,
+        ),
+        linuxBuilder: LinuxBuilder(
+          artifacts: globals.artifacts,
+          logger: globals.logger,
+          fileSystem: globals.fs,
+          processManager: globals.processManager,
+          usage: globals.flutterUsage,
         ),
       ),
       Doctor: () => Doctor(logger: globals.logger),

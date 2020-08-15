@@ -15,7 +15,9 @@ import 'package:flutter_tools/src/commands/build_macos.dart';
 import 'package:flutter_tools/src/commands/build_web.dart';
 import 'package:flutter_tools/src/commands/build_windows.dart';
 import 'package:flutter_tools/src/globals.dart' as globals;
+import 'package:flutter_tools/src/linux/build_linux.dart';
 import 'package:flutter_tools/src/runner/flutter_command.dart';
+import 'package:mockito/mockito.dart';
 
 import '../../src/common.dart';
 import '../../src/context.dart';
@@ -24,7 +26,7 @@ void main() {
   testUsingContext('All build commands support null safety options', () {
     final List<FlutterCommand> commands = <FlutterCommand>[
       BuildWindowsCommand(verboseHelp: false),
-      BuildLinuxCommand(verboseHelp: false),
+      BuildLinuxCommand(verboseHelp: false, linuxBuilder: FakeLinuxBuilder()),
       BuildMacosCommand(verboseHelp: false),
       BuildWebCommand(verboseHelp: false),
       BuildApkCommand(verboseHelp: false),
@@ -47,3 +49,5 @@ void main() {
     }
   });
 }
+
+class FakeLinuxBuilder extends Fake implements LinuxBuilder {}

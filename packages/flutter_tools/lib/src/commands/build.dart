@@ -8,6 +8,7 @@ import '../commands/build_linux.dart';
 import '../commands/build_macos.dart';
 import '../commands/build_windows.dart';
 import '../globals.dart' as globals;
+import '../linux/build_linux.dart';
 import '../runner/flutter_command.dart';
 import 'build_aar.dart';
 import 'build_aot.dart';
@@ -20,7 +21,10 @@ import 'build_ios_framework.dart';
 import 'build_web.dart';
 
 class BuildCommand extends FlutterCommand {
-  BuildCommand({ bool verboseHelp = false }) {
+  BuildCommand({
+    bool verboseHelp = false,
+    LinuxBuilder linuxBuilder, // TODO(jonahwilliams): make required once command tests do not construct build command directly.
+  }) {
     addSubcommand(BuildAarCommand(verboseHelp: verboseHelp));
     addSubcommand(BuildApkCommand(verboseHelp: verboseHelp));
     addSubcommand(BuildAppBundleCommand(verboseHelp: verboseHelp));
@@ -33,7 +37,7 @@ class BuildCommand extends FlutterCommand {
     addSubcommand(BuildBundleCommand(verboseHelp: verboseHelp));
     addSubcommand(BuildWebCommand(verboseHelp: verboseHelp));
     addSubcommand(BuildMacosCommand(verboseHelp: verboseHelp));
-    addSubcommand(BuildLinuxCommand(verboseHelp: verboseHelp));
+    addSubcommand(BuildLinuxCommand(verboseHelp: verboseHelp, linuxBuilder: linuxBuilder));
     addSubcommand(BuildWindowsCommand(verboseHelp: verboseHelp));
     addSubcommand(BuildFuchsiaCommand(verboseHelp: verboseHelp));
   }

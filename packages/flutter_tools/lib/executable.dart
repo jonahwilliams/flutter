@@ -4,6 +4,7 @@
 
 import 'dart:async';
 
+import 'package:flutter_tools/src/linux/build_linux.dart';
 import 'package:meta/meta.dart';
 
 import 'runner.dart' as runner;
@@ -85,7 +86,16 @@ Future<void> main(List<String> args) async {
     ),
     AssembleCommand(),
     AttachCommand(verboseHelp: verboseHelp),
-    BuildCommand(verboseHelp: verboseHelp),
+    BuildCommand(
+      verboseHelp: verboseHelp,
+      linuxBuilder: LinuxBuilder(
+        artifacts: globals.artifacts,
+        logger: globals.logger,
+        fileSystem: globals.fs,
+        processManager: globals.processManager,
+        usage: globals.flutterUsage,
+      ),
+    ),
     ChannelCommand(verboseHelp: verboseHelp),
     CleanCommand(verbose: verbose),
     ConfigCommand(verboseHelp: verboseHelp),

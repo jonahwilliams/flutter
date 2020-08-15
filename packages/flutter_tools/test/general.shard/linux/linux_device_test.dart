@@ -10,6 +10,7 @@ import 'package:flutter_tools/src/build_info.dart';
 import 'package:flutter_tools/src/device.dart';
 import 'package:flutter_tools/src/globals.dart' as globals;
 import 'package:flutter_tools/src/linux/application_package.dart';
+import 'package:flutter_tools/src/linux/build_linux.dart';
 import 'package:flutter_tools/src/linux/linux_device.dart';
 import 'package:flutter_tools/src/project.dart';
 import 'package:mockito/mockito.dart';
@@ -31,6 +32,7 @@ void main() {
     final LinuxDevice device = LinuxDevice(
       processManager: FakeProcessManager.any(),
       logger: BufferLogger.test(),
+      linuxBuilder: FakeLinuxBuilder(),
     );
 
     final PrebuiltLinuxApp linuxApp = PrebuiltLinuxApp(executable: 'foo');
@@ -55,6 +57,7 @@ void main() {
       featureFlags: TestFeatureFlags(isLinuxEnabled: true),
       logger: BufferLogger.test(),
       processManager: FakeProcessManager.any(),
+      linuxBuilder: FakeLinuxBuilder(),
     ).devices, <Device>[]);
   });
 
@@ -64,6 +67,7 @@ void main() {
       featureFlags: TestFeatureFlags(isLinuxEnabled: false),
       logger: BufferLogger.test(),
       processManager: FakeProcessManager.any(),
+      linuxBuilder: FakeLinuxBuilder(),
     ).devices, <Device>[]);
   });
 
@@ -73,6 +77,7 @@ void main() {
       featureFlags: TestFeatureFlags(isLinuxEnabled: true),
       logger: BufferLogger.test(),
       processManager: FakeProcessManager.any(),
+      linuxBuilder: FakeLinuxBuilder(),
     ).devices, hasLength(1));
   });
 
@@ -83,6 +88,7 @@ void main() {
       featureFlags: TestFeatureFlags(isLinuxEnabled: true),
       logger: BufferLogger.test(),
       processManager: FakeProcessManager.any(),
+      linuxBuilder: FakeLinuxBuilder(),
     ).discoverDevices(timeout: const Duration(seconds: 10));
     expect(devices, hasLength(1));
   });
@@ -96,6 +102,7 @@ void main() {
     expect(LinuxDevice(
       logger: BufferLogger.test(),
       processManager: FakeProcessManager.any(),
+      linuxBuilder: FakeLinuxBuilder(),
     ).isSupportedForProject(flutterProject), true);
   }, overrides: <Type, Generator>{
     FileSystem: () => MemoryFileSystem(),
@@ -110,6 +117,7 @@ void main() {
     expect(LinuxDevice(
       logger: BufferLogger.test(),
       processManager: FakeProcessManager.any(),
+      linuxBuilder: FakeLinuxBuilder(),
     ).isSupportedForProject(flutterProject), false);
   }, overrides: <Type, Generator>{
     FileSystem: () => MemoryFileSystem(),
@@ -121,6 +129,7 @@ void main() {
     final LinuxDevice device = LinuxDevice(
       logger: BufferLogger.test(),
       processManager: FakeProcessManager.any(),
+      linuxBuilder: FakeLinuxBuilder(),
     );
     const String debugPath = 'debug/executable';
     const String profilePath = 'profile/executable';
@@ -139,3 +148,4 @@ void main() {
 }
 
 class MockLinuxApp extends Mock implements LinuxApp {}
+class FakeLinuxBuilder extends Fake implements LinuxBuilder {}

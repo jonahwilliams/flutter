@@ -13,8 +13,10 @@ import 'package:flutter_tools/src/cmake.dart';
 import 'package:flutter_tools/src/commands/build.dart';
 import 'package:flutter_tools/src/commands/build_linux.dart';
 import 'package:flutter_tools/src/features.dart';
+import 'package:flutter_tools/src/linux/build_linux.dart';
 import 'package:flutter_tools/src/project.dart';
 import 'package:process/process.dart';
+import 'package:test/fake.dart';
 
 import '../../src/common.dart';
 import '../../src/context.dart';
@@ -356,16 +358,18 @@ set(BINARY_NAME "fizz_bar")
   });
 
   testUsingContext('hidden when not enabled on Linux host', () {
-    expect(BuildLinuxCommand().hidden, true);
+    expect(BuildLinuxCommand(linuxBuilder: FakeLinuxBuilder()).hidden, true);
   }, overrides: <Type, Generator>{
     FeatureFlags: () => TestFeatureFlags(isLinuxEnabled: false),
     Platform: () => notLinuxPlatform,
   });
 
   testUsingContext('Not hidden when enabled and on Linux host', () {
-    expect(BuildLinuxCommand().hidden, false);
+    expect(BuildLinuxCommand(linuxBuilder: FakeLinuxBuilder()).hidden, false);
   }, overrides: <Type, Generator>{
     FeatureFlags: () => TestFeatureFlags(isLinuxEnabled: true),
     Platform: () => linuxPlatform,
   });
 }
+
+class FakeLinuxBuilder extends Fake implements LinuxBuilder {}

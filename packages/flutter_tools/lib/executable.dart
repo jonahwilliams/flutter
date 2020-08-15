@@ -4,7 +4,6 @@
 
 import 'dart:async';
 
-import 'package:flutter_tools/src/linux/build_linux.dart';
 import 'package:meta/meta.dart';
 
 import 'runner.dart' as runner;
@@ -53,6 +52,7 @@ import 'src/commands/upgrade.dart';
 import 'src/commands/version.dart';
 import 'src/features.dart';
 import 'src/globals.dart' as globals;
+import 'src/linux/build_linux.dart';
 import 'src/runner/flutter_command.dart';
 import 'src/web/compile.dart';
 import 'src/web/web_runner.dart';

@@ -334,16 +334,12 @@ class WebReleaseBundle extends Target {
         outputFile.parent.createSync(recursive: true);
       }
       outputResourcesFiles.add(outputFile);
-      // insert a random hash into the requests for main.dart.js and service_worker.js. This is
-      // not a content hash, because it would need to be the hash for the entire bundle and not
-      // just the resource in question.
+      // insert a random hash into the requests for service_worker.js. This is
+      // not a content hash, because it would need to be the hash for the entire
+      // bundle and not just the resource in question.
       if (environment.fileSystem.path.basename(inputFile.path) == 'index.html') {
         final String randomHash = Random().nextInt(4294967296).toString();
         final String resultString = inputFile.readAsStringSync()
-          .replaceFirst(
-            '<script src="main.dart.js" type="application/javascript"></script>',
-            '<script src="main.dart.js?v=$randomHash" type="application/javascript"></script>'
-          )
           .replaceFirst(
             "navigator.serviceWorker.register('flutter_service_worker.js')",
             "navigator.serviceWorker.register('flutter_service_worker.js?v=$randomHash')",

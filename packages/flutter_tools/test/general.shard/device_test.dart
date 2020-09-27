@@ -207,11 +207,11 @@ void main() {
       ];
 
       when(mockStdio.stdinHasTerminal).thenReturn(true);
-      when(globals.terminal.promptForCharInput(<String>['0', '1', 'q', 'Q'],
+      when(globals.terminal.promptForCharInput(<String>['1', '2', 'q', 'Q'],
       displayAcceptedCharacters: false,
       logger: globals.logger,
       prompt: globals.userMessages.flutterChooseOne)
-      ).thenAnswer((Invocation invocation) async => '0');
+      ).thenAnswer((Invocation invocation) async => '1');
 
       final DeviceManager deviceManager = TestDeviceManager(devices);
       final List<Device> filtered = await deviceManager.findTargetDevices(FlutterProject.current());
@@ -232,11 +232,11 @@ void main() {
       ];
 
       when(mockStdio.stdinHasTerminal).thenReturn(true);
-      when(globals.terminal.promptForCharInput(<String>['0', '1', 'q', 'Q'],
+      when(globals.terminal.promptForCharInput(<String>['1', '2', 'q', 'Q'],
           displayAcceptedCharacters: false,
           logger: globals.logger,
       prompt: globals.userMessages.flutterChooseOne)
-      ).thenAnswer((Invocation invocation) async => '1');
+      ).thenAnswer((Invocation invocation) async => '2');
 
       final DeviceManager deviceManager = TestDeviceManager(devices);
       final List<Device> filtered = await deviceManager.findTargetDevices(FlutterProject.current());
@@ -257,11 +257,11 @@ void main() {
       ];
 
       when(mockStdio.stdinHasTerminal).thenReturn(true);
-      when(globals.terminal.promptForCharInput(<String>['0', '1', 'q', 'Q'],
+      when(globals.terminal.promptForCharInput(<String>['1', '2', 'q', 'Q'],
           displayAcceptedCharacters: false,
           logger: globals.logger,
         prompt: globals.userMessages.flutterChooseOne)
-      ).thenAnswer((Invocation invocation) async => '0');
+      ).thenAnswer((Invocation invocation) async => '1');
 
       final DeviceManager deviceManager = TestDeviceManager(devices);
       final List<Device> filtered = await deviceManager.findTargetDevices(FlutterProject.current());
@@ -282,11 +282,11 @@ void main() {
       ];
 
       when(mockStdio.stdinHasTerminal).thenReturn(true);
-      when(globals.terminal.promptForCharInput(<String>['0', '1', 'q', 'Q'],
+      when(globals.terminal.promptForCharInput(<String>['1', '2', 'q', 'Q'],
           displayAcceptedCharacters: false,
           logger: globals.logger,
         prompt: globals.userMessages.flutterChooseOne)
-      ).thenAnswer((Invocation invocation) async => '1');
+      ).thenAnswer((Invocation invocation) async => '2');
 
       final DeviceManager deviceManager = TestDeviceManager(devices);
       final List<Device> filtered = await deviceManager.findTargetDevices(FlutterProject.current());
@@ -310,11 +310,11 @@ void main() {
       ];
 
       when(mockStdio.stdinHasTerminal).thenReturn(true);
-      when(globals.terminal.promptForCharInput(<String>['0', '1', '2', '3', 'q', 'Q'],
+      when(globals.terminal.promptForCharInput(<String>['1', '2', '3', '4', 'q', 'Q'],
         displayAcceptedCharacters: false,
         logger: globals.logger,
         prompt: globals.userMessages.flutterChooseOne)
-      ).thenAnswer((Invocation invocation) async => '2');
+      ).thenAnswer((Invocation invocation) async => '3');
 
       final DeviceManager deviceManager = TestDeviceManager(devices);
       final List<Device> filtered = await deviceManager.findTargetDevices(FlutterProject.current());
@@ -336,19 +336,17 @@ void main() {
       ];
 
       when(mockStdio.stdinHasTerminal).thenReturn(true);
-      when(globals.terminal.promptForCharInput(<String>['0', '1', 'q', 'Q'],
+      when(globals.terminal.promptForCharInput(<String>['1', '2', 'q', 'Q'],
           displayAcceptedCharacters: false,
           logger: globals.logger,
           prompt: globals.userMessages.flutterChooseOne)
       ).thenAnswer((Invocation invocation) async => 'q');
 
-      try {
-        final DeviceManager deviceManager = TestDeviceManager(devices);
-        await deviceManager.findTargetDevices(FlutterProject.current());
-      } on ToolExit catch (e) {
-        expect(e.exitCode, null);
-        expect(e.message, '');
-      }
+      final DeviceManager deviceManager = TestDeviceManager(devices);
+      await expectLater(
+        () async => await deviceManager.findTargetDevices(FlutterProject.current()),
+        throwsA(isA<ToolExit>()),
+      );
     }, overrides: <Type, Generator>{
       Stdio: () => mockStdio,
       AnsiTerminal: () => MockTerminal(),

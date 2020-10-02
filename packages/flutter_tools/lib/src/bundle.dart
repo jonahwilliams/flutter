@@ -38,8 +38,12 @@ String getDefaultCachedKernelPath({
   @required bool trackWidgetCreation,
   @required List<String> dartDefines,
   @required List<String> extraFrontEndOptions,
+  bool test = false,
 }) {
   final StringBuffer buffer = StringBuffer();
+  if (test) {
+    buffer.write(test);
+  }
   buffer.writeAll(dartDefines);
   buffer.writeAll(extraFrontEndOptions ?? <String>[]);
   String buildPrefix = '';

@@ -100,11 +100,11 @@ class FlutterDevice {
         extraFrontEndOptions = buildInfo.extraFrontEndOptions;
       } else {
         platformDillArtifact = Artifact.webPlatformSoundKernelDill;
-        extraFrontEndOptions = <String>[
-          ...?buildInfo?.extraFrontEndOptions,
-          if (!(buildInfo?.extraFrontEndOptions?.contains('--sound-null-safety') ?? false))
-            '--sound-null-safety'
-        ];
+        extraFrontEndOptions = <String>[...?buildInfo?.extraFrontEndOptions];
+        if (!extraFrontEndOptions.contains('--no-sound-null-safety') &&
+            !extraFrontEndOptions.contains('--sound-null-safety')) {
+          extraFrontEndOptions.add('--sound-null-safety');
+        }
       }
 
       generator = ResidentCompiler(

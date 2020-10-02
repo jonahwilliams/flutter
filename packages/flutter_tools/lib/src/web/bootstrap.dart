@@ -16,10 +16,9 @@ import 'package:meta/meta.dart';
 String generateBootstrapScript({
   @required String requireUrl,
   @required String mapperUrl,
+  String boostrapUrl = 'main_module.bootstrap'
 }) {
   return '''
-"use strict";
-
 // Attach source mapping.
 var mapperEl = document.createElement("script");
 mapperEl.defer = true;
@@ -33,7 +32,7 @@ requireEl.defer = true;
 requireEl.async = false;
 requireEl.src = "$requireUrl";
 // This attribute tells require JS what to load as main (defined below).
-requireEl.setAttribute("data-main", "main_module.bootstrap");
+requireEl.setAttribute("data-main", "$boostrapUrl");
 document.head.appendChild(requireEl);
 ''';
 }
@@ -51,6 +50,7 @@ document.head.appendChild(requireEl);
 String generateMainModule({
   @required String entrypoint,
   @required bool nullAssertions,
+  bool selfRun,
 }) {
   return '''/* ENTRYPOINT_EXTENTION_MARKER */
 // Create the main module loaded below.
@@ -87,5 +87,6 @@ define("main_module.bootstrap", ["$entrypoint", "dart_sdk"], function(app, dart_
     });
   }
 });
+${selfRun ? 'require(["main_module.bootstrap"])' : '' }
 ''';
 }

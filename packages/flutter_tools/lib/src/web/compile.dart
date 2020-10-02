@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 import 'package:meta/meta.dart';
+import 'package:package_config/package_config.dart';
 
 import '../base/common.dart';
 import '../base/context.dart';
@@ -100,11 +101,13 @@ class WebCompilationProxy {
   /// the entry points for dart2js to later take over.
   Future<bool> initialize({
     @required Directory projectDirectory,
+    @required String testOutputDir,
+    @required List<String> testFiles,
+    @required BuildMode mode,
     @required String projectName,
-    String testOutputDir,
-    List<String> testFiles,
-    BuildMode mode,
-    bool initializePlatform,
+    @required bool initializePlatform,
+    @required PackageConfig packageConfig,
+    @required BuildInfo buildInfo,
   }) async {
     throw UnimplementedError();
   }

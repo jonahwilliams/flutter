@@ -130,7 +130,9 @@ Future<void> main(List<String> args) async {
      muteCommandLogging: muteCommandLogging,
      verboseHelp: verboseHelp,
      overrides: <Type, Generator>{
-       WebCompilationProxy: () => BuildRunnerWebCompilationProxy(),
+       WebCompilationProxy: () => BuildRunnerWebCompilationProxy(
+         fileSystem: globals.fs,
+       ),
        // The web runner is not supported in google3 because it depends
        // on dwds.
        WebRunnerFactory: () => DwdsWebRunnerFactory(),

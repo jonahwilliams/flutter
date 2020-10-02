@@ -118,8 +118,13 @@ class _FlutterTestRunnerImpl implements FlutterTestRunner {
         ...<String>['--exclude-tags', excludeTags],
     ];
     if (web) {
-      final String tempBuildDir = globals.fs.systemTempDirectory
-        .createTempSync('flutter_test.')
+      // final String tempBuildDir = globals.fs.systemTempDirectory
+      //   .createTempSync('flutter_test.')
+      //   .absolute
+      //   .uri
+      //   .toFilePath();
+      final String tempBuildDir = globals.fs.currentDirectory
+        .childDirectory('test_output')
         .absolute
         .uri
         .toFilePath();
@@ -129,6 +134,18 @@ class _FlutterTestRunnerImpl implements FlutterTestRunner {
         testFiles: testFiles,
         projectName: flutterProject.manifest.appName,
         initializePlatform: true,
+        mode: BuildMode.debug,
+        buildInfo: BuildInfo(
+          BuildMode.debug,
+          '',
+          trackWidgetCreation: trackWidgetCreation,
+          extraFrontEndOptions: extraFrontEndOptions,
+          treeShakeIcons: false,
+        ),
+        packageConfig: await loadPackageConfigWithLogging(
+          globals.fs.file('.packages'),
+          logger: globals.logger,
+        ),
       );
       if (!result) {
         throwToolExit('Failed to compile tests');

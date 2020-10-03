@@ -10,7 +10,7 @@ import '../base/context.dart';
 import '../convert.dart';
 import '../globals.dart' as globals;
 import 'io.dart';
-import 'terminal.dart' show AnsiTerminal, Terminal, TerminalColor, OutputPreferences;
+import 'terminal.dart' show Terminal, TerminalColor, OutputPreferences;
 import 'utils.dart';
 
 const int kDefaultStatusPadding = 59;
@@ -58,7 +58,8 @@ abstract class Logger {
 
   bool get hasTerminal;
 
-  Terminal get _terminal;
+  /// The terminal instance attached to this logger.
+  Terminal get terminal;
 
   OutputPreferences get _outputPreferences;
 
@@ -175,20 +176,18 @@ abstract class Logger {
 
 class StdoutLogger extends Logger {
   StdoutLogger({
-    @required Terminal terminal,
+    @required this.terminal,
     @required Stdio stdio,
     @required OutputPreferences outputPreferences,
     @required TimeoutConfiguration timeoutConfiguration,
     StopwatchFactory stopwatchFactory = const StopwatchFactory(),
-  })
-    : _stdio = stdio,
-      _terminal = terminal,
+  }): _stdio = stdio,
       _timeoutConfiguration = timeoutConfiguration,
       _outputPreferences = outputPreferences,
       _stopwatchFactory = stopwatchFactory;
 
   @override
-  final Terminal _terminal;
+  final Terminal terminal;
   @override
   final OutputPreferences _outputPreferences;
   @override
@@ -202,7 +201,7 @@ class StdoutLogger extends Logger {
   bool get isVerbose => false;
 
   @override
-  bool get supportsColor => _terminal.supportsColor;
+  bool get supportsColor => terminal.supportsColor;
 
   @override
   bool get hasTerminal => _stdio.stdinHasTerminal;
@@ -226,9 +225,9 @@ class StdoutLogger extends Logger {
       columnWidth: _outputPreferences.wrapColumn,
     );
     if (emphasis == true) {
-      message = _terminal.bolden(message);
+      message = terminal.bolden(message);
     }
-    message = _terminal.color(message, color ?? TerminalColor.red);
+    message = terminal.color(message, color ?? TerminalColor.red);
     writeToStdErr('$message\n');
     if (stackTrace != null) {
       writeToStdErr('$stackTrace\n');
@@ -255,10 +254,10 @@ class StdoutLogger extends Logger {
       columnWidth: _outputPreferences.wrapColumn,
     );
     if (emphasis == true) {
-      message = _terminal.bolden(message);
+      message = terminal.bolden(message);
     }
     if (color != null) {
-      message = _terminal.color(message, color);
+      message = terminal.color(message, color);
     }
     if (newline != false) {
       message = '$message\n';
@@ -304,7 +303,7 @@ class StdoutLogger extends Logger {
         stdio: _stdio,
         timeoutConfiguration: _timeoutConfiguration,
         stopwatch: _stopwatchFactory.createStopwatch(),
-        terminal: _terminal,
+        terminal: terminal,
       )..start();
     } else {
       _status = SummaryStatus(
@@ -330,7 +329,7 @@ class StdoutLogger extends Logger {
   @override
   void clear() {
     _status?.pause();
-    writeToStdOut(_terminal.clearScreen() + '\n');
+    writeToStdOut(terminal.clearScreen() + '\n');
     _status?.resume();
   }
 }
@@ -361,7 +360,7 @@ class WindowsStdoutLogger extends StdoutLogger {
   @override
   void writeToStdOut(String message) {
     // TODO(jcollins-g): wrong abstraction layer for this, move to [Stdio].
-    final String windowsMessage = _terminal.supportsEmoji
+    final String windowsMessage = terminal.supportsEmoji
       ? message
       : message.replaceAll('🔥', '')
                .replaceAll('🖼️', '')
@@ -374,12 +373,11 @@ class WindowsStdoutLogger extends StdoutLogger {
 
 class BufferLogger extends Logger {
   BufferLogger({
-    @required AnsiTerminal terminal,
+    @required this.terminal,
     @required OutputPreferences outputPreferences,
     TimeoutConfiguration timeoutConfiguration = const TimeoutConfiguration(),
     StopwatchFactory stopwatchFactory = const StopwatchFactory(),
   }) : _outputPreferences = outputPreferences,
-       _terminal = terminal,
        _timeoutConfiguration = timeoutConfiguration,
        _stopwatchFactory = stopwatchFactory;
 
@@ -387,7 +385,7 @@ class BufferLogger extends Logger {
   BufferLogger.test({
     Terminal terminal,
     OutputPreferences outputPreferences,
-  }) : _terminal = terminal ?? Terminal.test(),
+  }) : terminal = terminal ?? Terminal.test(),
        _outputPreferences = outputPreferences ?? OutputPreferences.test(),
        _timeoutConfiguration = const TimeoutConfiguration(),
        _stopwatchFactory = const StopwatchFactory();
@@ -397,7 +395,7 @@ class BufferLogger extends Logger {
   final OutputPreferences _outputPreferences;
 
   @override
-  final Terminal _terminal;
+  final Terminal terminal;
 
   @override
   final TimeoutConfiguration _timeoutConfiguration;
@@ -408,7 +406,7 @@ class BufferLogger extends Logger {
   bool get isVerbose => false;
 
   @override
-  bool get supportsColor => _terminal.supportsColor;
+  bool get supportsColor => terminal.supportsColor;
 
   final StringBuffer _error = StringBuffer();
   final StringBuffer _status = StringBuffer();
@@ -433,7 +431,7 @@ class BufferLogger extends Logger {
     int hangingIndent,
     bool wrap,
   }) {
-    _error.writeln(_terminal.color(
+    _error.writeln(terminal.color(
       wrapText(message,
         indent: indent,
         hangingIndent: hangingIndent,
@@ -521,7 +519,7 @@ class VerboseLogger extends Logger {
   final Stopwatch _stopwatch;
 
   @override
-  Terminal get _terminal => parent._terminal;
+  Terminal get terminal => parent.terminal;
 
   @override
   OutputPreferences get _outputPreferences => parent._outputPreferences;
@@ -626,7 +624,7 @@ class VerboseLogger extends Logger {
     } else {
       prefix = '+$millis ms'.padLeft(prefixWidth);
       if (millis >= 100) {
-        prefix = _terminal.bolden(prefix);
+        prefix = terminal.bolden(prefix);
       }
     }
     prefix = '[$prefix] ';
@@ -635,12 +633,12 @@ class VerboseLogger extends Logger {
     final String indentMessage = message.replaceAll('\n', '\n$indent');
 
     if (type == _LogType.error) {
-      parent.printError(prefix + _terminal.bolden(indentMessage));
+      parent.printError(prefix + terminal.bolden(indentMessage));
       if (stackTrace != null) {
         parent.printError(indent + stackTrace.toString().replaceAll('\n', '\n$indent'));
       }
     } else if (type == _LogType.status) {
-      parent.printStatus(prefix + _terminal.bolden(indentMessage));
+      parent.printStatus(prefix + terminal.bolden(indentMessage));
     } else {
       parent.printStatus(prefix + indentMessage);
     }

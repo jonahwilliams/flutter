@@ -1078,6 +1078,9 @@ class NotifyingLogger extends Logger {
   // This method is only relevant for terminals.
   @override
   void clear() { }
+
+  @override
+  Terminal get terminal => parent.terminal;
 }
 
 /// A running application, started by this daemon.
@@ -1322,6 +1325,9 @@ class AppRunLogger extends Logger {
 
   @override
   bool get hasTerminal => false;
+
+  @override
+  Terminal get terminal => parent.terminal;
 
   // This method is only relevant for terminals.
   @override

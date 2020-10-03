@@ -790,6 +790,9 @@ class DelegateLogger implements Logger {
   Status status;
 
   @override
+  Terminal get terminal => delegate.terminal;
+
+  @override
   bool get quiet => delegate.quiet;
 
   @override

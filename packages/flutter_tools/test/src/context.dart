@@ -22,7 +22,6 @@ import 'package:flutter_tools/src/cache.dart';
 import 'package:flutter_tools/src/context_runner.dart';
 import 'package:flutter_tools/src/dart/pub.dart';
 import 'package:flutter_tools/src/device.dart';
-import 'package:flutter_tools/src/doctor.dart';
 import 'package:flutter_tools/src/ios/plist_parser.dart';
 import 'package:flutter_tools/src/ios/simulators.dart';
 import 'package:flutter_tools/src/ios/xcodeproj.dart';
@@ -46,7 +45,6 @@ export 'fake_process_manager.dart' show ProcessManager, FakeProcessManager, Fake
 BufferLogger get testLogger => context.get<Logger>() as BufferLogger;
 
 FakeDeviceManager get testDeviceManager => context.get<DeviceManager>() as FakeDeviceManager;
-FakeDoctor get testDoctor => context.get<Doctor>() as FakeDoctor;
 
 typedef ContextInitializer = void Function(AppContext testContext);
 
@@ -107,7 +105,6 @@ void testUsingContext(
           AnsiTerminal: () => AnsiTerminal(platform: globals.platform, stdio: globals.stdio),
           Config: () => buildConfig(globals.fs),
           DeviceManager: () => FakeDeviceManager(),
-          Doctor: () => FakeDoctor(globals.logger),
           FlutterVersion: () => MockFlutterVersion(),
           HttpClient: () => MockHttpClient(),
           IOSSimulatorUtils: () {
@@ -256,32 +253,6 @@ class FakeDeviceManager implements DeviceManager {
 class FakeAndroidLicenseValidator extends AndroidLicenseValidator {
   @override
   Future<LicensesAccepted> get licensesAccepted async => LicensesAccepted.all;
-}
-
-class FakeDoctor extends Doctor {
-  FakeDoctor(Logger logger) : super(logger: logger);
-
-  // True for testing.
-  @override
-  bool get canListAnything => true;
-
-  // True for testing.
-  @override
-  bool get canLaunchAnything => true;
-
-  @override
-  /// Replaces the android workflow with a version that overrides licensesAccepted,
-  /// to prevent individual tests from having to mock out the process for
-  /// the Doctor.
-  List<DoctorValidator> get validators {
-    final List<DoctorValidator> superValidators = super.validators;
-    return superValidators.map<DoctorValidator>((DoctorValidator v) {
-      if (v is AndroidLicenseValidator) {
-        return FakeAndroidLicenseValidator();
-      }
-      return v;
-    }).toList();
-  }
 }
 
 class MockSimControl extends Mock implements SimControl {

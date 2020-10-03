@@ -59,6 +59,8 @@ FlutterProjectFactory get projectFactory {
   );
 }
 
+DoctorValidatorsProvider get doctorValidatorsProvider => context.get<DoctorValidatorsProvider>();
+
 /// Currently active implementation of the file system.
 ///
 /// By default it uses local disk-based implementation. Override this in tests

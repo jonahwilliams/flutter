@@ -4,6 +4,13 @@
 
 import 'dart:io' as io show Platform, stdin, stdout;
 
+/// A table of pretty-formamted OS names.
+const Map<String, String> osNames = <String, String>{
+  'macos': 'Mac OS',
+  'linux': 'Linux',
+  'windows': 'Windows',
+};
+
 /// Provides API parity with the `Platform` class in `dart:io`, but using
 /// instance properties rather than static properties. This difference enables
 /// the use of these APIs in tests, where you can provide mock implementations.
@@ -118,6 +125,9 @@ abstract class Platform {
 
   /// Get the name of the current locale.
   String get localeName;
+
+  /// A pretty-formatted operating system name.
+  String get name => osNames[operatingSystem] ?? operatingSystem;
 }
 
 /// `Platform` implementation that delegates directly to `dart:io`.

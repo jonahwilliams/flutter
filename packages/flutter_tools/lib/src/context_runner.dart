@@ -151,8 +151,14 @@ Future<T> runInContext<T>(
         ),
         operatingSystemUtils: globals.os,
       ),
-      Doctor: () => Doctor(logger: globals.logger),
-      DoctorValidatorsProvider: () => DoctorValidatorsProvider.defaultInstance,
+      Doctor: () => Doctor(
+        logger: globals.logger,
+        outputPreferences: globals.outputPreferences,
+        doctorValidatorsProvider: globals.doctorValidatorsProvider,
+      ),
+      DoctorValidatorsProvider: () => FlutterDoctorValidatorsProvider(
+
+      ),
       EmulatorManager: () => EmulatorManager(
         androidSdk: globals.androidSdk,
         processManager: globals.processManager,

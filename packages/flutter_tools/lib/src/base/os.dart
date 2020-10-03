@@ -104,6 +104,7 @@ abstract class OperatingSystemUtils {
   /// Returns a pretty name string for the current operating system.
   ///
   /// If available, the detailed version of the OS is included.
+  @deprecated
   String get name {
     const Map<String, String> osNames = <String, String>{
       'macos': 'Mac OS',

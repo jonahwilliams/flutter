@@ -1017,16 +1017,12 @@ class NotifyingLogger extends DelegatingLogger {
   @override
   Status startProgress(
     String message, {
-    @required Duration timeout,
     String progressId,
     bool multilineOutput = false,
     int progressIndicatorPadding = kDefaultStatusPadding,
   }) {
-    assert(timeout != null);
     printStatus(message);
     return SilentStatus(
-      timeout: timeout,
-      timeoutConfiguration: timeoutConfiguration,
       stopwatch: Stopwatch(),
     );
   }
@@ -1161,8 +1157,6 @@ class AppRunLogger extends DelegatingLogger {
     );
 
     _status = SilentStatus(
-      timeout: timeout,
-      timeoutConfiguration: timeoutConfiguration,
       onFinish: () {
         _status = null;
         _sendProgressEvent(

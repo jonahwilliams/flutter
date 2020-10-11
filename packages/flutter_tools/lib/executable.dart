@@ -8,6 +8,7 @@ import 'runner.dart' as runner;
 import 'src/base/context.dart';
 import 'src/base/io.dart';
 import 'src/base/logger.dart';
+import 'src/base/platform.dart';
 import 'src/base/template.dart';
 import 'src/base/terminal.dart';
 import 'src/commands/analyze.dart';
@@ -143,13 +144,12 @@ Future<void> main(List<String> args) async {
           outputPreferences: globals.outputPreferences,
           terminal: globals.terminal,
           stdio: globals.stdio,
-          timeoutConfiguration: timeoutConfiguration,
+          platform: globals.platform,
         );
         return loggerFactory.createLogger(
           daemon: daemon,
           machine: runMachine,
           verbose: verbose && !muteCommandLogging,
-          windows: globals.platform.isWindows,
         );
        }
      });
@@ -163,45 +163,33 @@ class LoggerFactory {
     @required Terminal terminal,
     @required Stdio stdio,
     @required OutputPreferences outputPreferences,
-    @required TimeoutConfiguration timeoutConfiguration,
+    @required Platform platform,
     StopwatchFactory stopwatchFactory = const StopwatchFactory(),
   }) : _terminal = terminal,
        _stdio = stdio,
-       _timeoutConfiguration = timeoutConfiguration,
        _stopwatchFactory = stopwatchFactory,
-       _outputPreferences = outputPreferences;
+       _outputPreferences = outputPreferences,
+       _platform = platform;
 
   final Terminal _terminal;
   final Stdio _stdio;
-  final TimeoutConfiguration _timeoutConfiguration;
   final StopwatchFactory _stopwatchFactory;
   final OutputPreferences _outputPreferences;
+  final Platform _platform;
 
   /// Create the appropriate logger for the current platform and configuration.
   Logger createLogger({
     @required bool verbose,
     @required bool machine,
     @required bool daemon,
-    @required bool windows,
   }) {
-    Logger logger;
-    if (windows) {
-      logger = WindowsStdoutLogger(
-        terminal: _terminal,
-        stdio: _stdio,
-        outputPreferences: _outputPreferences,
-        timeoutConfiguration: _timeoutConfiguration,
-        stopwatchFactory: _stopwatchFactory,
-      );
-    } else {
-      logger = StdoutLogger(
-        terminal: _terminal,
-        stdio: _stdio,
-        outputPreferences: _outputPreferences,
-        timeoutConfiguration: _timeoutConfiguration,
-        stopwatchFactory: _stopwatchFactory
-      );
-    }
+    Logger logger = StdoutLogger(
+      terminal: _terminal,
+      stdio: _stdio,
+      outputPreferences: _outputPreferences,
+      stopwatchFactory: _stopwatchFactory,
+      platform: _platform,
+    );
     if (verbose) {
       logger = VerboseLogger(logger, stopwatchFactory: _stopwatchFactory);
     }

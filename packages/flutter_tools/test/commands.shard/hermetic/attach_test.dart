@@ -667,15 +667,12 @@ class StreamLogger extends Logger {
   @override
   Status startProgress(
     String message, {
-    @required Duration timeout,
     String progressId,
     bool multilineOutput = false,
     int progressIndicatorPadding = kDefaultStatusPadding,
   }) {
     _log('[progress] $message');
     return SilentStatus(
-      timeout: timeout,
-      timeoutConfiguration: timeoutConfiguration,
       stopwatch: Stopwatch(),
     )..start();
   }

@@ -67,7 +67,6 @@ class CleanCommand extends FlutterCommand {
     }
     final Status xcodeStatus = globals.logger.startProgress(
       'Cleaning Xcode workspace...',
-      timeout: timeoutConfiguration.slowOperation,
     );
     try {
       final Directory xcodeWorkspace = xcodeProject.xcodeWorkspace;
@@ -93,10 +92,7 @@ class CleanCommand extends FlutterCommand {
       globals.printError('Cannot clean ${file.path}.\n$err');
       return;
     }
-    final Status deletionStatus = globals.logger.startProgress(
-      'Deleting ${file.basename}...',
-      timeout: timeoutConfiguration.fastOperation,
-    );
+    final Status deletionStatus = globals.logger.startProgress('Deleting ${file.basename}...');
     try {
       file.deleteSync(recursive: true);
     } on FileSystemException catch (error) {

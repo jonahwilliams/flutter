@@ -699,7 +699,6 @@ class HotRunner extends ResidentRunner {
     if (!silent) {
       status = globals.logger.startProgress(
         'Performing hot restart...',
-        timeout: timeoutConfiguration.fastOperation,
         progressId: 'hot.restart',
       );
     }
@@ -750,7 +749,6 @@ class HotRunner extends ResidentRunner {
   }) async {
     Status status = globals.logger.startProgress(
       'Performing hot reload...',
-      timeout: timeoutConfiguration.fastOperation,
       progressId: 'hot.reload',
     );
     OperationResult result;
@@ -765,7 +763,6 @@ class HotRunner extends ResidentRunner {
           status?.cancel();
           status = globals.logger.startProgress(
             message,
-            timeout: timeoutConfiguration.slowOperation,
             progressId: 'hot.reload',
           );
         },

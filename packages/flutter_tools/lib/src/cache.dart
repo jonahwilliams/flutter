@@ -534,7 +534,6 @@ class Cache {
   Future<bool> doesRemoteExist(String message, Uri url) async {
     final Status status = _logger.startProgress(
       message,
-      timeout: timeoutConfiguration.slowOperation,
     );
     bool exists;
     try {
@@ -756,7 +755,7 @@ class FlutterWebSdk extends CachedArtifact {
     if (location.existsSync()) {
       location.deleteSync(recursive: true);
     }
-    await artifactUpdater.downloadZipArchive('Downloading Web SDK...', url, location);
+    await artifactUpdater.downloadZipArchive('Downloading Web SDK', url, location);
     // This is a temporary work-around for not being able to safely download into a shared directory.
     final FileSystem fileSystem = location.fileSystem;
     for (final FileSystemEntity entity in location.listSync(recursive: true)) {
@@ -825,7 +824,7 @@ abstract class EngineCachedArtifact extends CachedArtifact {
 
     final Directory pkgDir = cache.getCacheDir('pkg');
     for (final String pkgName in getPackageDirs()) {
-      await artifactUpdater.downloadZipArchive('Downloading package $pkgName...', Uri.parse(url + pkgName + '.zip'), pkgDir);
+      await artifactUpdater.downloadZipArchive('Downloading package $pkgName', Uri.parse(url + pkgName + '.zip'), pkgDir);
     }
 
     for (final List<String> toolsDir in getBinaryDirs()) {
@@ -835,7 +834,7 @@ abstract class EngineCachedArtifact extends CachedArtifact {
 
       // Avoid printing things like 'Downloading linux-x64 tools...' multiple times.
       final String friendlyName = urlPath.replaceAll('/artifacts.zip', '').replaceAll('.zip', '');
-      await artifactUpdater.downloadZipArchive('Downloading $friendlyName tools...', Uri.parse(url + urlPath), dir);
+      await artifactUpdater.downloadZipArchive('Downloading $friendlyName tools', Uri.parse(url + urlPath), dir);
 
       _makeFilesExecutable(dir);
 
@@ -863,7 +862,7 @@ abstract class EngineCachedArtifact extends CachedArtifact {
 
     bool exists = false;
     for (final String pkgName in getPackageDirs()) {
-      exists = await cache.doesRemoteExist('Checking package $pkgName is available...',
+      exists = await cache.doesRemoteExist('Checking package $pkgName is available',
           Uri.parse(url + pkgName + '.zip'));
       if (!exists) {
         return false;
@@ -873,7 +872,7 @@ abstract class EngineCachedArtifact extends CachedArtifact {
     for (final List<String> toolsDir in getBinaryDirs()) {
       final String cacheDir = toolsDir[0];
       final String urlPath = toolsDir[1];
-      exists = await cache.doesRemoteExist('Checking $cacheDir tools are available...',
+      exists = await cache.doesRemoteExist('Checking $cacheDir tools are available',
           Uri.parse(url + urlPath));
       if (!exists) {
         return false;
@@ -1075,8 +1074,7 @@ class AndroidMavenArtifacts extends ArtifactSet {
     );
     gradleUtils.injectGradleWrapperIfNeeded(tempDir);
 
-    final Status status = globals.logger.startProgress('Downloading Android Maven dependencies...',
-        timeout: timeoutConfiguration.slowOperation);
+    final Status status = globals.logger.startProgress('Downloading Android Maven dependencies...');
     final File gradle = tempDir.childFile(
         globals.platform.isWindows ? 'gradlew.bat' : 'gradlew',
       );
@@ -1587,20 +1585,17 @@ class ArtifactUpdater {
   ) async {
     final String downloadPath = flattenNameSubdirs(url, _fileSystem);
     final File tempFile = _createDownloadFile(downloadPath);
-    Status status;
+    Progress status;
     int retries = _kRetryCount;
 
     while (retries > 0) {
-      status = _logger.startProgress(
-        message,
-        timeout: null, // This will take a variable amount of time based on network connectivity.
-      );
+      status = _logger.startDeterminateProgress();
       try {
         _ensureExists(tempFile.parent);
         if (tempFile.existsSync()) {
           tempFile.deleteSync();
         }
-        await _download(url, tempFile);
+        await _download(url, tempFile, status, message);
 
         if (!tempFile.existsSync()) {
           throw Exception('Did not find downloaded file ${tempFile.path}');
@@ -1630,7 +1625,7 @@ class ArtifactUpdater {
         // tool to crash.
         rethrow;
       } finally {
-        status.stop();
+        status.finish();
       }
       _ensureExists(location);
 
@@ -1656,14 +1651,18 @@ class ArtifactUpdater {
   }
 
   /// Download bytes from [url], throwing non-200 responses as an exception.
-  Future<void> _download(Uri url, File file) async {
+  Future<void> _download(Uri url, File file, Progress progress, String message) async {
     final HttpClientRequest request = await _httpClient.getUrl(url);
     final HttpClientResponse response = await request.close();
     if (response.statusCode != HttpStatus.ok) {
       throw Exception(response.statusCode);
     }
+    progress.start(response.contentLength, message, 'Bytes');
+    int downloaded = 0;
     await response.forEach((List<int> chunk) {
       file.writeAsBytesSync(chunk, mode: FileMode.append);
+      downloaded += chunk.length;
+      progress.update(downloaded);
     });
   }
 

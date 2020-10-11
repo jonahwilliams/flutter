@@ -185,7 +185,7 @@ class AnsiTerminal implements Terminal {
   // Assume unicode emojis are supported when not on Windows.
   // If we are on Windows, unicode emojis are supported in Windows Terminal,
   // which sets the WT_SESSION environment variable. See:
-  // https://github.com/microsoft/terminal/blob/master/doc/user-docs/index.md#tips-and-tricks
+  // https://docs.microsoft.com/en-us/windows/terminal/
   @override
   bool get supportsEmoji => !_platform.isWindows
     || _platform.environment.containsKey('WT_SESSION');

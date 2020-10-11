@@ -51,7 +51,7 @@ void main() {
       terminal: Terminal.test(supportsColor: true),
       stdio: MockStdio(),
       outputPreferences: OutputPreferences.test(),
-      timeoutConfiguration: const TimeoutConfiguration(),
+      platform: FakePlatform(),
     );
     final ArtifactUpdater artifactUpdater = ArtifactUpdater(
       fileSystem: fileSystem,

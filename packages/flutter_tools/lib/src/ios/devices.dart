@@ -394,9 +394,7 @@ class IOSDevice extends Device {
       if (platformArgs['trace-startup'] as bool ?? false) '--trace-startup',
     ];
 
-    final Status installStatus = _logger.startProgress(
-        'Installing and launching...',
-        timeout: timeoutConfiguration.slowOperation);
+    final Status installStatus = _logger.startProgress('Installing and launching...');
     try {
       ProtocolDiscovery observatoryDiscovery;
       int installationResult = 1;

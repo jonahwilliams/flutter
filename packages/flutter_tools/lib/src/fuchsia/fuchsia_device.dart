@@ -80,11 +80,10 @@ class _FuchsiaLogReader extends DeviceLogReader {
   String get name => _device.name;
 
   Stream<String> _logLines;
+
   @override
   Stream<String> get logLines {
-    final Stream<String> logStream = fuchsiaSdk.syslogs(_device.id);
-    _logLines ??= _processLogs(logStream);
-    return _logLines;
+    return _logLines ??= _processLogs(fuchsiaSdk.syslogs(_device.id));
   }
 
   Stream<String> _processLogs(Stream<String> lines) {

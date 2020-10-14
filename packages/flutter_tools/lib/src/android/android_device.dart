@@ -602,6 +602,7 @@ class AndroidDevice extends Device {
         devicePort: debuggingOptions.deviceVmServicePort,
         ipv6: ipv6,
         logger: _logger,
+        close: false, // Android log reader is a singleton,
       );
     }
 
@@ -980,7 +981,7 @@ class AndroidMemoryInfo extends MemoryInfo {
 
 /// A log reader that logs from `adb logcat`.
 class AdbLogReader extends DeviceLogReader {
-  AdbLogReader._(this._adbProcess, this.name)  {
+  AdbLogReader._(this._adbProcess, this.name) {
     _linesController = StreamController<String>.broadcast(
       onListen: _start,
       onCancel: _stop,
@@ -1024,13 +1025,13 @@ class AdbLogReader extends DeviceLogReader {
       final String lastLogcatTimestamp = await device.lastLogcatTimestamp();
       args.addAll(<String>[
         '-T',
-        if (lastLogcatTimestamp != null) '\'$lastLogcatTimestamp\'' else '0',
+        if (lastLogcatTimestamp != null) '\'$lastLogcatTimestamp\'' else
+          '0',
       ]);
     }
     final Process process = await processManager.start(device.adbCommandForDevice(args));
     return AdbLogReader._(process, device.name);
   }
-
   final Process _adbProcess;
 
   @override
@@ -1046,11 +1047,11 @@ class AdbLogReader extends DeviceLogReader {
     // see: https://github.com/flutter/flutter/pull/8864.
     const Utf8Decoder decoder = Utf8Decoder(reportErrors: false);
     _adbProcess.stdout.transform<String>(decoder)
-      .transform<String>(const LineSplitter())
-      .listen(_onLine);
+        .transform<String>(const LineSplitter())
+        .listen(_onLine);
     _adbProcess.stderr.transform<String>(decoder)
-      .transform<String>(const LineSplitter())
-      .listen(_onLine);
+        .transform<String>(const LineSplitter())
+        .listen(_onLine);
     unawaited(_adbProcess.exitCode.whenComplete(() {
       if (_linesController.hasListener) {
         _linesController.close();
@@ -1143,7 +1144,7 @@ class AdbLogReader extends DeviceLogReader {
       }
       _acceptedLastLine = false;
     } else if (line == '--------- beginning of system' ||
-               line == '--------- beginning of main') {
+        line == '--------- beginning of main') {
       // hide the ugly adb logcat log boundaries at the start
       _acceptedLastLine = false;
     } else {

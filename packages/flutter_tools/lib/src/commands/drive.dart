@@ -180,6 +180,7 @@ class DriveCommand extends RunCommandBase {
 
     String observatoryUri;
     ResidentRunner residentRunner;
+    ApplicationPackage package;
     final BuildInfo buildInfo = getBuildInfo();
     final bool isWebPlatform = await device.targetPlatform == TargetPlatform.web_javascript;
     if (argResults['use-existing-app'] == null) {
@@ -239,7 +240,16 @@ class DriveCommand extends RunCommandBase {
         webUri = residentRunner.uri;
       }
 
-      final LaunchResult result = await appStarter(this, webUri);
+      final File applicationBinary = stringArg('use-application-binary') == null
+        ? null
+        : globals.fs.file(stringArg('use-application-binary'));
+      package = await applicationPackages.getPackageForPlatform(
+        await device.targetPlatform,
+        buildInfo: getBuildInfo(),
+        applicationBinary: applicationBinary,
+      );
+
+      final LaunchResult result = await appStarter(this, webUri, package, applicationBinary != null);
       if (result == null) {
         throwToolExit('Application failed to start. Will not run test. Quitting.', exitCode: 1);
       }
@@ -365,7 +375,7 @@ $ex
         globals.printStatus('Leaving the application running.');
       } else {
         globals.printStatus('Stopping application instance.');
-        await appStopper(this);
+        await appStopper(this, package);
       }
     }
 
@@ -445,7 +455,12 @@ Future<Device> findTargetDevice({ @required Duration timeout }) async {
 }
 
 /// Starts the application on the device given command configuration.
-typedef AppStarter = Future<LaunchResult> Function(DriveCommand command, Uri webUri);
+typedef AppStarter = Future<LaunchResult> Function(
+  DriveCommand command,
+  Uri webUri,
+  ApplicationPackage package,
+  bool prebuiltApplication,
+);
 
 AppStarter appStarter = _startApp; // (mutable for testing)
 void restoreAppStarter() {
@@ -454,9 +469,10 @@ void restoreAppStarter() {
 
 Future<LaunchResult> _startApp(
   DriveCommand command,
-  Uri webUri, {
-  String userIdentifier,
-}) async {
+  Uri webUri,
+  ApplicationPackage package,
+  bool prebuiltApplication,
+) async {
   final String mainPath = findMainDartFile(command.targetFile);
   if (await globals.fs.type(mainPath) != FileSystemEntityType.file) {
     globals.printError('Tried to run $mainPath, but that file does not exist.');
@@ -464,16 +480,7 @@ Future<LaunchResult> _startApp(
   }
 
   globals.printTrace('Stopping previously running application, if any.');
-  await appStopper(command);
-
-  final File applicationBinary = command.stringArg('use-application-binary') == null
-    ? null
-    : globals.fs.file(command.stringArg('use-application-binary'));
-  final ApplicationPackage package = await command.applicationPackages.getPackageForPlatform(
-    await command.device.targetPlatform,
-    buildInfo: command.getBuildInfo(),
-    applicationBinary: applicationBinary,
-  );
+  await appStopper(command, package);
 
   final Map<String, dynamic> platformArgs = <String, dynamic>{};
   if (command.traceStartup) {
@@ -491,12 +498,6 @@ Future<LaunchResult> _startApp(
 
   globals.printTrace('Starting application.');
 
-  // Forward device log messages to the terminal window running the "drive" command.
-  final DeviceLogReader logReader = await command.device.getLogReader(app: package);
-  command._deviceLogSubscription = logReader
-    .logLines
-    .listen(globals.printStatus);
-
   final LaunchResult result = await command.device.startApp(
     package,
     mainPath: mainPath,
@@ -513,15 +514,17 @@ Future<LaunchResult> _startApp(
       purgePersistentCache: command.purgePersistentCache,
     ),
     platformArgs: platformArgs,
-    userIdentifier: userIdentifier,
-    prebuiltApplication: applicationBinary != null,
+    userIdentifier: command.userIdentifier,
+    prebuiltApplication: prebuiltApplication,
   );
 
   if (!result.started) {
-    await command._deviceLogSubscription.cancel();
     return null;
   }
 
+  // Forward device log messages to the terminal window running the "drive" command.
+  final DeviceLogReader logReader = await command.device.getLogReader(app: package);
+  command._deviceLogSubscription = logReader.logLines.listen(globals.printStatus);
   return result;
 }
 
@@ -552,19 +555,15 @@ Future<void> _runTests(List<String> testArgs, Map<String, String> environment) a
 
 
 /// Stops the application.
-typedef AppStopper = Future<bool> Function(DriveCommand command);
+typedef AppStopper = Future<bool> Function(DriveCommand command, ApplicationPackage applicationPackage);
 AppStopper appStopper = _stopApp;
 void restoreAppStopper() {
   appStopper = _stopApp;
 }
 
-Future<bool> _stopApp(DriveCommand command) async {
+Future<bool> _stopApp(DriveCommand command, ApplicationPackage applicationPackage) async {
   globals.printTrace('Stopping application.');
-  final ApplicationPackage package = await command.applicationPackages.getPackageForPlatform(
-    await command.device.targetPlatform,
-    buildInfo: command.getBuildInfo(),
-  );
-  final bool stopped = await command.device.stopApp(package, userIdentifier: command.userIdentifier);
+  final bool stopped = await command.device.stopApp(applicationPackage, userIdentifier: command.userIdentifier);
   await command._deviceLogSubscription?.cancel();
   return stopped;
 }

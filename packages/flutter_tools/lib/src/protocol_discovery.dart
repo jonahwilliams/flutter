@@ -23,7 +23,6 @@ class ProtocolDiscovery {
     this.hostPort,
     this.devicePort,
     this.ipv6,
-    this.close,
     Logger logger,
   }) : _logger = logger,
        assert(logReader != null) {
@@ -42,7 +41,6 @@ class ProtocolDiscovery {
     @required int hostPort,
     @required int devicePort,
     @required bool ipv6,
-    bool close = true,
     Logger logger, // TODO(jonahwilliams): make required.
   }) {
     const String kObservatoryService = 'Observatory';
@@ -55,7 +53,6 @@ class ProtocolDiscovery {
       hostPort: hostPort,
       devicePort: devicePort,
       ipv6: ipv6,
-      close: close,
       logger: logger ?? globals.logger,
     );
   }
@@ -67,7 +64,6 @@ class ProtocolDiscovery {
   final int devicePort;
   final bool ipv6;
   final Logger _logger;
-  final bool close;
 
   /// The time to wait before forwarding a new observatory URIs from [logReader].
   final Duration throttleDuration;
@@ -119,10 +115,8 @@ class ProtocolDiscovery {
 
   Future<void> _stopScrapingLogs() async {
     await _uriStreamController?.close();
-    if (close) {
-      await _deviceLogSubscription?.cancel();
-      _deviceLogSubscription = null;
-    }
+    await _deviceLogSubscription?.cancel();
+    _deviceLogSubscription = null;
   }
 
   Match _getPatternMatch(String line) {

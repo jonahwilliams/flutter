@@ -602,7 +602,6 @@ class AndroidDevice extends Device {
         devicePort: debuggingOptions.deviceVmServicePort,
         ipv6: ipv6,
         logger: _logger,
-        close: false, // Android log reader is a singleton,
       );
     }
 
@@ -684,6 +683,7 @@ class AndroidDevice extends Device {
           return LaunchResult.failed();
         }
       }
+      _resetLogReaders();
       return LaunchResult.succeeded(observatoryUri: observatoryUri);
     } on Exception catch (error) {
       _logger.printError('Error waiting for a debug connection: $error');
@@ -743,6 +743,12 @@ class AndroidDevice extends Device {
     _processUtils.runSync(adbCommandForDevice(<String>['logcat', '-c']));
   }
 
+  /// Allow log readers to be re-created after starting for `flutter drive`.
+  void _resetLogReaders() {
+    _pastLogReader = null;
+    _logReader = null;
+  }
+
   @override
   FutureOr<DeviceLogReader> getLogReader({
     AndroidApk app,
@@ -755,12 +761,11 @@ class AndroidDevice extends Device {
         _processManager,
         includePastLogs: true,
       );
-    } else {
-      return _logReader ??= await AdbLogReader.createLogReader(
-        this,
-        _processManager,
-      );
     }
+    return _logReader ??= await AdbLogReader.createLogReader(
+      this,
+      _processManager,
+    );
   }
 
   @override

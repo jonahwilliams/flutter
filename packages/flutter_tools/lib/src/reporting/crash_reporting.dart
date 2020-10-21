@@ -95,7 +95,7 @@ class CrashReporter {
 /// wish to use your own server for collecting crash reports from Flutter Tools.
 class CrashReportSender {
   CrashReportSender({
-    @required http.Client client,
+    @required HttpClient client,
     @required Usage usage,
     @required Platform platform,
     @required Logger logger,
@@ -106,7 +106,7 @@ class CrashReportSender {
       _logger = logger,
       _operatingSystemUtils = operatingSystemUtils;
 
-  final http.Client _client;
+  final HttpClient _client;
   final Usage _usage;
   final Platform _platform;
   final Logger _logger;
@@ -175,20 +175,25 @@ class CrashReportSender {
         filename: _kStackTraceFilename,
       ));
 
-      final http.StreamedResponse resp = await _client.send(req);
+      final Uint8List body = await req.finalize().toBytes();
+      final Map<String, String> headers = req.headers;
+      final HttpClientRequest request = await _client.postUrl(uri);
+      headers.forEach(request.headers.add);
+      request.write(body);
+      final HttpClientResponse response = await request.close();
 
-      if (resp.statusCode == 200) {
-        final String reportId = await http.ByteStream(resp.stream)
-          .bytesToString();
+      if (response.statusCode == HttpStatus.ok) {
+        final String reportId = await response.transform(utf8.decoder).join('');
         _logger.printTrace('Crash report sent (report ID: $reportId)');
         _crashReportSent = true;
       } else {
-        _logger.printError('Failed to send crash report. Server responded with HTTP status code ${resp.statusCode}');
+        await response.drain(null);
+        _logger.printError('Failed to send crash report. Server responded with HTTP status code ${response.statusCode}');
       }
     // Catch all exceptions to print the message that makes clear that the
     // crash logger crashed.
     } catch (sendError, sendStackTrace) { // ignore: avoid_catches_without_on_clauses
-      if (sendError is SocketException || sendError is HttpException || sendError is http.ClientException) {
+      if (sendError is SocketException || sendError is HttpException) {
         _logger.printError('Failed to send crash report due to a network error: $sendError');
       } else {
         // If the sender itself crashes, just print. We did our best.

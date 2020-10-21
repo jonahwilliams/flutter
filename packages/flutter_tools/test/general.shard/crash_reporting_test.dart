@@ -375,10 +375,10 @@ class MockCrashReportSender extends MockClient {
   static int sendCalls = 0;
 }
 
-class CrashingCrashReportSender extends MockClient {
-  CrashingCrashReportSender(Object exception) : super((Request request) async {
-    throw exception;
-  });
+class FakeHttpClient extends Fake implements HttpClient {
+  FakeHttpClient([this.exception]);
+
+  final Object exception;
 }
 
 /// A DoctorValidatorsProvider that overrides the default validators without

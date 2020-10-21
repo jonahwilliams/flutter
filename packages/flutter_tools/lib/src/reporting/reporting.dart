@@ -5,9 +5,10 @@
 library reporting;
 
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:file/file.dart';
-import 'package:http/http.dart' as http;
+import 'package:http/http.dart' as http show MultipartRequest, MultipartFile;
 import 'package:intl/intl.dart';
 import 'package:meta/meta.dart';
 import 'package:usage/usage_io.dart';

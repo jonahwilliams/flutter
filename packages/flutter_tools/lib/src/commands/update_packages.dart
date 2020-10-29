@@ -56,6 +56,7 @@ const Map<String, String> _kManuallyPinnedDependencies = <String, String>{
   'test_core': '0.3.12-nullsafety.7',
   'typed_data': '1.3.0-nullsafety.4',
   'vector_math': '2.1.0-nullsafety.4',
+  'intl': '0.17.0-nullsafety.1',
   // Flutter team owned nnbd deps
   'platform': '3.0.0-nullsafety.3',
   'file': '6.0.0-nullsafety.3',

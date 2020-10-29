@@ -9,6 +9,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import 'binary_messenger.dart';
 
@@ -90,6 +91,10 @@ abstract class AssetBundle {
   /// used with one parser for the lifetime of the asset bundle.
   Future<T> loadStructuredData<T>(String key, Future<T> parser(String value));
 
+  /// Retrieve a standard message encoded asset from the asset bundle, parse it with the given function,
+  /// and return the function's result.
+  Future<Object?> loadStandardMessageData(String key);
+
   /// If this is a caching asset bundle, and the given key describes a cached
   /// asset, then evict the asset from the cache so that the next time it is
   /// loaded, the cache will be reread from the asset bundle.
@@ -145,6 +150,11 @@ class NetworkAssetBundle extends AssetBundle {
 
   @override
   String toString() => '${describeIdentity(this)}($_baseUrl)';
+
+  @override
+  Future<Object?> loadStandardMessageData(String key) async {
+    return const StandardMessageCodec().decodeMessage(await load(key));
+  }
 }
 
 /// An [AssetBundle] that permanently caches string and structured resources
@@ -159,6 +169,7 @@ abstract class CachingAssetBundle extends AssetBundle {
   // TODO(ianh): Replace this with an intelligent cache, see https://github.com/flutter/flutter/issues/3568
   final Map<String, Future<String>> _stringCache = <String, Future<String>>{};
   final Map<String, Future<dynamic>> _structuredDataCache = <String, Future<dynamic>>{};
+  final Map<String, Future<dynamic>> _standardMessgeData = <String, Future<dynamic>>{};
 
   @override
   Future<String> loadString(String key, { bool cache = true }) {
@@ -208,9 +219,43 @@ abstract class CachingAssetBundle extends AssetBundle {
   }
 
   @override
+  Future<dynamic> loadStandardMessageData(String key) async {
+    assert(key != null);
+    if (_standardMessgeData.containsKey(key))
+      return _standardMessgeData[key];
+    Completer<dynamic>? completer;
+    Future<dynamic>? result;
+    load(key).then<void>((ByteData value) {
+      if (value == null) {
+        return;
+      }
+      const StandardMessageCodec codec = StandardMessageCodec();
+      result = SynchronousFuture<dynamic>(codec.decodeMessage(value));
+      _standardMessgeData[key] = result!;
+      if (completer != null) {
+        // We already returned from the loadStructuredData function, which means
+        // we are in the asynchronous mode. Pass the value to the completer. The
+        // completer's future is what we returned.
+        completer.complete(codec.decodeMessage(value));
+      }
+    });
+    if (result != null) {
+      // The code above ran synchronously, and came up with an answer.
+      // Return the SynchronousFuture that we created above.
+      return result!;
+    }
+    // The code above hasn't yet run its "then" handler yet. Let's prepare a
+    // completer for it to use when it does run.
+    completer = Completer<dynamic>();
+    _standardMessgeData[key] = completer.future;
+    return completer.future;
+  }
+
+  @override
   void evict(String key) {
     _stringCache.remove(key);
     _structuredDataCache.remove(key);
+    _standardMessgeData.remove(key);
   }
 }
 
@@ -230,6 +275,11 @@ class PlatformAssetBundle extends CachingAssetBundle {
 AssetBundle _initRootBundle() {
   return PlatformAssetBundle();
 }
+
+/**
+ actual =   [13, 2, 7, 50, 112, 97, 99, 107, 97, 103, 101, 115, 47, 99, 117, 112, 101, 114, 116, 105, 110, 111, 95, 105, 99, 111, 110, 115, 47, 97, 115, 115, 101, 116, 115, 47, 67, 117, 112, 101, 114, 116, 105, 110, 111, 73, 99, 111, 110, 115, 46, 116, 116, 102, 12, 1, 7, 50, 112, 97, 99, 107, 97, 103, 101, 115, 47, 99, 117, 112, 101, 114, 116, 105, 110, 111, 95, 105, 99, 111, 110, 115, 47, 97, 115, 115, 101, 116, 115, 47, 67, 117, 112, 101, 114, 116, 105, 110, 111, 73, 99, 111, 110, 115, 46, 116, 116, 102, 7, 29, 108, 105, 98, 47, 103, 97, 108, 108, 101, 114, 121, 47, 101, 120, 97, 109, 112, 108, 101, 95, 99, 111, 100, 101, 46, 100, 97, 114, 116, 12, 1, 7, 29, 108, 105, 98, 47, 103, 97, 108, 108, 101, 114, 121, 47, 101, 120, 97, 109, 112, 108, 101, 95, 99, 111, 100, 101, 46, 100, 97, 114, 116, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+ received = [13, 2, 7, 50, 112, 97, 99, 107, 97, 103, 101, 115, 47, 99, 117, 112, 101, 114, 116, 105, 110, 111, 95, 105, 99, 111, 110, 115, 47, 97, 115, 115, 101, 116, 115, 47, 67, 117, 112, 101, 114, 116, 105, 110, 111, 73, 99, 111, 110, 115, 46, 116, 116, 102, 12, 1, 7, 50, 112, 97, 99, 107, 97, 103, 101, 115, 47, 99, 117, 112, 101, 114, 116, 105, 110, 111, 95, 105, 99, 111, 110, 115, 47, 97, 115, 115, 101, 116, 115, 47, 67, 117, 112, 101, 114, 116, 105, 110, 111, 73, 99, 111, 110, 115, 46, 116, 116, 102, 7, 29, 108, 105, 98, 47, 103, 97, 108, 108, 101, 114, 121, 47, 101, 120, 97, 109, 112, 108, 101, 95, 99, 111, 100, 101, 46, 100, 97, 114, 116, 12, 1, 7, 29, 108, 105, 98, 47, 103, 97, 108, 108, 101, 114, 121, 47, 101, 120, 97, 109, 112, 108, 101, 95, 99, 111, 100, 101, 46, 100, 97, 114, 116, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+ */
 
 /// The [AssetBundle] from which this application was loaded.
 ///

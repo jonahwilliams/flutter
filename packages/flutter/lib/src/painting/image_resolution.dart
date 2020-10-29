@@ -5,7 +5,6 @@
 
 import 'dart:async';
 import 'dart:collection';
-import 'dart:convert';
 import 'dart:ui' show hashValues;
 
 import 'package:flutter/foundation.dart';
@@ -13,7 +12,7 @@ import 'package:flutter/services.dart';
 
 import 'image_provider.dart';
 
-const String _kAssetManifestFileName = 'AssetManifest.json';
+const String _kAssetManifestBinaryFileName = 'AssetManifest.bin';
 
 /// Fetches an image from an [AssetBundle], having determined the exact image to
 /// use based on the context.
@@ -172,13 +171,17 @@ class AssetImage extends AssetBundleImageProvider {
     final AssetBundle chosenBundle = bundle ?? configuration.bundle ?? rootBundle;
     Completer<AssetBundleImageKey>? completer;
     Future<AssetBundleImageKey>? result;
-
-    chosenBundle.loadStructuredData<Map<String, List<String>>?>(_kAssetManifestFileName, _manifestParser).then<void>(
-      (Map<String, List<String>>? manifest) {
+    var sw = Stopwatch()..start();
+    chosenBundle.loadStandardMessageData(_kAssetManifestBinaryFileName).then<void>(
+      (dynamic manifest) {
+        final Map<dynamic, dynamic> typedManifest = manifest as Map<dynamic, dynamic>;
+        if (manifest == null) {
+          return;
+        }
         final String chosenName = _chooseVariant(
           keyName,
           configuration,
-          manifest == null ? null : manifest[keyName],
+          manifest == null ? null : typedManifest[keyName] as List<dynamic>,
         )!;
         final double chosenScale = _parseScale(chosenName);
         final AssetBundleImageKey key = AssetBundleImageKey(
@@ -214,29 +217,19 @@ class AssetImage extends AssetBundleImageProvider {
     // The code above hasn't yet run its "then" handler yet. Let's prepare a
     // completer for it to use when it does run.
     completer = Completer<AssetBundleImageKey>();
+    completer.future.whenComplete(() {
+      print('LOADING MANIFEST TOOK ${sw.elapsedMilliseconds}');
+    });
     return completer.future;
   }
 
-  static Future<Map<String, List<String>>?> _manifestParser(String? jsonData) {
-    if (jsonData == null)
-      return SynchronousFuture<Map<String, List<String>>?>(null);
-    // TODO(ianh): JSON decoding really shouldn't be on the main thread.
-    final Map<String, dynamic> parsedJson = json.decode(jsonData) as Map<String, dynamic>;
-    final Iterable<String> keys = parsedJson.keys;
-    final Map<String, List<String>> parsedManifest =
-        Map<String, List<String>>.fromIterables(keys,
-          keys.map<List<String>>((String key) => List<String>.from(parsedJson[key] as List<dynamic>)));
-    // TODO(ianh): convert that data structure to the right types.
-    return SynchronousFuture<Map<String, List<String>>?>(parsedManifest);
-  }
-
-  String? _chooseVariant(String main, ImageConfiguration config, List<String>? candidates) {
+  String? _chooseVariant(String main, ImageConfiguration config, List<dynamic>? candidates) {
     if (config.devicePixelRatio == null || candidates == null || candidates.isEmpty)
       return main;
     // TODO(ianh): Consider moving this parsing logic into _manifestParser.
     final SplayTreeMap<double, String> mapping = SplayTreeMap<double, String>();
-    for (final String candidate in candidates)
-      mapping[_parseScale(candidate)] = candidate;
+    for (final dynamic candidate in candidates)
+      mapping[_parseScale(candidate as String)] = candidate;
     // TODO(ianh): implement support for config.locale, config.textDirection,
     // config.size, config.platform (then document this over in the Image.asset
     // docs)

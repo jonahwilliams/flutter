@@ -179,7 +179,7 @@ class CrashReportSender {
       final Map<String, String> headers = req.headers;
       final HttpClientRequest request = await _client.postUrl(uri);
       headers.forEach(request.headers.add);
-      request.write(body);
+      request.add(body);
       final HttpClientResponse response = await request.close();
 
       if (response.statusCode == HttpStatus.ok) {

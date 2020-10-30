@@ -7,7 +7,6 @@ import 'dart:async';
 import 'package:args/command_runner.dart';
 import 'package:intl/intl.dart' as intl;
 import 'package:intl/intl_standalone.dart' as intl_standalone;
-import 'package:http/http.dart' as http;
 
 import 'src/base/common.dart';
 import 'src/base/context.dart';
@@ -132,7 +131,7 @@ Future<int> _handleToolError(
     // Report to both [Usage] and [CrashReportSender].
     globals.flutterUsage.sendException(error);
     final CrashReportSender crashReportSender = CrashReportSender(
-      client: http.Client(),
+      client: HttpClient(),
       usage: globals.flutterUsage,
       platform: globals.platform,
       logger: globals.logger,

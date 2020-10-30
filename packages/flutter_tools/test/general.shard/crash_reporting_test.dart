@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'dart:convert';
+import 'dart:async';
 
 import 'package:file/file.dart';
 import 'package:file/memory.dart';
@@ -13,13 +13,10 @@ import 'package:flutter_tools/src/base/platform.dart';
 import 'package:flutter_tools/src/doctor.dart';
 import 'package:flutter_tools/src/project.dart';
 import 'package:flutter_tools/src/reporting/reporting.dart';
-import 'package:http/http.dart';
-import 'package:http/testing.dart';
 import 'package:mockito/mockito.dart';
 
 import '../src/common.dart';
 import '../src/context.dart';
-import '../src/testbed.dart';
 
 void main() {
   BufferLogger logger;
@@ -42,38 +39,36 @@ void main() {
       platform: platform,
       processManager: FakeProcessManager.any(),
     );
-
-    MockCrashReportSender.sendCalls = 0;
   });
 
-  Future<void> verifyCrashReportSent(RequestInfo crashInfo, {
-    int crashes = 1,
-  }) async {
-    // Verify that we sent the crash report.
-    expect(crashInfo.method, 'POST');
-    expect(crashInfo.uri, Uri(
-      scheme: 'https',
-      host: 'clients2.google.com',
-      port: 443,
-      path: '/cr/report',
-      queryParameters: <String, String>{
-        'product': 'Flutter_Tools',
-        'version': 'test-version',
-      },
-    ));
-    expect(crashInfo.fields['uuid'], '00000000-0000-4000-0000-000000000000');
-    expect(crashInfo.fields['product'], 'Flutter_Tools');
-    expect(crashInfo.fields['version'], 'test-version');
-    expect(crashInfo.fields['osName'], 'linux');
-    expect(crashInfo.fields['osVersion'], 'Linux');
-    expect(crashInfo.fields['type'], 'DartError');
-    expect(crashInfo.fields['error_runtime_type'], 'StateError');
-    expect(crashInfo.fields['error_message'], 'Bad state: Test bad state error');
-    expect(crashInfo.fields['comments'], 'crash');
-
-    expect(logger.traceText, contains('Sending crash report to Google.'));
-    expect(logger.traceText, contains('Crash report sent (report ID: test-report-id)'));
-  }
+  // Future<void> verifyCrashReportSent(FakeHttpClient fakeHttpClient, {
+  //   int crashes = 1,
+  // }) async {
+  //   // Verify that we sent the crash report.
+  //   expect(fakeHttpClient.lastUrl, Uri(
+  //     scheme: 'https',
+  //     host: 'clients2.google.com',
+  //     port: 443,
+  //     path: '/cr/report',
+  //     queryParameters: <String, String>{
+  //       'product': 'Flutter_Tools',
+  //       'version': 'test-version',
+  //     },
+  //   ));
+  //
+  //   expect(crashInfo.fields['uuid'], '00000000-0000-4000-0000-000000000000');
+  //   expect(crashInfo.fields['product'], 'Flutter_Tools');
+  //   expect(crashInfo.fields['version'], 'test-version');
+  //   expect(crashInfo.fields['osName'], 'linux');
+  //   expect(crashInfo.fields['osVersion'], 'Linux');
+  //   expect(crashInfo.fields['type'], 'DartError');
+  //   expect(crashInfo.fields['error_runtime_type'], 'StateError');
+  //   expect(crashInfo.fields['error_message'], 'Bad state: Test bad state error');
+  //   expect(crashInfo.fields['comments'], 'crash');
+  //
+  //   expect(logger.traceText, contains('Sending crash report to Google.'));
+  //   expect(logger.traceText, contains('Crash report sent (report ID: test-report-id)'));
+  // }
 
   testWithoutContext('CrashReporter.informUser provides basic instructions', () async {
     final CrashReporter crashReporter = CrashReporter(
@@ -100,9 +95,10 @@ void main() {
 
   testWithoutContext('suppress analytics', () async {
     when(mockUsage.suppressAnalytics).thenReturn(true);
+    final FakeHttpClient fakeHttpClient = FakeHttpClient();
 
     final CrashReportSender crashReportSender = CrashReportSender(
-      client: CrashingCrashReportSender(const SocketException('no internets')),
+      client: fakeHttpClient, //CrashingCrashReportSender(const SocketException('no internets')),
       usage: mockUsage,
       platform: platform,
       logger: logger,
@@ -125,10 +121,10 @@ void main() {
     });
 
     testWithoutContext('should send crash reports', () async {
-      final RequestInfo requestInfo = RequestInfo();
+      final FakeHttpClient fakeHttpClient = FakeHttpClient();
 
       final CrashReportSender crashReportSender = CrashReportSender(
-        client: MockCrashReportSender(requestInfo),
+        client: fakeHttpClient,
         usage: mockUsage,
         platform: platform,
         logger: logger,
@@ -142,12 +138,22 @@ void main() {
         command: 'crash',
       );
 
-      await verifyCrashReportSent(requestInfo);
+      expect(fakeHttpClient.lastUrl, Uri(
+        scheme: 'https',
+        host: 'clients2.google.com',
+        port: 443,
+        path: '/cr/report',
+        queryParameters: <String, String>{
+          'product': 'Flutter_Tools',
+          'version': 'test-version',
+        },
+      ));
     });
 
     testWithoutContext('should print an explanatory message when there is a SocketException', () async {
+      final FakeHttpClient fakeHttpClient = FakeHttpClient(const SocketException('no internets'));
       final CrashReportSender crashReportSender = CrashReportSender(
-        client: CrashingCrashReportSender(const SocketException('no internets')),
+        client: fakeHttpClient,
         usage: mockUsage,
         platform: platform,
         logger: logger,
@@ -165,8 +171,9 @@ void main() {
     });
 
     testWithoutContext('should print an explanatory message when there is an HttpException', () async {
+      final FakeHttpClient fakeHttpClient = FakeHttpClient(const HttpException('no internets'));
       final CrashReportSender crashReportSender = CrashReportSender(
-        client: CrashingCrashReportSender(const HttpException('no internets')),
+        client: fakeHttpClient,
         usage: mockUsage,
         platform: platform,
         logger: logger,
@@ -175,25 +182,6 @@ void main() {
 
       await crashReportSender.sendReport(
         error: StateError('Test bad state error'),
-        stackTrace: null,
-        getFlutterVersion: () => 'test-version',
-        command: 'crash',
-      );
-
-      expect(logger.errorText, contains('Failed to send crash report due to a network error'));
-    });
-
-    testWithoutContext('should print an explanatory message when there is a ClientException', () async {
-      final CrashReportSender crashReportSender = CrashReportSender(
-        client: CrashingCrashReportSender(const HttpException('no internets')),
-        usage: mockUsage,
-        platform: platform,
-        logger: logger,
-        operatingSystemUtils: operatingSystemUtils,
-      );
-
-      await crashReportSender.sendReport(
-        error: ClientException('Test bad state error'),
         stackTrace: null,
         getFlutterVersion: () => 'test-version',
         command: 'crash',
@@ -203,10 +191,10 @@ void main() {
     });
 
     testWithoutContext('should send only one crash report when sent many times', () async {
-      final RequestInfo requestInfo = RequestInfo();
+      final FakeHttpClient fakeHttpClient = FakeHttpClient();
 
       final CrashReportSender crashReportSender = CrashReportSender(
-        client: MockCrashReportSender(requestInfo),
+        client: fakeHttpClient,
         usage: mockUsage,
         platform: platform,
         logger: logger,
@@ -241,26 +229,24 @@ void main() {
         command: 'crash',
       );
 
-      expect(MockCrashReportSender.sendCalls, 1);
-      await verifyCrashReportSent(requestInfo, crashes: 4);
+      expect(fakeHttpClient.calls, 1);
+      expect(fakeHttpClient.lastUrl, Uri(
+        scheme: 'https',
+        host: 'clients2.google.com',
+        port: 443,
+        path: '/cr/report',
+        queryParameters: <String, String>{
+          'product': 'Flutter_Tools',
+          'version': 'test-version',
+        },
+      ));
     });
 
     testWithoutContext('should not send a crash report if on a user-branch', () async {
-      String method;
-      Uri uri;
-
-      final MockClient mockClient = MockClient((Request request) async {
-        method = request.method;
-        uri = request.url;
-
-        return Response(
-          'test-report-id',
-          200,
-        );
-      });
+      final FakeHttpClient fakeHttpClient = FakeHttpClient();
 
       final CrashReportSender crashReportSender = CrashReportSender(
-        client: mockClient,
+        client: fakeHttpClient,
         usage: mockUsage,
         platform: platform,
         logger: logger,
@@ -275,18 +261,13 @@ void main() {
       );
 
       // Verify that the report wasn't sent
-      expect(method, null);
-      expect(uri, null);
+      expect(fakeHttpClient.lastUrl, null);
 
       expect(logger.traceText, isNot(contains('Crash report sent')));
     });
 
     testWithoutContext('can override base URL', () async {
-      Uri uri;
-      final MockClient mockClient = MockClient((Request request) async {
-        uri = request.url;
-        return Response('test-report-id', 200);
-      });
+      final FakeHttpClient fakeHttpClient = FakeHttpClient();
 
       final Platform environmentPlatform = FakePlatform(
         operatingSystem: 'linux',
@@ -298,7 +279,7 @@ void main() {
       );
 
       final CrashReportSender crashReportSender = CrashReportSender(
-        client: mockClient,
+        client: fakeHttpClient,
         usage: mockUsage,
         platform: environmentPlatform,
         logger: logger,
@@ -313,8 +294,8 @@ void main() {
       );
 
       // Verify that we sent the crash report.
-      expect(uri, isNotNull);
-      expect(uri, Uri(
+      expect(fakeHttpClient.lastUrl, isNotNull);
+      expect(fakeHttpClient.lastUrl, Uri(
         scheme: 'https',
         host: 'localhost',
         port: 12345,
@@ -328,57 +309,66 @@ void main() {
   });
 }
 
-class RequestInfo {
-  String method;
-  Uri uri;
-  Map<String, String> fields;
-}
-
-class MockCrashReportSender extends MockClient {
-  MockCrashReportSender(RequestInfo crashInfo) : super((Request request) async {
-    MockCrashReportSender.sendCalls++;
-    crashInfo.method = request.method;
-    crashInfo.uri = request.url;
-
-    // A very ad-hoc multipart request parser. Good enough for this test.
-    String boundary = request.headers['Content-Type'];
-    boundary = boundary.substring(boundary.indexOf('boundary=') + 9);
-    crashInfo.fields = Map<String, String>.fromIterable(
-      utf8.decode(request.bodyBytes)
-        .split('--$boundary')
-        .map<List<String>>((String part) {
-        final Match nameMatch = RegExp(r'name="(.*)"').firstMatch(part);
-        if (nameMatch == null) {
-          return null;
-        }
-        final String name = nameMatch[1];
-        final String value = part.split('\n').skip(2).join('\n').trim();
-        return <String>[name, value];
-      })
-        .where((List<String> pair) => pair != null),
-      key: (dynamic key) {
-        final List<String> pair = key as List<String>;
-        return pair[0];
-      },
-      value: (dynamic value) {
-        final List<String> pair = value as List<String>;
-        return pair[1];
-      },
-    );
-
-    return Response(
-      'test-report-id',
-      200,
-    );
-  });
-
-  static int sendCalls = 0;
-}
-
 class FakeHttpClient extends Fake implements HttpClient {
   FakeHttpClient([this.exception]);
 
-  final Object exception;
+  dynamic exception;
+  int calls = 0;
+  Uri lastUrl;
+  final FakeHttpClientRequest httpClientRequest = FakeHttpClientRequest();
+
+  @override
+  Future<HttpClientRequest> postUrl(Uri url) async {
+    calls += 1;
+    lastUrl = url;
+    if (exception != null) {
+      throw exception;
+    }
+    return httpClientRequest;
+  }
+}
+
+class FakeHttpClientRequest extends Fake implements HttpClientRequest {
+  final FakeHttpClientResponse response = FakeHttpClientResponse();
+  final List<int> chunks = <int>[];
+
+  @override
+  final HttpHeaders headers = FakeHttpHeaders();
+
+  @override
+  Future<HttpClientResponse> close() async {
+    return response;
+  }
+
+  @override
+  void add(List<int> data) {
+    chunks.addAll(data);
+  }
+}
+
+class FakeHttpClientResponse extends Fake implements HttpClientResponse {
+  @override
+  int statusCode = HttpStatus.ok;
+
+  @override
+  Stream<S> transform<S>(StreamTransformer<List<int>, S> streamTransformer) {
+    return streamTransformer.bind(const Stream<List<int>>.empty());
+  }
+}
+
+class FakeHttpHeaders extends Fake implements HttpHeaders {
+  final Map<String, List<String>> headerValues = <String, List<String>>{};
+  
+  @override
+  void add(String name, Object value, {bool preserveHeaderCase = false}) {
+    headerValues[name] ??= <String>[];
+    headerValues[name].add(value.toString());
+  }
+
+  @override
+  void set(String name, Object value, {bool preserveHeaderCase = false}) {
+    headerValues[name] = <String>[value.toString()];
+  }
 }
 
 /// A DoctorValidatorsProvider that overrides the default validators without

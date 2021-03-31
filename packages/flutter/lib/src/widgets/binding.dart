@@ -11,6 +11,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/src/rendering/debug_canvas.dart';
 
 import 'app.dart';
 import 'debug.dart';
@@ -849,6 +850,12 @@ mixin WidgetsBinding on BindingBase, ServicesBinding, SchedulerBinding, GestureB
       debugBuildingDirtyElements = true;
       return true;
     }());
+    assert(() {
+      final PaintRecorder paintRecorder = PaintRecorder();
+      Element.debugBuildRecorder = BuildRecorder(paintRecorder);
+      RenderObject.debugPaintRecorder = paintRecorder;
+      return true;
+    }());
 
     TimingsCallback? firstFrameCallback;
     if (_needToReportFirstFrame) {
@@ -893,6 +900,14 @@ mixin WidgetsBinding on BindingBase, ServicesBinding, SchedulerBinding, GestureB
       _needToReportFirstFrame = true;
       SchedulerBinding.instance!.removeTimingsCallback(firstFrameCallback!);
     }
+    assert(() {
+      final BuildRecorder? recorder = Element.debugBuildRecorder;
+      if (RenderObject.debugPaintRecorder?.hasPaint ?? false)
+        print(recorder);
+      RenderObject.debugPaintRecorder = null;
+      Element.debugBuildRecorder = null;
+      return true;
+    }());
   }
 
   /// The [Element] that is at the root of the hierarchy (and which wraps the

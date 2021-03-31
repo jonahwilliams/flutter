@@ -8,6 +8,7 @@ import 'dart:developer';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/src/rendering/debug_canvas.dart';
 
 import 'binding.dart';
 import 'debug.dart';
@@ -2952,6 +2953,88 @@ class BuildOwner {
   }
 }
 
+class BuildRecorder {
+  BuildRecorder(this._paintRecorder);
+
+  final PaintRecorder _paintRecorder;
+
+  static final Object _root = Object();
+  final Map<Object, Object> _widgets = HashMap<Object, Object>();
+  final Map<Object, RenderObject> _renderObjects = HashMap<Object, RenderObject>();
+
+  final Set<Object> _roots = <Object>{};
+
+  void _recordElement(Element element) {
+    final Widget? parent = element._parent?.widget;
+    final Widget widget = element.widget;
+    if (parent == null) {
+       _widgets[widget] = _root;
+       return;
+    }
+    _widgets[widget] = parent;
+    _widgets[parent] ??= _root;
+  }
+
+  void _recordRenderObjectElement(RenderObjectElement element) {
+    final Widget? parent = element._parent?.widget;
+    final Widget widget = element.widget;
+    if (parent == null) {
+       _widgets[widget] = _root;
+       return;
+    }
+    _renderObjects[widget] = element.renderObject;
+    _widgets[widget] = parent;
+    _widgets[parent] ??= _root;
+  }
+
+  @override
+  String toString() {
+    final List<Object> roots = _roots.toList();
+    for (final Object value in _widgets.keys) {
+      if (_widgets[value] == _root) {
+        roots.add(value);
+      }
+    }
+    final StringBuffer buffer = StringBuffer();
+    for (final Object root in roots) {
+      _printRecursive(buffer, root);
+    }
+    if (!_paintRecorder.hasPaint) {
+      return '';
+    }
+    return buffer.toString();
+  }
+
+  void _printRecursive(StringBuffer buffer, Object current) {
+    final List<Object> children = <Object>[
+        for (Object object in _widgets.keys)
+          if (_widgets[object] == current)
+            object,
+      ];
+    final RenderObject? renderObject = _renderObjects[current];
+    final String? renderObjectValue = renderObject?.runtimeType.toString();
+    final List<Object>? paintOps = renderObject != null ? _paintRecorder.opsFor(renderObject) : null;
+    if (children.isEmpty) {
+      if (paintOps != null && paintOps.isNotEmpty) {
+        buffer.write('${current.runtimeType}${renderObject == null ? '' : '|$renderObjectValue'}');
+        buffer.writeln('\n{ ${paintOps.join(', ')} }');
+      } else {
+        buffer.write(', ');
+      }
+    } else {
+      buffer.write(' ${current.runtimeType}${renderObject == null ? '' : '|$renderObjectValue'}');
+      if (paintOps != null && paintOps.isNotEmpty) {
+        buffer.writeln('\n{ ${paintOps.join(', ')} }');
+      }
+      buffer.write(': [');
+      for (final Object child in children) {
+        _printRecursive(buffer, child);
+      }
+      buffer.write('] ');
+    }
+  }
+}
+
 /// An instantiation of a [Widget] at a particular location in the tree.
 ///
 /// Widgets describe how to configure a subtree but the same widget can be used
@@ -3093,6 +3176,8 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
   @override
   BuildOwner? get owner => _owner;
   BuildOwner? _owner;
+
+  static BuildRecorder? debugBuildRecorder;
 
   /// {@template flutter.widgets.Element.reassemble}
   /// Called whenever the application is reassembled during debugging, for
@@ -4610,6 +4695,10 @@ abstract class ComponentElement extends Element {
       );
       _child = updateChild(null, built, slot);
     }
+    assert(() {
+      Element.debugBuildRecorder?._recordElement(this);
+      return true;
+    }());
 
     if (!kReleaseMode && debugProfileBuildsEnabled)
       Timeline.finishSync();
@@ -5432,6 +5521,10 @@ abstract class RenderObjectElement extends Element {
       return true;
     }());
     assert(() {
+      Element.debugBuildRecorder?._recordRenderObjectElement(this);
+      return true;
+    }());
+    assert(() {
       _debugUpdateRenderObjectOwner();
       return true;
     }());
@@ -5446,6 +5539,10 @@ abstract class RenderObjectElement extends Element {
     assert(widget == newWidget);
     assert(() {
       _debugUpdateRenderObjectOwner();
+      return true;
+    }());
+    assert(() {
+      Element.debugBuildRecorder?._recordRenderObjectElement(this);
       return true;
     }());
     assert(() {
@@ -5471,6 +5568,10 @@ abstract class RenderObjectElement extends Element {
   void performRebuild() {
     assert(() {
       _debugDoingBuild = true;
+      return true;
+    }());
+    assert(() {
+      Element.debugBuildRecorder?._recordRenderObjectElement(this);
       return true;
     }());
     widget.updateRenderObject(this, renderObject);

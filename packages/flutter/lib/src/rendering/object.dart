@@ -14,6 +14,7 @@ import 'package:vector_math/vector_math_64.dart';
 
 import 'binding.dart';
 import 'debug.dart';
+import 'debug_canvas.dart';
 import 'layer.dart';
 
 export 'package:flutter/foundation.dart' show FlutterError, InformationCollector, DiagnosticsNode, ErrorSummary, ErrorDescription, ErrorHint, DiagnosticsProperty, StringProperty, DoubleProperty, EnumProperty, FlagProperty, IntProperty, DiagnosticPropertiesBuilder;
@@ -174,6 +175,7 @@ class PaintingContext extends ClipContext {
   /// the child will be painted into the current PictureLayer for this context.
   void paintChild(RenderObject child, Offset offset) {
     assert(() {
+      RenderObject.debugPaintRecorder?.active = child;
       if (debugProfilePaintsEnabled)
         Timeline.startSync('${child.runtimeType}', arguments: timelineArgumentsIndicatingLandmarkEvent);
       debugOnProfilePaint?.call(child);
@@ -256,6 +258,7 @@ class PaintingContext extends ClipContext {
   PictureLayer? _currentLayer;
   ui.PictureRecorder? _recorder;
   Canvas? _canvas;
+  DebugCanvas? _debugCanvas;
 
   /// The canvas on which to paint.
   ///
@@ -266,6 +269,8 @@ class PaintingContext extends ClipContext {
   Canvas get canvas {
     if (_canvas == null)
       _startRecording();
+    if (kDebugMode)
+      return _debugCanvas!;
     return _canvas!;
   }
 
@@ -274,6 +279,7 @@ class PaintingContext extends ClipContext {
     _currentLayer = PictureLayer(estimatedBounds);
     _recorder = ui.PictureRecorder();
     _canvas = Canvas(_recorder!);
+    _debugCanvas = DebugCanvas(_canvas!, RenderObject.debugPaintRecorder!);
     _containerLayer.append(_currentLayer!);
   }
 
@@ -1204,6 +1210,8 @@ abstract class RenderObject extends AbstractNode with DiagnosticableTreeMixin im
   RenderObject() {
     _needsCompositing = isRepaintBoundary || alwaysNeedsCompositing;
   }
+
+  static PaintRecorder? debugPaintRecorder;
 
   /// Cause the entire subtree rooted at the given [RenderObject] to be marked
   /// dirty for layout, paint, etc, so that the effects of a hot reload can be

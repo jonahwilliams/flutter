@@ -480,10 +480,9 @@ abstract class Widget extends DiagnosticableTree {
 /// ```
 /// {@end-tool}
 ///
-/// By convention, widget constructors only use named arguments. Named arguments
-/// can be marked as required using [@required]. Also by convention, the first
-/// argument is [key], and the last argument is `child`, `children`, or the
-/// equivalent.
+/// By convention, widget constructors only use named arguments. Also by
+/// convention, the first argument is [key], and the last argument is `child`,
+/// `children`, or the equivalent.
 ///
 /// See also:
 ///
@@ -717,10 +716,9 @@ abstract class StatelessWidget extends Widget {
 /// ```
 /// {@end-tool}
 ///
-/// By convention, widget constructors only use named arguments. Named arguments
-/// can be marked as required using [@required]. Also by convention, the first
-/// argument is [key], and the last argument is `child`, `children`, or the
-/// equivalent.
+/// By convention, widget constructors only use named arguments. Also by
+/// convention, the first argument is [key], and the last argument is `child`,
+/// `children`, or the equivalent.
 ///
 /// See also:
 ///
@@ -911,7 +909,7 @@ abstract class State<T extends StatefulWidget> with Diagnosticable {
       if (_element == null) {
         throw FlutterError(
           'This widget has been unmounted, so the State no longer has a context (and should be considered defunct). \n'
-          'Consider canceling any active work during "dispose" or using the "mounted" getter to determine if the State is still active.'
+          'Consider canceling any active work during "dispose" or using the "mounted" getter to determine if the State is still active.',
         );
       }
       return true;
@@ -1058,20 +1056,20 @@ abstract class State<T extends StatefulWidget> with Diagnosticable {
             'This error happens if you call setState() on a State object for a widget that '
             'no longer appears in the widget tree (e.g., whose parent widget no longer '
             'includes the widget in its build). This error can occur when code calls '
-            'setState() from a timer or an animation callback.'
+            'setState() from a timer or an animation callback.',
           ),
           ErrorHint(
             'The preferred solution is '
             'to cancel the timer or stop listening to the animation in the dispose() '
             'callback. Another solution is to check the "mounted" property of this '
             'object before calling setState() to ensure the object is still in the '
-            'tree.'
+            'tree.',
           ),
           ErrorHint(
             'This error might indicate a memory leak if setState() is being called '
             'because another object is retaining a reference to this State object '
             'after it has been removed from the tree. To avoid memory leaks, '
-            'consider breaking the reference to this object during dispose().'
+            'consider breaking the reference to this object during dispose().',
           ),
         ]);
       }
@@ -1082,7 +1080,7 @@ abstract class State<T extends StatefulWidget> with Diagnosticable {
             'This happens when you call setState() on a State object for a widget that '
             "hasn't been inserted into the widget tree yet. It is not necessary to call "
             'setState() in the constructor, since the state is already assumed to be dirty '
-            'when it is initially created.'
+            'when it is initially created.',
           ),
         ]);
       }
@@ -1095,12 +1093,12 @@ abstract class State<T extends StatefulWidget> with Diagnosticable {
           ErrorSummary('setState() callback argument returned a Future.'),
           ErrorDescription(
             'The setState() method on $this was called with a closure or method that '
-            'returned a Future. Maybe it is marked as "async".'
+            'returned a Future. Maybe it is marked as "async".',
           ),
           ErrorHint(
             'Instead of performing asynchronous work inside a call to setState(), first '
             'execute the work (without updating the widget state), and then synchronously '
-           'update the state inside a call to setState().'
+           'update the state inside a call to setState().',
           ),
         ]);
       }
@@ -1430,25 +1428,25 @@ abstract class ParentDataWidget<T extends ParentData> extends ProxyWidget {
     final String description = 'The ParentDataWidget $this wants to apply ParentData of type $T to a RenderObject';
     if (parentData == null) {
       yield ErrorDescription(
-        '$description, which has not been set up to receive any ParentData.'
+        '$description, which has not been set up to receive any ParentData.',
       );
     } else {
       yield ErrorDescription(
-        '$description, which has been set up to accept ParentData of incompatible type ${parentData.runtimeType}.'
+        '$description, which has been set up to accept ParentData of incompatible type ${parentData.runtimeType}.',
       );
     }
     yield ErrorHint(
       'Usually, this means that the $runtimeType widget has the wrong ancestor RenderObjectWidget. '
-      'Typically, $runtimeType widgets are placed directly inside $debugTypicalAncestorWidgetClass widgets.'
+      'Typically, $runtimeType widgets are placed directly inside $debugTypicalAncestorWidgetClass widgets.',
     );
     if (parentDataCreator != null) {
       yield ErrorHint(
-        'The offending $runtimeType is currently placed inside a ${parentDataCreator.runtimeType} widget.'
+        'The offending $runtimeType is currently placed inside a ${parentDataCreator.runtimeType} widget.',
       );
     }
     if (ownershipChain != null) {
       yield ErrorDescription(
-        'The ownership chain for the RenderObject that received the incompatible parent data was:\n  $ownershipChain'
+        'The ownership chain for the RenderObject that received the incompatible parent data was:\n  $ownershipChain',
       );
     }
   }
@@ -1749,7 +1747,7 @@ abstract class MultiChildRenderObjectWidget extends RenderObjectWidget {
         if (children[index] == null) {
           throw FlutterError(
               "$runtimeType's children must not contain any null values, "
-                  'but a null value was found at index $index'
+                  'but a null value was found at index $index',
           );
         }
       }
@@ -2408,11 +2406,12 @@ class BuildOwner {
           element.describeElement('The method was called for the following element'),
           ErrorDescription(
             'This element is not current marked as dirty. Make sure to set the dirty flag before '
-            'calling scheduleBuildFor().'),
+            'calling scheduleBuildFor().',
+          ),
           ErrorHint(
             'If you did not attempt to call scheduleBuildFor() yourself, then this probably '
             'indicates a bug in the widgets framework. Please report it:\n'
-            '  https://github.com/flutter/flutter/issues/new?template=2_bug.md'
+            '  https://github.com/flutter/flutter/issues/new?template=2_bug.md',
           ),
         ]);
       }
@@ -2427,7 +2426,7 @@ class BuildOwner {
             ErrorSummary('BuildOwner.scheduleBuildFor() called inappropriately.'),
             ErrorHint(
               'The BuildOwner.scheduleBuildFor() method should only be called while the '
-              'buildScope() method is actively rebuilding the widget tree.'
+              'buildScope() method is actively rebuilding the widget tree.',
             ),
           ]);
         }
@@ -2747,7 +2746,7 @@ class BuildOwner {
                     'The key $key was used by multiple widgets. The parents of those widgets were:\n'
                     '- ${older.toString()}\n'
                     '- ${newer.toString()}\n'
-                    'A GlobalKey can only be specified on one widget at a time in the widget tree.'
+                    'A GlobalKey can only be specified on one widget at a time in the widget tree.',
                 ),
               ]);
             } else {
@@ -2757,7 +2756,7 @@ class BuildOwner {
                     'The key $key was used by multiple widgets. The parents of those widgets were '
                     'different widgets that both had the following description:\n'
                     '  ${parent.toString()}\n'
-                    'A GlobalKey can only be specified on one widget at a time in the widget tree.'
+                    'A GlobalKey can only be specified on one widget at a time in the widget tree.',
                 ),
               ]);
             }
@@ -2915,7 +2914,7 @@ class BuildOwner {
                   'The specific parent$s2 that did not update after having one or more children forcibly removed '
                   'due to GlobalKey reparenting $are:\n'
                   '- ${elementLabels.join("\n  ")}'
-                  '\nA GlobalKey can only be specified on one widget at a time in the widget tree.'
+                  '\nA GlobalKey can only be specified on one widget at a time in the widget tree.',
                 ),
               ]);
             }
@@ -3263,7 +3262,7 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
     } else {
       information.add(ErrorDescription(
         'This widget is the root of the tree, so it has no '
-        'ancestors, let alone a "$expectedAncestorType" ancestor.'
+        'ancestors, let alone a "$expectedAncestorType" ancestor.',
       ));
     }
     return information;
@@ -3346,7 +3345,7 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
           "The BuildContext.visitChildElements() method can't be called during "
           'build because the child list is still being updated at that point, '
           'so the children might not be constructed yet, or might be old children '
-          'that are going to be replaced.'
+          'that are going to be replaced.',
         ),
       ]);
     }());
@@ -3906,7 +3905,7 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
           ErrorDescription(
             'In order for an element to have a valid size, the element must be '
             'active, which means it is part of the tree.\n'
-            'Instead, this element is in the $_lifecycleState state.'
+            'Instead, this element is in the $_lifecycleState state.',
           ),
           describeElement('The size getter was called for the following element'),
         ]);
@@ -3919,7 +3918,7 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
             'the framework is still in the process of building widgets, which '
             'means the render tree for this frame has not yet been determined. '
             'The size getter should only be called from paint callbacks or '
-            'interaction event handlers (e.g. gesture callbacks).'
+            'interaction event handlers (e.g. gesture callbacks).',
           ),
           ErrorSpacer(),
           ErrorHint(
@@ -3927,7 +3926,7 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
             'widgets to build, consider using a LayoutBuilder widget, which can '
             'tell you the layout constraints at a given location in the tree. See '
             '<https://api.flutter.dev/flutter/widgets/LayoutBuilder-class.html> '
-            'for more details.'
+            'for more details.',
           ),
           ErrorSpacer(),
           describeElement('The size getter was called for the following element'),
@@ -3945,7 +3944,7 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
             'an associated render object. This element does not have an associated '
             'render object, which typically means that the size getter was called '
             'too early in the pipeline (e.g., during the build phase) before the '
-            'framework has created the render tree.'
+            'framework has created the render tree.',
           ),
           describeElement('The size getter was called for the following element'),
         ]);
@@ -3959,7 +3958,7 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
             'Slivers do not have a size per se. They have a more elaborate '
             'geometry description, which can be accessed by calling '
             'findRenderObject and then using the "geometry" getter on the '
-            'resulting object.'
+            'resulting object.',
           ),
           describeElement('The size getter was called for the following element'),
           renderObject.describeForError('The associated render sliver was'),
@@ -3972,7 +3971,7 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
             'Instead of being a subtype of RenderBox, the render object associated '
             'with this element is a ${renderObject.runtimeType}. If this type of '
             'render object does have a size, consider calling findRenderObject '
-            'and extracting its size manually.'
+            'and extracting its size manually.',
           ),
           describeElement('The size getter was called for the following element'),
           renderObject.describeForError('The associated render object was'),
@@ -3987,7 +3986,7 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
             'this render object has not yet been through layout, which typically '
             'means that the size getter was called too early in the pipeline '
             '(e.g., during the build phase) before the framework has determined '
-           'the size and position of the render objects during layout.'
+           'the size and position of the render objects during layout.',
           ),
           describeElement('The size getter was called for the following element'),
           box.describeForError('The render object from which the size was to be obtained was'),
@@ -4001,13 +4000,13 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
             'been modified since it was last laid out, which typically means that the size '
             'getter was called too early in the pipeline (e.g., during the build phase) '
             'before the framework has determined the size and position of the render '
-            'objects during layout.'
+            'objects during layout.',
           ),
           describeElement('The size getter was called for the following element'),
           box.describeForError('The render object from which the size was to be obtained was'),
           ErrorHint(
             'Consider using debugPrintMarkNeedsLayoutStacks to determine why the render '
-            'object in question is dirty, if you did not expect this.'
+            'object in question is dirty, if you did not expect this.',
           ),
         ]);
       }
@@ -4029,12 +4028,12 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
           ErrorSummary("Looking up a deactivated widget's ancestor is unsafe."),
           ErrorDescription(
             "At this point the state of the widget's element tree is no longer "
-            'stable.'
+            'stable.',
           ),
           ErrorHint(
             "To safely refer to a widget's ancestor in its dispose() method, "
             'save a reference to the ancestor by calling dependOnInheritedWidgetOfExactType() '
-            "in the widget's didChangeDependencies() method."
+            "in the widget's didChangeDependencies() method.",
           ),
         ]);
       }
@@ -4151,7 +4150,7 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
         throw FlutterError.fromParts(<DiagnosticsNode>[
           ErrorSummary(
             '$methodName for ${widget.runtimeType} was called at an '
-            'inappropriate time.'
+            'inappropriate time.',
           ),
           ErrorDescription('It may only be called while the widgets are being built.'),
           ErrorHint(
@@ -4160,7 +4159,7 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
             ' * network I/O event\n'
             ' * file I/O event\n'
             ' * timer\n'
-            ' * microtask (caused by Future.then, async/await, scheduleMicrotask)'
+            ' * microtask (caused by Future.then, async/await, scheduleMicrotask)',
           ),
         ]);
       }
@@ -4290,7 +4289,7 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
               'is currently building. This exception is allowed because the framework '
               'builds parent widgets before children, which means a dirty descendant '
               'will always be built. Otherwise, the framework might not visit this '
-              'widget during this build phase.'
+              'widget during this build phase.',
             ),
             describeElement(
               'The widget on which setState() or markNeedsBuild() was called was',
@@ -4307,7 +4306,7 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
           ErrorSummary('setState() or markNeedsBuild() called when widget tree was locked.'),
           ErrorDescription(
             'This ${widget.runtimeType} widget cannot be marked as needing to build '
-            'because the framework is locked.'
+            'because the framework is locked.',
           ),
           describeElement('The widget on which setState() or markNeedsBuild() was called was'),
         ]);
@@ -4757,7 +4756,7 @@ class StatefulElement extends ComponentElement {
           ErrorDescription(
             'The createState function for ${widget.runtimeType} returned a state '
             'of type ${state.runtimeType}, which is not a subtype of '
-            'State<${widget.runtimeType}>, violating the contract for createState.'
+            'State<${widget.runtimeType}>, violating the contract for createState.',
           ),
         ]);
       }
@@ -4804,7 +4803,7 @@ class StatefulElement extends ComponentElement {
             ErrorDescription('State.initState() must be a void method without an `async` keyword.'),
             ErrorHint(
               'Rather than awaiting on asynchronous work directly inside of initState, '
-              'call a separate method to do this work without awaiting it.'
+              'call a separate method to do this work without awaiting it.',
             ),
           ]);
         }
@@ -4854,7 +4853,7 @@ class StatefulElement extends ComponentElement {
             ErrorDescription( 'State.didUpdateWidget() must be a void method without an `async` keyword.'),
             ErrorHint(
               'Rather than awaiting on asynchronous work directly inside of didUpdateWidget, '
-              'call a separate method to do this work without awaiting it.'
+              'call a separate method to do this work without awaiting it.',
             ),
           ]);
         }
@@ -4893,7 +4892,7 @@ class StatefulElement extends ComponentElement {
         ErrorSummary('${state.runtimeType}.dispose failed to call super.dispose.'),
         ErrorDescription(
           'dispose() implementations must always call their superclass dispose() method, to ensure '
-         'that all the resources used by the widget are fully released.'
+         'that all the resources used by the widget are fully released.',
         ),
       ]);
     }());
@@ -4918,7 +4917,7 @@ class StatefulElement extends ComponentElement {
           ErrorHint(
             'Typically references to inherited widgets should occur in widget build() methods. Alternatively, '
             'initialization based on inherited widgets can be placed in the didChangeDependencies method, which '
-            'is called after initState and whenever the dependencies change thereafter.'
+            'is called after initState and whenever the dependencies change thereafter.',
           ),
         ]);
       }
@@ -4930,21 +4929,21 @@ class StatefulElement extends ComponentElement {
             'BuildContext for a widget that no longer appears in the widget tree '
             '(e.g., whose parent widget no longer includes the widget in its '
             'build). This error can occur when code calls '
-            'dependOnInheritedWidgetOfExactType() from a timer or an animation callback.'
+            'dependOnInheritedWidgetOfExactType() from a timer or an animation callback.',
           ),
           ErrorHint(
             'The preferred solution is to cancel the timer or stop listening to the '
             'animation in the dispose() callback. Another solution is to check the '
             '"mounted" property of this object before calling '
             'dependOnInheritedWidgetOfExactType() to ensure the object is still in the '
-            'tree.'
+            'tree.',
           ),
           ErrorHint(
             'This error might indicate a memory leak if '
             'dependOnInheritedWidgetOfExactType() is being called because another object '
             'is retaining a reference to this State object after it has been '
             'removed from the tree. To avoid memory leaks, consider breaking the '
-            'reference to this object during dispose().'
+            'reference to this object during dispose().',
           ),
         ]);
       }
@@ -5890,7 +5889,7 @@ abstract class RenderObjectElement extends Element {
   @mustCallSuper
   @Deprecated(
     'Override insertRenderObjectChild instead. '
-    'This feature was deprecated after v1.21.0-9.0.pre.'
+    'This feature was deprecated after v1.21.0-9.0.pre.',
   )
   void insertChildRenderObject(covariant RenderObject child, covariant Object? slot) {
     assert(() {
@@ -5963,7 +5962,7 @@ abstract class RenderObjectElement extends Element {
   @mustCallSuper
   @Deprecated(
     'Override moveRenderObjectChild instead. '
-    'This feature was deprecated after v1.21.0-9.0.pre.'
+    'This feature was deprecated after v1.21.0-9.0.pre.',
   )
   void moveChildRenderObject(covariant RenderObject child, covariant Object? slot) {
     assert(() {
@@ -6030,7 +6029,7 @@ abstract class RenderObjectElement extends Element {
   @mustCallSuper
   @Deprecated(
     'Override removeRenderObjectChild instead. '
-    'This feature was deprecated after v1.21.0-9.0.pre.'
+    'This feature was deprecated after v1.21.0-9.0.pre.',
   )
   void removeChildRenderObject(covariant RenderObject child) {
     assert(() {
@@ -6287,7 +6286,7 @@ class MultiChildRenderObjectElement extends RenderObjectElement {
               ErrorSummary('The children of `MultiChildRenderObjectElement` must each has an associated render object.'),
               ErrorHint(
                 'This typically means that the `${newChild.widget}` or its children\n'
-                'are not a subtype of `RenderObjectWidget`.'
+                'are not a subtype of `RenderObjectWidget`.',
               ),
               newChild.describeElement('The following element does not have an associated render object'),
               DiagnosticsDebugCreator(DebugCreator(newChild)),

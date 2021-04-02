@@ -35,7 +35,7 @@ const Radius _kFloatingCaretRadius = Radius.circular(1.0);
 @Deprecated(
   'Signature of a deprecated class method, '
   'textSelectionDelegate.userUpdateTextEditingValue. '
-  'This feature was deprecated after v1.26.0-17.2.pre.'
+  'This feature was deprecated after v1.26.0-17.2.pre.',
 )
 typedef SelectionChangedHandler = void Function(TextSelection selection, RenderEditable renderObject, SelectionChangedCause cause);
 
@@ -171,7 +171,7 @@ class RenderEditable extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     required ViewportOffset offset,
     @Deprecated(
       'Uses the textSelectionDelegate.userUpdateTextEditingValue instead. '
-      'This feature was deprecated after v1.26.0-17.2.pre.'
+      'This feature was deprecated after v1.26.0-17.2.pre.',
     )
     this.onSelectionChanged,
     this.onCaretChanged,
@@ -378,7 +378,7 @@ class RenderEditable extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
   /// If this is null, then selection changes will be ignored.
   @Deprecated(
     'Uses the textSelectionDelegate.userUpdateTextEditingValue instead. '
-    'This feature was deprecated after v1.26.0-17.2.pre.'
+    'This feature was deprecated after v1.26.0-17.2.pre.',
   )
   SelectionChangedHandler? onSelectionChanged;
 
@@ -1775,8 +1775,7 @@ class RenderEditable extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     assert(_shortcutKeys.contains(key), 'shortcut key $key not recognized.');
     if (key == LogicalKeyboardKey.keyC) {
       if (!selection.isCollapsed) {
-        Clipboard.setData(
-            ClipboardData(text: selection.textInside(text)));
+        Clipboard.setData(ClipboardData(text: selection.textInside(text)));
       }
       return;
     }
@@ -2519,7 +2518,7 @@ class RenderEditable extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     final int baseOffset = !extentSelection ? extentOffset : selection!.baseOffset;
     _setSelection(
       TextSelection(baseOffset: baseOffset, extentOffset: extentOffset),
-      SelectionChangedCause.keyboard
+      SelectionChangedCause.keyboard,
     );
   }
 
@@ -2551,7 +2550,7 @@ class RenderEditable extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
         baseOffset: baseOffset,
         extentOffset: previousWord.start,
       ),
-      SelectionChangedCause.keyboard
+      SelectionChangedCause.keyboard,
     );
   }
 
@@ -3043,22 +3042,43 @@ class RenderEditable extends RenderBox with RelayoutWhenSystemFontsChangeMixin {
     // If text is obscured, the entire sentence should be treated as one word.
     if (obscureText) {
       return TextSelection(baseOffset: 0, extentOffset: _plainText.length);
-    // If the word is a space, on iOS try to select the previous word instead.
-    // On Android try to select the previous word instead only if the text is read only.
+    // On iOS, select the previous word if there is a previous word, or select
+    // to the end of the next word if there is a next word. Select nothing if
+    // there is neither a previous word nor a next word.
+    //
+    // If the platform is Android and the text is read only, try to select the
+    // previous word if there is one; otherwise, select the single whitespace at
+    // the position.
     } else if (_isWhitespace(_plainText.codeUnitAt(position.offset))
         && position.offset > 0) {
       assert(defaultTargetPlatform != null);
       final TextRange? previousWord = _getPreviousWord(word.start);
       switch (defaultTargetPlatform) {
         case TargetPlatform.iOS:
+          if (previousWord == null) {
+            final TextRange? nextWord = _getNextWord(word.start);
+            if (nextWord == null) {
+              return TextSelection.collapsed(offset: position.offset);
+            }
+            return TextSelection(
+              baseOffset: position.offset,
+              extentOffset: nextWord.end,
+            );
+          }
           return TextSelection(
-            baseOffset: previousWord!.start,
+            baseOffset: previousWord.start,
             extentOffset: position.offset,
           );
         case TargetPlatform.android:
           if (readOnly) {
+            if (previousWord == null) {
+              return TextSelection(
+                baseOffset: position.offset,
+                extentOffset: position.offset + 1,
+              );
+            }
             return TextSelection(
-              baseOffset: previousWord!.start,
+              baseOffset: previousWord.start,
               extentOffset: position.offset,
             );
           }
@@ -3480,7 +3500,7 @@ abstract class RenderEditablePainter extends ChangeNotifier {
 class _TextHighlightPainter extends RenderEditablePainter {
   _TextHighlightPainter({
       TextRange? highlightedRange,
-      Color? highlightColor
+      Color? highlightColor,
   }) : _highlightedRange = highlightedRange,
        _highlightColor = highlightColor;
 
@@ -3542,7 +3562,7 @@ class _TextHighlightPainter extends RenderEditablePainter {
     final List<TextBox> boxes = renderEditable._textPainter.getBoxesForSelection(
       TextSelection(baseOffset: range.start, extentOffset: range.end),
       boxHeightStyle: selectionHeightStyle,
-      boxWidthStyle: selectionWidthStyle
+      boxWidthStyle: selectionWidthStyle,
     );
 
     for (final TextBox box in boxes)

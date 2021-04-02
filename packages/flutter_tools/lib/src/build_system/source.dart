@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// @dart = 2.8
 
 import '../artifacts.dart';
 import '../base/file_system.dart';
@@ -76,7 +75,7 @@ class SourceVisitor implements ResolvedFiles {
         .replaceAllMapped(_separatorExpr, (Match match) => '${match.group(1)}\n')
         .split('\n')
     // Expand escape sequences, so that '\ ', for example,ß becomes ' '
-        .map<String>((String path) => path.replaceAllMapped(_escapeExpr, (Match match) => match.group(1)).trim())
+        .map<String>((String path) => path.replaceAllMapped(_escapeExpr, (Match match) => match.group(1)!).trim())
         .where((String path) => path.isNotEmpty)
         .toSet()
         .map(environment.fileSystem.file);
@@ -93,7 +92,7 @@ class SourceVisitor implements ResolvedFiles {
     final List<String> segments = <String>[];
     final List<String> rawParts = pattern.split('/');
     final bool hasWildcard = rawParts.last.contains('*');
-    String wildcardFile;
+    String? wildcardFile;
     if (hasWildcard) {
       wildcardFile = rawParts.removeLast();
     }
@@ -141,7 +140,7 @@ class SourceVisitor implements ResolvedFiles {
     // example, `foo_*_.dart`. We want to match `foo_b_.dart` but not
     // `foo_.dart`. To do so, we first subtract the first section from the
     // string if the first segment matches.
-    final List<String> wildcardSegments = wildcardFile.split('*');
+    final List<String> wildcardSegments = wildcardFile!.split('*');
     if (wildcardSegments.length > 2) {
       throw InvalidPatternException(pattern);
     }
@@ -203,7 +202,7 @@ abstract class Source {
   /// The source is provided by an [Artifact].
   ///
   /// If [artifact] points to a directory then all child files are included.
-  const factory Source.artifact(Artifact artifact, {TargetPlatform platform, BuildMode mode}) = _ArtifactSource;
+  const factory Source.artifact(Artifact artifact, {TargetPlatform? platform, BuildMode? mode}) = _ArtifactSource;
 
   /// Visit the particular source type.
   void accept(SourceVisitor visitor);
@@ -235,8 +234,8 @@ class _ArtifactSource implements Source {
   const _ArtifactSource(this.artifact, { this.platform, this.mode });
 
   final Artifact artifact;
-  final TargetPlatform platform;
-  final BuildMode mode;
+  final TargetPlatform? platform;
+  final BuildMode? mode;
 
   @override
   void accept(SourceVisitor visitor) => visitor.visitArtifact(artifact, platform, mode);

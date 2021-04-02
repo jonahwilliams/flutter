@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// @dart = 2.8
-
 import 'package:async/async.dart';
 import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart';
@@ -35,12 +33,12 @@ const int kMaxOpenFiles = 64;
 /// Configuration for the build system itself.
 class BuildSystemConfig {
   /// Create a new [BuildSystemConfig].
-  const BuildSystemConfig({this.resourcePoolSize});
+  const BuildSystemConfig({ this.resourcePoolSize });
 
   /// The maximum number of concurrent tasks the build system will run.
   ///
   /// If not provided, defaults to [platform.numberOfProcessors].
-  final int resourcePoolSize;
+  final int? resourcePoolSize;
 }
 
 /// A Target describes a single step during a flutter build.
@@ -322,17 +320,17 @@ class Environment {
   ///
   /// [engineVersion] should be set to null for local engine builds.
   factory Environment({
-    @required Directory projectDir,
-    @required Directory outputDir,
-    @required Directory cacheDir,
-    @required Directory flutterRootDir,
-    @required FileSystem fileSystem,
-    @required Logger logger,
-    @required Artifacts artifacts,
-    @required ProcessManager processManager,
-    @required Platform platform,
-    @required String engineVersion,
-    Directory buildDir,
+    required Directory projectDir,
+    required Directory outputDir,
+    required Directory cacheDir,
+    required Directory flutterRootDir,
+    required FileSystem fileSystem,
+    required Logger logger,
+    required Artifacts artifacts,
+    required ProcessManager processManager,
+    required Platform platform,
+    required String engineVersion,
+    Directory? buildDir,
     Map<String, String> defines = const <String, String>{},
     Map<String, String> inputs = const <String, String>{},
   }) {
@@ -380,19 +378,19 @@ class Environment {
   /// Any directories not provided will fallback to a [testDirectory]
   @visibleForTesting
   factory Environment.test(Directory testDirectory, {
-    Directory projectDir,
-    Directory outputDir,
-    Directory cacheDir,
-    Directory flutterRootDir,
-    Directory buildDir,
+    Directory? projectDir,
+    Directory? outputDir,
+    Directory? cacheDir,
+    Directory? flutterRootDir,
+    Directory? buildDir,
     Map<String, String> defines = const <String, String>{},
     Map<String, String> inputs = const <String, String>{},
-    String engineVersion,
-    Platform platform,
-    @required FileSystem fileSystem,
-    @required Logger logger,
-    @required Artifacts artifacts,
-    @required ProcessManager processManager,
+    String? engineVersion,
+    Platform? platform,
+    required FileSystem fileSystem,
+    required Logger logger,
+    required Artifacts artifacts,
+    required ProcessManager processManager,
   }) {
     return Environment(
       projectDir: projectDir ?? testDirectory,
@@ -407,25 +405,25 @@ class Environment {
       artifacts: artifacts,
       processManager: processManager,
       platform: platform ?? FakePlatform(),
-      engineVersion: engineVersion,
+      engineVersion: engineVersion ?? 'abcdefg',
     );
   }
 
   Environment._({
-    @required this.outputDir,
-    @required this.projectDir,
-    @required this.buildDir,
-    @required this.rootBuildDir,
-    @required this.cacheDir,
-    @required this.defines,
-    @required this.flutterRootDir,
-    @required this.processManager,
-    @required this.platform,
-    @required this.logger,
-    @required this.fileSystem,
-    @required this.artifacts,
-    @required this.engineVersion,
-    @required this.inputs,
+    required this.outputDir,
+    required this.projectDir,
+    required this.buildDir,
+    required this.rootBuildDir,
+    required this.cacheDir,
+    required this.defines,
+    required this.flutterRootDir,
+    required this.processManager,
+    required this.platform,
+    required this.logger,
+    required this.fileSystem,
+    required this.artifacts,
+    required this.engineVersion,
+    required this.inputs,
   });
 
   /// The [Source] value which is substituted with the path to [projectDir].
@@ -510,7 +508,7 @@ class Environment {
 /// The result information from the build system.
 class BuildResult {
   BuildResult({
-    @required this.success,
+    required this.success,
     this.exceptions = const <String, ExceptionMeasurement>{},
     this.performance = const <String, PerformanceMeasurement>{},
     this.inputFiles = const <File>[],
@@ -551,9 +549,9 @@ abstract class BuildSystem {
 
 class FlutterBuildSystem extends BuildSystem {
   const FlutterBuildSystem({
-    @required FileSystem fileSystem,
-    @required Platform platform,
-    @required Logger logger,
+    required FileSystem fileSystem,
+    required Platform platform,
+    required Logger logger,
   }) : _fileSystem = fileSystem,
        _platform = platform,
        _logger = logger;
@@ -653,7 +651,7 @@ class FlutterBuildSystem extends BuildSystem {
         strategy: FileStoreStrategy.timestamp,
       )..initialize();
     } else {
-      fileCache = _incrementalFileStore[previousBuild];
+      fileCache = _incrementalFileStore[previousBuild]!;
     }
     final Node node = target._toNode(environment);
     final _BuildInstance buildInstance = _BuildInstance(
@@ -737,14 +735,14 @@ class FlutterBuildSystem extends BuildSystem {
 /// An active instance of a build.
 class _BuildInstance {
   _BuildInstance({
-    this.environment,
-    this.fileCache,
-    this.buildSystemConfig,
-    this.logger,
-    this.fileSystem,
-    Platform platform,
+    required this.environment,
+    required this.fileCache,
+    required this.buildSystemConfig,
+    required this.logger,
+    required this.fileSystem,
+    required Platform platform,
   })
-    : resourcePool = Pool(buildSystemConfig.resourcePoolSize ?? platform?.numberOfProcessors ?? 1);
+    : resourcePool = Pool(buildSystemConfig.resourcePoolSize ?? platform.numberOfProcessors);
 
   final Logger logger;
   final FileSystem fileSystem;
@@ -892,11 +890,11 @@ class ExceptionMeasurement {
 /// Helper class to collect measurement data.
 class PerformanceMeasurement {
   PerformanceMeasurement({
-    @required this.target,
-    @required this.elapsedMilliseconds,
-    @required this.skipped,
-    @required this.succeeded,
-    @required this.analyticsName,
+    required this.target,
+    required this.elapsedMilliseconds,
+    required this.skipped,
+    required this.succeeded,
+    required this.analyticsName,
   });
 
   final int elapsedMilliseconds;
@@ -974,19 +972,19 @@ class Node {
       _dirty = true;
       return;
     }
-    Map<String, Object> values;
+    Map<String, dynamic> values;
     try {
-      values = castStringKeyedMap(json.decode(content));
+      values = castStringKeyedMap(json.decode(content))!;
     } on FormatException {
       // The json is malformed in some way.
       _dirty = true;
       return;
     }
-    final Object inputs = values['inputs'];
-    final Object outputs = values['outputs'];
+    final Object? inputs = values['inputs'];
+    final Object? outputs = values['outputs'];
     if (inputs is List<Object> && outputs is List<Object>) {
-      inputs?.cast<String>()?.forEach(previousInputs.add);
-      outputs?.cast<String>()?.forEach(previousOutputs.add);
+      inputs.cast<String>().forEach(previousInputs.add);
+      outputs.cast<String>().forEach(previousOutputs.add);
     } else {
       // The json is malformed in some way.
       _dirty = true;
@@ -1057,9 +1055,9 @@ class Node {
       }
 
       final String absolutePath = file.path;
-      final String previousAssetKey = fileStore.previousAssetKeys[absolutePath];
+      final String? previousAssetKey = fileStore.previousAssetKeys[absolutePath];
       if (fileStore.currentAssetKeys.containsKey(absolutePath)) {
-        final String currentHash = fileStore.currentAssetKeys[absolutePath];
+        final String? currentHash = fileStore.currentAssetKeys[absolutePath];
         if (currentHash != previousAssetKey) {
           final InvalidatedReason reason = _invalidate(InvalidatedReasonKind.inputChanged);
           reason.data.add(absolutePath);
@@ -1089,9 +1087,9 @@ class Node {
         continue;
       }
       final String absolutePath = file.path;
-      final String previousHash = fileStore.previousAssetKeys[absolutePath];
+      final String? previousHash = fileStore.previousAssetKeys[absolutePath];
       if (fileStore.currentAssetKeys.containsKey(absolutePath)) {
-        final String currentHash = fileStore.currentAssetKeys[absolutePath];
+        final String? currentHash = fileStore.currentAssetKeys[absolutePath];
         if (currentHash != previousHash) {
           final InvalidatedReason reason = _invalidate(InvalidatedReasonKind.outputChanged);
           reason.data.add(absolutePath);
@@ -1149,8 +1147,6 @@ class InvalidatedReason {
       case InvalidatedReasonKind.outputSetChanged:
         return 'The following outputs were removed from the output set: ${data.join(',')}';
     }
-    assert(false);
-    return null;
   }
 }
 

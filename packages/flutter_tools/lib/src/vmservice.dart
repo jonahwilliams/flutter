@@ -748,6 +748,15 @@ class FlutterVmService {
     return null;
   }
 
+  Future<Map<String, dynamic>> debugToggleWidgetProfile({
+    @required String isolateId,
+  }) async {
+    return invokeFlutterExtensionRpcRaw(
+      'ext.flutter.experimentalProfile',
+      isolateId: isolateId,
+    );
+  }
+
   Future<vm_service.Response> _checkedCallServiceExtension(
     String method, {
     Map<String, dynamic> args,

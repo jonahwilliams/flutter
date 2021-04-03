@@ -456,6 +456,21 @@ mixin WidgetsBinding on BindingBase, ServicesBinding, SchedulerBinding, GestureB
         },
       );
 
+      registerServiceExtension(name: 'experimentalProfile', callback: (Map<String, Object> params) async {
+        if (Element.debugBuildRecorder == null) {
+          final PaintRecorder paintRecorder = PaintRecorder();
+          RenderObject.debugPaintRecorder = paintRecorder;
+          Element.debugBuildRecorder = BuildRecorder(paintRecorder);
+          return <String, String>{'type': 'Success'};
+        }
+        final BuildRecorder buildRecorder = Element.debugBuildRecorder!;
+        Element.debugBuildRecorder = null;
+        RenderObject.debugPaintRecorder = null;
+        final Map<String, Object> data = buildRecorder.toJson();
+        return <String, Object>{'type': 'Success', 'data': data};
+      });
+
+
       // Expose the ability to send Widget rebuilds as [Timeline] events.
       registerBoolServiceExtension(
         name: 'profileWidgetBuilds',
@@ -850,12 +865,6 @@ mixin WidgetsBinding on BindingBase, ServicesBinding, SchedulerBinding, GestureB
       debugBuildingDirtyElements = true;
       return true;
     }());
-    assert(() {
-      final PaintRecorder paintRecorder = PaintRecorder();
-      Element.debugBuildRecorder = BuildRecorder(paintRecorder);
-      RenderObject.debugPaintRecorder = paintRecorder;
-      return true;
-    }());
 
     TimingsCallback? firstFrameCallback;
     if (_needToReportFirstFrame) {
@@ -901,11 +910,7 @@ mixin WidgetsBinding on BindingBase, ServicesBinding, SchedulerBinding, GestureB
       SchedulerBinding.instance!.removeTimingsCallback(firstFrameCallback!);
     }
     assert(() {
-      final BuildRecorder? recorder = Element.debugBuildRecorder;
-      if (RenderObject.debugPaintRecorder?.hasPaint ?? false)
-        print(recorder);
-      RenderObject.debugPaintRecorder = null;
-      Element.debugBuildRecorder = null;
+      Element.debugBuildRecorder?.finishFrame();
       return true;
     }());
   }

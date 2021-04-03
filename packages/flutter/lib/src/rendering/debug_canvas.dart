@@ -247,7 +247,7 @@ class PaintRecording {
   final PaintOp op;
   final List<Object> args;
 
-  String toString() => '{$op, ${args.join(',')}';
+  Object toJson() => op.toString();
 }
 
 class PaintRecorder {

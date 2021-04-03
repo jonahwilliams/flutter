@@ -270,7 +270,7 @@ class PaintingContext extends ClipContext {
     if (_canvas == null)
       _startRecording();
     if (kDebugMode)
-      return _debugCanvas!;
+      return _debugCanvas ?? _canvas!;
     return _canvas!;
   }
 
@@ -279,7 +279,8 @@ class PaintingContext extends ClipContext {
     _currentLayer = PictureLayer(estimatedBounds);
     _recorder = ui.PictureRecorder();
     _canvas = Canvas(_recorder!);
-    _debugCanvas = DebugCanvas(_canvas!, RenderObject.debugPaintRecorder!);
+    if (kDebugMode && RenderObject.debugPaintRecorder != null)
+      _debugCanvas = DebugCanvas(_canvas!, RenderObject.debugPaintRecorder!);
     _containerLayer.append(_currentLayer!);
   }
 

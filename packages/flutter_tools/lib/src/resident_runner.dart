@@ -30,6 +30,7 @@ import 'build_system/targets/localizations.dart';
 import 'bundle.dart';
 import 'cache.dart';
 import 'compile.dart';
+import 'convert.dart';
 import 'devfs.dart';
 import 'device.dart';
 import 'features.dart';
@@ -398,6 +399,21 @@ class FlutterDevice {
       logger: globals.logger,
     );
     return devFS.create();
+  }
+
+  Future<void> debugToggleWidgetProfile() async {
+    final List<FlutterView> views = await vmService.getFlutterViews();
+    for (final FlutterView view in views) {
+      final Map<String, Object> data = await vmService.debugToggleWidgetProfile(
+        isolateId: view.uiIsolate.id,
+      );
+      if (data['data'] == null) {
+        globals.printStatus('Starting profile. Press X to finish.');
+      } else {
+        globals.fs.file('profile_data.json').writeAsStringSync(json.encode(data['data']));
+        globals.printStatus('Wrote profile data to profile_data.json');
+      }
+    }
   }
 
   Future<void> debugDumpApp() async {
@@ -909,6 +925,15 @@ abstract class ResidentRunner {
     throw '${fullRestart ? 'Restart' : 'Reload'} is not supported in $mode mode';
   }
 
+  Future<bool> debugToggleWidgetProfile() async {
+    if (!isRunningDebug) {
+      return false;
+    }
+    for (final FlutterDevice device in flutterDevices) {
+      await device.debugToggleWidgetProfile();
+    }
+    return true;
+  }
 
   BuildResult _lastBuild;
   Environment _environment;
@@ -1627,6 +1652,8 @@ class TerminalHandler {
       case 'z':
       case 'Z':
         return residentRunner.debugToggleDebugCheckElevationsEnabled();
+      case 'x':
+        return residentRunner.debugToggleWidgetProfile();
     }
     return false;
   }

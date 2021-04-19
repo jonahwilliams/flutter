@@ -11,7 +11,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/src/rendering/debug_canvas.dart';
 
 import 'app.dart';
 import 'debug.dart';
@@ -461,18 +460,14 @@ mixin WidgetsBinding on BindingBase, ServicesBinding, SchedulerBinding, GestureB
 
       registerServiceExtension(name: 'experimentalProfile', callback: (Map<String, Object> params) async {
         if (Element.debugBuildRecorder == null) {
-          final PaintRecorder paintRecorder = PaintRecorder();
-          RenderObject.debugPaintRecorder = paintRecorder;
-          Element.debugBuildRecorder = BuildRecorder(paintRecorder);
+          Element.debugBuildRecorder = BuildRecorder();
           return <String, String>{'type': 'Success'};
         }
         final BuildRecorder buildRecorder = Element.debugBuildRecorder!;
         Element.debugBuildRecorder = null;
-        RenderObject.debugPaintRecorder = null;
         final Map<String, Object> data = buildRecorder.toJson();
         return <String, Object>{'type': 'Success', 'data': data};
       });
-
 
       // Expose the ability to send Widget rebuilds as [Timeline] events.
       registerBoolServiceExtension(

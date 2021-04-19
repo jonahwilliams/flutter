@@ -8,7 +8,6 @@ import 'dart:developer';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/src/rendering/debug_canvas.dart';
 
 import 'binding.dart';
 import 'debug.dart';
@@ -2957,129 +2956,6 @@ class BuildOwner {
   }
 }
 
-class BuildRecorder {
-  BuildRecorder(this._paintRecorder);
-
-  final PaintRecorder _paintRecorder;
-  final List<_RecorderFrameData> _frameData = <_RecorderFrameData>[];
-  _RecorderFrameData _currentFrame = _RecorderFrameData(0);
-
-  int _frame = 0;
-
-  void _recordElement(Element element) {
-    final Widget? parent = element._parent?.widget;
-    final Widget widget = element.widget;
-    if (parent == null) {
-       _currentFrame.widgets[widget] = null;
-       return;
-    }
-    _currentFrame.widgets[widget] = parent;
-  }
-
-  void _recordRenderObjectElement(RenderObjectElement element) {
-    final Widget? parent = element._parent?.widget;
-    final Widget widget = element.widget;
-    if (parent == null) {
-       _currentFrame.widgets[widget] = null;
-       return;
-    }
-    _currentFrame.renderObjects[widget] = element.renderObject;
-    _currentFrame.widgets[widget] = parent;
-  }
-
-  /// Finish the recording of the current frame.
-  void finishFrame() {
-    _frame += 1;
-    _frameData.add(_currentFrame);
-    _currentFrame = _RecorderFrameData(_frame);
-  }
-
-  /// Convert the recorded frame data into a JSON object.
-  Map<String, Object> toJson() {
-    return <String, Object>{
-      'frames': [
-        for (_RecorderFrameData data in _frameData)
-          data.toJson(_paintRecorder),
-      ],
-    };
-  }
-  //
-  // @override
-  // String toString() {
-  //   final List<Object> roots = _roots.toList();
-  //   for (final Object value in _widgets.keys) {
-  //     if (_widgets[value] == null) {
-  //       roots.add(value);
-  //     }
-  //   }
-  //   final StringBuffer buffer = StringBuffer();
-  //   for (final Object root in roots) {
-  //     _printRecursive(buffer, root);
-  //   }
-  //   if (!_paintRecorder.hasPaint) {
-  //     return '';
-  //   }
-  //   return buffer.toString();
-  // }
-  //
-  // void _printRecursive(StringBuffer buffer, Object current) {
-  //   final List<Object> children = <Object>[
-  //       for (Object object in _widgets.keys)
-  //         if (_widgets[object] == current)
-  //           object,
-  //     ];
-  //   final RenderObject? renderObject = _renderObjects[current];
-  //   final String? renderObjectValue = renderObject?.runtimeType.toString();
-  //   final List<Object>? paintOps = renderObject != null ? _paintRecorder.opsFor(renderObject) : null;
-  //   if (children.isEmpty) {
-  //     if (paintOps != null && paintOps.isNotEmpty) {
-  //       buffer.write('${current.runtimeType}${renderObject == null ? '' : '|$renderObjectValue'}');
-  //       buffer.writeln('\n{ ${paintOps.join(', ')} }');
-  //     } else {
-  //       buffer.write(', ');
-  //     }
-  //   } else {
-  //     buffer.write(' ${current.runtimeType}${renderObject == null ? '' : '|$renderObjectValue'}');
-  //     if (paintOps != null && paintOps.isNotEmpty) {
-  //       buffer.writeln('\n{ ${paintOps.join(', ')} }');
-  //     }
-  //     buffer.write(': [');
-  //     for (final Object child in children) {
-  //       _printRecursive(buffer, child);
-  //     }
-  //     buffer.write('] ');
-  //   }
-  // }
-}
-
-class _RecorderFrameData {
-  _RecorderFrameData(this.id);
-
-  final int id;
-  final Map<Widget, Widget?> widgets = HashMap<Widget, Widget?>();
-  final Map<Widget, RenderObject> renderObjects = HashMap<Widget, RenderObject>();
-
-  Map<String, Object> toJson(PaintRecorder paintRecorder) {
-    return <String, Object>{
-      'id': id,
-      'widgets': <String, String?>{
-        for (MapEntry<Widget, Widget?> entry in widgets.entries)
-          '${entry.key.runtimeType}|${entry.key.hashCode}': entry.value == null
-              ? null
-              : '${entry.value.runtimeType}|${entry.value.hashCode}',
-      },
-      'renderObjects': <String, String>{
-        for (MapEntry<Widget, RenderObject> entry in renderObjects.entries)
-          '${entry.key.runtimeType}|${entry.key.hashCode}': '${entry.value.runtimeType}|${entry.value.hashCode}',
-      },
-      'paint': <String, List<Object?>?>{
-        for (RenderObject key in renderObjects.values)
-          '${key.runtimeType}|${key.hashCode}': paintRecorder.opsFor(key),
-      },
-    };
-  }
-}
-
 /// An instantiation of a [Widget] at a particular location in the tree.
 ///
 /// Widgets describe how to configure a subtree but the same widget can be used
@@ -3235,7 +3111,21 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
   BuildOwner? get owner => _owner;
   BuildOwner? _owner;
 
-  static BuildRecorder? debugBuildRecorder;
+  /// Returns the [BuildRecorder] that is being used to profile widget builds on this frame.
+  ///
+  /// In profile and release mode this field will always be `null`.
+  static BuildRecorder? get debugBuildRecorder {
+    if (kDebugMode) {
+      return _debugBuildRecorder;
+    }
+    return null;
+  }
+  static BuildRecorder? _debugBuildRecorder;
+  static set debugBuildRecorder(BuildRecorder? value) {
+    if (kDebugMode) {
+      _debugBuildRecorder = value;
+    }
+  }
 
   /// {@template flutter.widgets.Element.reassemble}
   /// Called whenever the application is reassembled during debugging, for
@@ -6502,4 +6392,75 @@ class _NullElement extends Element {
 class _NullWidget extends Widget {
   @override
   Element createElement() => throw UnimplementedError();
+}
+
+
+/// A class that is used to record how widgets are built on each frame.
+class BuildRecorder {
+  final List<_RecorderFrameData> _frameData = <_RecorderFrameData>[];
+  _RecorderFrameData _currentFrame = _RecorderFrameData(0);
+
+  int _frame = 0;
+
+  void _recordElement(Element element) {
+    final Widget? parent = element._parent?.widget;
+    final Widget widget = element.widget;
+    if (parent == null) {
+       _currentFrame.widgets[widget] = null;
+       return;
+    }
+    _currentFrame.widgets[widget] = parent;
+  }
+
+  void _recordRenderObjectElement(RenderObjectElement element) {
+    final Widget? parent = element._parent?.widget;
+    final Widget widget = element.widget;
+    if (parent == null) {
+       _currentFrame.widgets[widget] = null;
+       return;
+    }
+    _currentFrame.renderObjects[widget] = element.renderObject;
+    _currentFrame.widgets[widget] = parent;
+  }
+
+  /// Finish the recording of the current frame and pepare the next frame object.
+  void finishFrame() {
+    _frame += 1;
+    _frameData.add(_currentFrame);
+    _currentFrame = _RecorderFrameData(_frame);
+  }
+
+  /// Convert the recorded frame data into a JSON object.
+  Map<String, Object> toJson() {
+    return <String, Object>{
+      'frames': <Object>[
+        for (_RecorderFrameData data in _frameData)
+          data.toJson(),
+      ],
+    };
+  }
+}
+
+class _RecorderFrameData {
+  _RecorderFrameData(this.id);
+
+  final int id;
+  final Map<Widget, Widget?> widgets = HashMap<Widget, Widget?>();
+  final Map<Widget, RenderObject> renderObjects = HashMap<Widget, RenderObject>();
+
+  Map<String, Object> toJson() {
+    return <String, Object>{
+      'id': id,
+      'widgets': <String, String?>{
+        for (MapEntry<Widget, Widget?> entry in widgets.entries)
+          '${entry.key.runtimeType}|${entry.key.hashCode}': entry.value == null
+              ? null
+              : '${entry.value.runtimeType}|${entry.value.hashCode}',
+      },
+      'renderObjects': <String, String>{
+        for (MapEntry<Widget, RenderObject> entry in renderObjects.entries)
+          '${entry.key.runtimeType}|${entry.key.hashCode}': '${entry.value.runtimeType}|${entry.value.hashCode}',
+      },
+    };
+  }
 }

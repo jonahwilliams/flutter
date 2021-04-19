@@ -953,6 +953,37 @@ void main() {
     expect(terminalHandler.logger.statusText, equals(''));
   });
 
+  testWithoutContext('x, debugToggleWidgetProfile can record a widget profile', () async {
+    final BufferLogger logger = BufferLogger.test();
+    final TerminalHandler terminalHandler = setUpTerminalHandler(<FakeVmServiceRequest>[
+      listViews,
+      const FakeVmServiceRequest(
+        method: 'ext.flutter.experimentalProfile',
+        args: <String, Object>{
+          'isolateId': '1',
+        },
+      ),
+      listViews,
+      const FakeVmServiceRequest(
+        method: 'ext.flutter.experimentalProfile',
+        args: <String, Object>{
+          'isolateId': '1',
+        },
+        jsonResponse: <String, Object>{
+          'frames': <Object>[],
+        }
+      ),
+    ], logger: logger);
+
+    await terminalHandler.processTerminalInput('x');
+
+    expect(terminalHandler.logger.statusText, contains('Started recording rebuild profile. Try interacting with the application and then press "x" again to finish'));
+
+    await terminalHandler.processTerminalInput('x');
+
+    expect(terminalHandler.logger.statusText, contains('Recorded rebuild profile at flutter_01.json'));
+  });
+
   testWithoutContext('pidfile creation', () {
     final BufferLogger testLogger = BufferLogger.test();
     final Signals signals = _TestSignals(Signals.defaultExitSignals);
@@ -1104,8 +1135,9 @@ TerminalHandler setUpTerminalHandler(List<FakeVmServiceRequest> requests, {
   bool fatalReloadError = false,
   int reloadExitCode = 0,
   BuildMode buildMode = BuildMode.debug,
+  Logger logger,
 }) {
-  final BufferLogger testLogger = BufferLogger.test();
+  final Logger testLogger = logger ?? BufferLogger.test();
   final Signals signals = Signals.test();
   final Terminal terminal = Terminal.test();
   final FileSystem fileSystem = MemoryFileSystem.test();

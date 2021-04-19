@@ -30,6 +30,7 @@ import 'build_system/targets/localizations.dart';
 import 'bundle.dart';
 import 'cache.dart';
 import 'compile.dart';
+import 'convert.dart';
 import 'devfs.dart';
 import 'device.dart';
 import 'features.dart';
@@ -807,9 +808,23 @@ abstract class ResidentHandlers {
     }
     for (final FlutterDevice device in flutterDevices) {
       for (final vm_service.IsolateRef view in await device._getCurrentIsolates()) {
-        await device.vmService.debugToggleWidgetProfile(
+        final Map<String, Object> data = await device.vmService.debugToggleWidgetProfile(
           isolateId: view.id,
         );
+        if (data.containsKey('frames')) {
+          final File outputFile = getUniqueFile(
+            fileSystem.currentDirectory,
+            'flutter',
+            'json',
+          );
+          outputFile.writeAsStringSync(json.encode(data['frames']));
+          logger.printStatus('Recorded rebuild profile at ${fileSystem.path.relative(outputFile.path)}.');
+        } else {
+          logger.printStatus(
+            'Started recording rebuild profile. Try interacting with the application and '
+            'then press "x" again to finish.'
+          );
+        }
       }
     }
     return true;

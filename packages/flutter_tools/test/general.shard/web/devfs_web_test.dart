@@ -114,7 +114,6 @@ void main() {
       .handleRequest(Request('GET', Uri.parse('http://foobar/foo.js')));
 
     expect(response.headers, allOf(<Matcher>[
-      containsPair(HttpHeaders.contentLengthHeader, source.lengthSync().toString()),
       containsPair(HttpHeaders.contentTypeHeader, 'application/javascript'),
       containsPair(HttpHeaders.etagHeader, isNotNull)
     ]));
@@ -161,7 +160,6 @@ void main() {
       .handleRequest(Request('GET', Uri.parse('http://foobar////foo.png')));
 
     expect(response.headers, allOf(<Matcher>[
-      containsPair(HttpHeaders.contentLengthHeader, source.lengthSync().toString()),
       containsPair(HttpHeaders.contentTypeHeader, 'image/png'),
       containsPair(HttpHeaders.etagHeader, isNotNull),
       containsPair(HttpHeaders.cacheControlHeader, 'max-age=0, must-revalidate')
@@ -185,7 +183,6 @@ void main() {
       );
 
     expect(response.headers, allOf(<Matcher>[
-      containsPair(HttpHeaders.contentLengthHeader, source.lengthSync().toString()),
       containsPair(HttpHeaders.contentTypeHeader, 'image/png'),
       containsPair(HttpHeaders.etagHeader, isNotNull),
       containsPair(HttpHeaders.cacheControlHeader, 'max-age=0, must-revalidate')
@@ -310,7 +307,6 @@ void main() {
       .handleRequest(Request('GET', Uri.parse('http://foobar/foo.js')));
 
     expect(response.headers, allOf(<Matcher>[
-      containsPair(HttpHeaders.contentLengthHeader, '9'),
       containsPair(HttpHeaders.contentTypeHeader, 'application/javascript'),
       containsPair(HttpHeaders.etagHeader, isNotNull),
       containsPair(HttpHeaders.cacheControlHeader, 'max-age=0, must-revalidate')
@@ -437,7 +433,6 @@ void main() {
       .handleRequest(Request('GET', Uri.parse('http://localhost/foo.js')));
 
     expect(response.headers, allOf(<Matcher>[
-      containsPair(HttpHeaders.contentLengthHeader, source.lengthSync().toString()),
       containsPair(HttpHeaders.contentTypeHeader, 'application/javascript'),
       containsPair(HttpHeaders.etagHeader, isNotNull),
       containsPair(HttpHeaders.cacheControlHeader, 'max-age=0, must-revalidate')
@@ -455,7 +450,6 @@ void main() {
       .handleRequest(Request('GET', Uri.parse('http://foobar/assets/abcd%25E8%25B1%25A1%25E5%25BD%25A2%25E5%25AD%2597.png')));
 
     expect(response.headers, allOf(<Matcher>[
-      containsPair(HttpHeaders.contentLengthHeader, source.lengthSync().toString()),
       containsPair(HttpHeaders.contentTypeHeader, 'image/png'),
       containsPair(HttpHeaders.etagHeader, isNotNull),
       containsPair(HttpHeaders.cacheControlHeader, 'max-age=0, must-revalidate')
@@ -470,7 +464,6 @@ void main() {
       .handleRequest(Request('GET', Uri.parse('http://foobar/foo.png')));
 
     expect(response.headers, allOf(<Matcher>[
-      containsPair(HttpHeaders.contentLengthHeader, source.lengthSync().toString()),
       containsPair(HttpHeaders.contentTypeHeader, 'image/png'),
       containsPair(HttpHeaders.etagHeader, isNotNull),
       containsPair(HttpHeaders.cacheControlHeader, 'max-age=0, must-revalidate')
@@ -486,7 +479,6 @@ void main() {
       .handleRequest(Request('GET', Uri.parse('http://foobar/assets/foo.png')));
 
     expect(response.headers, allOf(<Matcher>[
-      containsPair(HttpHeaders.contentLengthHeader, source.lengthSync().toString()),
       containsPair(HttpHeaders.contentTypeHeader, 'image/png'),
       containsPair(HttpHeaders.etagHeader, isNotNull),
       containsPair(HttpHeaders.cacheControlHeader, 'max-age=0, must-revalidate')
@@ -504,7 +496,6 @@ void main() {
     final Response response = await webAssetServer
       .handleRequest(Request('GET', Uri.parse('http://foobar/foo.dart')));
 
-    expect(response.headers, containsPair(HttpHeaders.contentLengthHeader, source.lengthSync().toString()));
     expect((await response.read().toList()).first, source.readAsBytesSync());
   }, overrides: <Type,  Generator>{
     Platform: () => linux,
@@ -519,7 +510,6 @@ void main() {
       .handleRequest(Request('GET', Uri.parse('http://foobar/assets/foo.png')));
 
     expect(response.headers, allOf(<Matcher>[
-      containsPair(HttpHeaders.contentLengthHeader, source.lengthSync().toString()),
       containsPair(HttpHeaders.contentTypeHeader, 'image/png'),
     ]));
     expect((await response.read().toList()).first, source.readAsBytesSync());
@@ -534,7 +524,6 @@ void main() {
       .handleRequest(Request('GET', Uri.parse('http://foobar/assets/foo')));
 
     expect(response.headers, allOf(<Matcher>[
-      containsPair(HttpHeaders.contentLengthHeader, '100'),
       containsPair(HttpHeaders.contentTypeHeader, 'application/octet-stream'),
     ]));
     expect((await response.read().toList()).first, source.readAsBytesSync());
@@ -549,7 +538,6 @@ void main() {
       .handleRequest(Request('GET', Uri.parse('http://foobar/assets/foo')));
 
     expect(response.headers, allOf(<Matcher>[
-      containsPair(HttpHeaders.contentLengthHeader, '3'),
       containsPair(HttpHeaders.contentTypeHeader, 'application/octet-stream'),
     ]));
     expect((await response.read().toList()).first, source.readAsBytesSync());
@@ -579,7 +567,6 @@ void main() {
       .handleRequest(Request('GET', Uri.parse('http:///packages/flutter_tools/foo.dart')));
 
     expect(response.headers, allOf(<Matcher>[
-      containsPair(HttpHeaders.contentLengthHeader, '3'),
       containsPair(HttpHeaders.contentTypeHeader, 'application/octet-stream'),
     ]));
     expect((await response.read().toList()).first, source.readAsBytesSync());

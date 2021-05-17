@@ -373,7 +373,6 @@ class WebAssetServer implements AssetReader {
       if (ifNoneMatch == etag) {
         return shelf.Response.notModified();
       }
-      headers[HttpHeaders.contentLengthHeader] = bytes.length.toString();
       headers[HttpHeaders.contentTypeHeader] = 'application/javascript';
       headers[HttpHeaders.etagHeader] = etag;
       return shelf.Response.ok(bytes, headers: headers);
@@ -386,7 +385,6 @@ class WebAssetServer implements AssetReader {
       if (ifNoneMatch == etag) {
         return shelf.Response.notModified();
       }
-      headers[HttpHeaders.contentLengthHeader] = bytes.length.toString();
       headers[HttpHeaders.contentTypeHeader] = 'application/json';
       headers[HttpHeaders.etagHeader] = etag;
       return shelf.Response.ok(bytes, headers: headers);
@@ -400,7 +398,6 @@ class WebAssetServer implements AssetReader {
       if (ifNoneMatch == etag) {
         return shelf.Response.notModified();
       }
-      headers[HttpHeaders.contentLengthHeader] = bytes.length.toString();
       headers[HttpHeaders.contentTypeHeader] = 'application/json';
       headers[HttpHeaders.etagHeader] = etag;
       return shelf.Response.ok(bytes, headers: headers);
@@ -455,7 +452,6 @@ class WebAssetServer implements AssetReader {
       );
     }
     mimeType ??= _kDefaultMimeType;
-    headers[HttpHeaders.contentLengthHeader] = length.toString();
     headers[HttpHeaders.contentTypeHeader] = mimeType;
     headers[HttpHeaders.etagHeader] = etag;
     return shelf.Response.ok(file.openRead(), headers: headers);
@@ -488,12 +484,8 @@ class WebAssetServer implements AssetReader {
         .childFile('index.html');
 
     if (indexFile.existsSync()) {
-      headers[HttpHeaders.contentLengthHeader] =
-          indexFile.lengthSync().toString();
       return shelf.Response.ok(indexFile.openRead(), headers: headers);
     }
-
-    headers[HttpHeaders.contentLengthHeader] = _kDefaultIndex.length.toString();
     return shelf.Response.ok(_kDefaultIndex, headers: headers);
   }
 

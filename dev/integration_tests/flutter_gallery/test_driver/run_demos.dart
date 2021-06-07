@@ -50,8 +50,10 @@ Future<void> runDemos(List<String> demos, WidgetController controller) async {
     currentDemoCategory = demoCategory;
 
     final Finder demoItem = find.text(demoName);
-    await controller.scrollUntilVisible(demoItem, 48.0);
-    await controller.pumpAndSettle();
+    do {
+      await controller.scrollUntilVisible(demoItem, 48.0);
+      await controller.pumpAndSettle();
+    } while (!controller.any(demoItem));
 
     Future<void> pageBack() {
       Finder backButton = find.byTooltip('Back');

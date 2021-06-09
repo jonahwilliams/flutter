@@ -993,7 +993,7 @@ mixin RenderAnimatedOpacityMixin<T extends RenderObject> on RenderObjectWithChil
     _alpha = ui.Color.getAlphaFromOpacity(opacity.value);
     if (oldAlpha != _alpha) {
       final bool? didNeedCompositing = _currentlyNeedsCompositing;
-      _currentlyNeedsCompositing = _alpha! > 0 && _alpha! < 255;
+      _currentlyNeedsCompositing = _alpha! > 0;
       if (child != null && didNeedCompositing != _currentlyNeedsCompositing)
         markNeedsCompositingBitsUpdate();
       markNeedsPaint();
@@ -1011,9 +1011,12 @@ mixin RenderAnimatedOpacityMixin<T extends RenderObject> on RenderObjectWithChil
         return;
       }
       if (_alpha == 255) {
-        // No need to keep the layer. We'll create a new one if necessary.
+        // Dispose the opacity layer to ensure that raster cache resources
+        // are released. Push a container layer so that the child render
+        // object is composited consistently across the animation.
         layer = null;
-        context.paintChild(child!, offset);
+        final ContainerLayer containerLayer = ContainerLayer();
+        context.pushLayer(containerLayer, super.paint, offset);
         return;
       }
       assert(needsCompositing);

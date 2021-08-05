@@ -3082,10 +3082,13 @@ class RenderMouseRegion extends RenderProxyBox implements MouseTrackerAnnotation
 /// [debugAsymmetricPaintCount] and [debugSymmetricPaintCount] respectively.
 class RenderRepaintBoundary extends RenderProxyBox {
   /// Creates a repaint boundary around [child].
-  RenderRepaintBoundary({ RenderBox? child }) : super(child);
+  RenderRepaintBoundary(this.isScrollChild, { RenderBox? child }) : super(child);
 
   @override
   bool get isRepaintBoundary => true;
+
+  @override
+  bool isScrollChild;
 
   /// Capture an image of the current state of this render object and its
   /// children.

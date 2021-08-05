@@ -6992,7 +6992,9 @@ class _RawMouseRegion extends SingleChildRenderObjectWidget {
 ///    repaints in the observatory's timeline view.
 class RepaintBoundary extends SingleChildRenderObjectWidget {
   /// Creates a widget that isolates repaints.
-  const RepaintBoundary({ Key? key, Widget? child }) : super(key: key, child: child);
+  const RepaintBoundary({ Key? key, Widget? child, this.isScrollChild = false }) : super(key: key, child: child);
+
+  final bool isScrollChild;
 
   /// Wraps the given child in a [RepaintBoundary].
   ///
@@ -7001,7 +7003,7 @@ class RepaintBoundary extends SingleChildRenderObjectWidget {
   factory RepaintBoundary.wrap(Widget child, int childIndex) {
     assert(child != null);
     final Key key = child.key != null ? ValueKey<Key>(child.key!) : ValueKey<int>(childIndex);
-    return RepaintBoundary(key: key, child: child);
+    return RepaintBoundary(key: key, child: child, isScrollChild: false);
   }
 
   /// Wraps each of the given children in [RepaintBoundary]s.
@@ -7014,7 +7016,7 @@ class RepaintBoundary extends SingleChildRenderObjectWidget {
   ];
 
   @override
-  RenderRepaintBoundary createRenderObject(BuildContext context) => RenderRepaintBoundary();
+  RenderRepaintBoundary createRenderObject(BuildContext context) => RenderRepaintBoundary(isScrollChild);
 }
 
 /// A widget that is invisible during hit testing.

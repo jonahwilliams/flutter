@@ -1220,6 +1220,8 @@ class OffsetLayer extends ContainerLayer {
     _offset = value;
   }
 
+  bool isScrollChild = false;
+
   @override
   bool findAnnotations<S extends Object>(AnnotationResult<S> result, Offset localPosition, { required bool onlyFirst }) {
     return super.findAnnotations<S>(result, localPosition - offset, onlyFirst: onlyFirst);
@@ -1243,6 +1245,7 @@ class OffsetLayer extends ContainerLayer {
       layerOffset.dx + offset.dx,
       layerOffset.dy + offset.dy,
       oldLayer: _engineLayer as ui.OffsetEngineLayer?,
+      isScrollTransform: isScrollChild,
     );
     addChildrenToScene(builder);
     builder.pop();

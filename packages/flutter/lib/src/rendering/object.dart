@@ -218,6 +218,9 @@ class PaintingContext extends ClipContext {
     assert(child._layerHandle.layer is OffsetLayer);
     final OffsetLayer childOffsetLayer = child._layerHandle.layer! as OffsetLayer;
     childOffsetLayer.offset = offset;
+    if (child.isScrollChild) {
+      childOffsetLayer.isScrollChild = true;
+    }
     appendLayer(childOffsetLayer);
   }
 
@@ -1246,6 +1249,8 @@ abstract class RenderObject extends AbstractNode with DiagnosticableTreeMixin im
       child.reassemble();
     });
   }
+
+  bool get isScrollChild => false;
 
   /// Whether this has been disposed.
   ///

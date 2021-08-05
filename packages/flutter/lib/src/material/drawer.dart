@@ -575,6 +575,7 @@ class DrawerControllerState extends State<DrawerController> with SingleTickerPro
         excludeFromSemantics: true,
         dragStartBehavior: widget.dragStartBehavior,
         child: RepaintBoundary(
+          isScrollChild: false,
           child: Stack(
             children: <Widget>[
               BlockSemantics(
@@ -601,6 +602,7 @@ class DrawerControllerState extends State<DrawerController> with SingleTickerPro
                   alignment: _drawerInnerAlignment,
                   widthFactor: _controller.value,
                   child: RepaintBoundary(
+                    isScrollChild: false,
                     child: FocusScope(
                       key: _drawerKey,
                       node: _focusScopeNode,

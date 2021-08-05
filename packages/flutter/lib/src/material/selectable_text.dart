@@ -655,6 +655,7 @@ class _SelectableTextState extends State<SelectableText> with AutomaticKeepAlive
     if (MediaQuery.boldTextOverride(context))
       effectiveTextStyle = effectiveTextStyle.merge(const TextStyle(fontWeight: FontWeight.bold));
     final Widget child = RepaintBoundary(
+      isScrollChild: false,
       child: EditableText(
         key: editableTextKey,
         style: effectiveTextStyle,

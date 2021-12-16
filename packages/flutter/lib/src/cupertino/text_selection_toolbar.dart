@@ -1025,6 +1025,11 @@ class _NullElement extends Element {
 
   @override
   void performRebuild() { }
+
+  @override
+  ElementContinuation? performRebuildYielding() {
+    return ElementContinuation();
+  }
 }
 
 class _NullWidget extends Widget {

@@ -4,8 +4,9 @@
 
 import 'dart:async';
 import 'dart:collection';
-import 'dart:developer';
+// import 'dart:developer';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 
@@ -2548,25 +2549,26 @@ class BuildOwner {
       _debugBuilding = true;
       return true;
     }());
-    if (!kReleaseMode) {
-      Map<String, String> debugTimelineArguments = timelineArgumentsIndicatingLandmarkEvent;
-      assert(() {
-        if (debugProfileBuildsEnabled) {
-          debugTimelineArguments = <String, String>{
-            ...debugTimelineArguments,
-            'dirty count': '${_dirtyElements.length}',
-            'dirty list': '$_dirtyElements',
-            'lock level': '$_debugStateLockLevel',
-            'scope context': '$context',
-          };
-        }
-        return true;
-      }());
-      Timeline.startSync(
-        'BUILD',
-        arguments: debugTimelineArguments
-      );
-    }
+    var sw = Stopwatch()..start();
+    // if (!kReleaseMode) {
+    //   Map<String, String> debugTimelineArguments = timelineArgumentsIndicatingLandmarkEvent;
+    //   assert(() {
+    //     if (debugProfileBuildsEnabled) {
+    //       debugTimelineArguments = <String, String>{
+    //         ...debugTimelineArguments,
+    //         'dirty count': '${_dirtyElements.length}',
+    //         'dirty list': '$_dirtyElements',
+    //         'lock level': '$_debugStateLockLevel',
+    //         'scope context': '$context',
+    //       };
+    //     }
+    //     return true;
+    //   }());
+    //   Timeline.startSync(
+    //     'BUILD',
+    //     arguments: debugTimelineArguments
+    //   );
+    // }
     try {
       _scheduledFlushDirtyElements = true;
       if (callback != null) {
@@ -2627,17 +2629,17 @@ class BuildOwner {
           }
           return true;
         }());
-        if (!kReleaseMode && debugProfileBuildsEnabled) {
-          Map<String, String> debugTimelineArguments = timelineArgumentsIndicatingLandmarkEvent;
-          assert(() {
-            debugTimelineArguments = element.widget.toDiagnosticsNode().toTimelineArguments();
-            return true;
-          }());
-          Timeline.startSync(
-            '${element.widget.runtimeType}',
-            arguments: debugTimelineArguments,
-          );
-        }
+        // if (!kReleaseMode && debugProfileBuildsEnabled) {
+        //   Map<String, String> debugTimelineArguments = timelineArgumentsIndicatingLandmarkEvent;
+        //   assert(() {
+        //     debugTimelineArguments = element.widget.toDiagnosticsNode().toTimelineArguments();
+        //     return true;
+        //   }());
+        //   Timeline.startSync(
+        //     '${element.widget.runtimeType}',
+        //     arguments: debugTimelineArguments,
+        //   );
+        // }
         try {
           element.rebuild();
         } catch (e, stack) {
@@ -2655,8 +2657,8 @@ class BuildOwner {
             ],
           );
         }
-        if (!kReleaseMode && debugProfileBuildsEnabled)
-          Timeline.finishSync();
+        // if (!kReleaseMode && debugProfileBuildsEnabled)
+        //   Timeline.finishSync();
         index += 1;
         if (dirtyCount < _dirtyElements.length || _dirtyElementsNeedsResorting!) {
           _dirtyElements.sort(Element._sort);
@@ -2692,9 +2694,9 @@ class BuildOwner {
       _dirtyElements.clear();
       _scheduledFlushDirtyElements = false;
       _dirtyElementsNeedsResorting = null;
-      if (!kReleaseMode) {
-        Timeline.finishSync();
-      }
+      // if (!kReleaseMode) {
+      //   Timeline.finishSync();
+      // }
       assert(_debugBuilding);
       assert(() {
         _debugBuilding = false;
@@ -2705,6 +2707,9 @@ class BuildOwner {
       }());
     }
     assert(_debugStateLockLevel >= 0);
+    sw.stop();
+    if (sw.elapsedMilliseconds >= 1)
+      print(sw.elapsed);
   }
 
   Map<Element, Set<GlobalKey>>? _debugElementsThatWillNeedToBeRebuiltDueToGlobalKeyShenanigans;
@@ -2908,9 +2913,9 @@ class BuildOwner {
   /// about changes to global keys will run.
   @pragma('vm:notify-debugger-on-exception')
   void finalizeTree() {
-    if (!kReleaseMode) {
-      Timeline.startSync('FINALIZE TREE', arguments: timelineArgumentsIndicatingLandmarkEvent);
-    }
+    // if (!kReleaseMode) {
+    //   Timeline.startSync('FINALIZE TREE', arguments: timelineArgumentsIndicatingLandmarkEvent);
+    // }
     try {
       lockState(_inactiveElements._unmountAll); // this unregisters the GlobalKeys
       assert(() {
@@ -3003,9 +3008,9 @@ class BuildOwner {
       // cause more exceptions.
       _debugReportException(ErrorSummary('while finalizing the widget tree'), e, stack);
     } finally {
-      if (!kReleaseMode) {
-        Timeline.finishSync();
-      }
+      // if (!kReleaseMode) {
+      //   Timeline.finishSync();
+      // }
     }
   }
 
@@ -3016,18 +3021,18 @@ class BuildOwner {
   ///
   /// This is expensive and should not be called except during development.
   void reassemble(Element root, DebugReassembleConfig? reassembleConfig) {
-    if (!kReleaseMode) {
-      Timeline.startSync('Preparing Hot Reload (widgets)');
-    }
+    // if (!kReleaseMode) {
+    //   Timeline.startSync('Preparing Hot Reload (widgets)');
+    // }
     try {
       assert(root._parent == null);
       assert(root.owner == this);
       root._debugReassembleConfig = reassembleConfig;
       root.reassemble();
     } finally {
-      if (!kReleaseMode) {
-        Timeline.finishSync();
-      }
+      // if (!kReleaseMode) {
+      //   Timeline.finishSync();
+      // }
     }
   }
 }
@@ -3470,20 +3475,20 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
       } else if (hasSameSuperclass && Widget.canUpdate(child.widget, newWidget)) {
         if (child.slot != newSlot)
           updateSlotForChild(child, newSlot);
-        if (!kReleaseMode && debugProfileBuildsEnabled) {
-          Map<String, String> debugTimelineArguments = timelineArgumentsIndicatingLandmarkEvent;
-          assert(() {
-            debugTimelineArguments = newWidget.toDiagnosticsNode().toTimelineArguments();
-            return true;
-          }());
-          Timeline.startSync(
-            '${newWidget.runtimeType}',
-            arguments: debugTimelineArguments,
-          );
-        }
+        // if (!kReleaseMode && debugProfileBuildsEnabled) {
+        //   Map<String, String> debugTimelineArguments = timelineArgumentsIndicatingLandmarkEvent;
+        //   assert(() {
+        //     debugTimelineArguments = newWidget.toDiagnosticsNode().toTimelineArguments();
+        //     return true;
+        //   }());
+        //   Timeline.startSync(
+        //     '${newWidget.runtimeType}',
+        //     arguments: debugTimelineArguments,
+        //   );
+        // }
         child.update(newWidget);
-        if (!kReleaseMode && debugProfileBuildsEnabled)
-          Timeline.finishSync();
+        // if (!kReleaseMode && debugProfileBuildsEnabled)
+        //   Timeline.finishSync();
         assert(child.widget == newWidget);
         assert(() {
           child.owner!._debugElementWasRebuilt(child);
@@ -3493,36 +3498,36 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
       } else {
         deactivateChild(child);
         assert(child._parent == null);
-        if (!kReleaseMode && debugProfileBuildsEnabled) {
-          Map<String, String> debugTimelineArguments = timelineArgumentsIndicatingLandmarkEvent;
-          assert(() {
-            debugTimelineArguments = newWidget.toDiagnosticsNode().toTimelineArguments();
-            return true;
-          }());
-          Timeline.startSync(
-            '${newWidget.runtimeType}',
-            arguments: debugTimelineArguments,
-          );
-        }
+        // if (!kReleaseMode && debugProfileBuildsEnabled) {
+        //   Map<String, String> debugTimelineArguments = timelineArgumentsIndicatingLandmarkEvent;
+        //   assert(() {
+        //     debugTimelineArguments = newWidget.toDiagnosticsNode().toTimelineArguments();
+        //     return true;
+        //   }());
+        //   Timeline.startSync(
+        //     '${newWidget.runtimeType}',
+        //     arguments: debugTimelineArguments,
+        //   );
+        // }
         newChild = inflateWidget(newWidget, newSlot);
-        if (!kReleaseMode && debugProfileBuildsEnabled)
-          Timeline.finishSync();
+        // if (!kReleaseMode && debugProfileBuildsEnabled)
+        //   Timeline.finishSync();
       }
     } else {
-      if (!kReleaseMode && debugProfileBuildsEnabled) {
-        Map<String, String> debugTimelineArguments = timelineArgumentsIndicatingLandmarkEvent;
-        assert(() {
-          debugTimelineArguments = newWidget.toDiagnosticsNode().toTimelineArguments();
-          return true;
-        }());
-        Timeline.startSync(
-          '${newWidget.runtimeType}',
-          arguments: debugTimelineArguments,
-        );
-      }
+      // if (!kReleaseMode && debugProfileBuildsEnabled) {
+      //   Map<String, String> debugTimelineArguments = timelineArgumentsIndicatingLandmarkEvent;
+      //   assert(() {
+      //     debugTimelineArguments = newWidget.toDiagnosticsNode().toTimelineArguments();
+      //     return true;
+      //   }());
+      //   Timeline.startSync(
+      //     '${newWidget.runtimeType}',
+      //     arguments: debugTimelineArguments,
+      //   );
+      // }
       newChild = inflateWidget(newWidget, newSlot);
-      if (!kReleaseMode && debugProfileBuildsEnabled)
-        Timeline.finishSync();
+      // if (!kReleaseMode && debugProfileBuildsEnabled)
+      //   Timeline.finishSync();
     }
 
     assert(() {
@@ -4471,6 +4476,81 @@ abstract class Element extends DiagnosticableTree implements BuildContext {
   /// Called by [rebuild] after the appropriate checks have been made.
   @protected
   void performRebuild();
+
+  @protected
+  ElementContinuation? performRebuildYielding();
+
+  @protected
+  @pragma('vm:prefer-inline')
+  Element inflateWidgetYielding(Widget newWidget, Object? newSlot) {
+    assert(newWidget != null);
+    final Key? key = newWidget.key;
+    if (key is GlobalKey) {
+      final Element? newChild = _retakeInactiveElement(key, newWidget);
+      if (newChild != null) {
+        assert(newChild._parent == null);
+        assert(() {
+          _debugCheckForCycles(newChild);
+          return true;
+        }());
+        newChild._activateWithParent(this, newSlot);
+        final Element? updatedChild = updateChild(newChild, newWidget, newSlot);
+        assert(newChild == updatedChild);
+        return updatedChild!;
+      }
+    }
+    final Element newChild = newWidget.createElement();
+    assert(() {
+      _debugCheckForCycles(newChild);
+      return true;
+    }());
+    newChild.mountYielding(this, newSlot);
+    assert(newChild._lifecycleState == _ElementLifecycle.active);
+    return newChild;
+  }
+
+  @protected
+  @pragma('vm:prefer-inline')
+  Element? updateChildYielding(Widget? newWidget, Object? newSlot) {
+    if (newWidget == null) {
+      return null;
+    }
+    final Element newChild = inflateWidgetYielding(newWidget, newSlot);
+    assert(() {
+      final Key? key = newWidget.key;
+      if (key is GlobalKey) {
+        assert(owner != null);
+        owner!._debugReserveGlobalKeyFor(this, newChild, key);
+      }
+      return true;
+    }());
+    return newChild;
+  }
+
+  @mustCallSuper
+  void mountYielding(Element? parent, Object? newSlot) {
+    assert(_lifecycleState == _ElementLifecycle.initial);
+    assert(widget != null);
+    assert(_parent == null);
+    assert(parent == null || parent._lifecycleState == _ElementLifecycle.active);
+    assert(slot == null);
+    _parent = parent;
+    _slot = newSlot;
+    _lifecycleState = _ElementLifecycle.active;
+    _depth = _parent != null ? _parent!.depth + 1 : 1;
+    if (parent != null) {
+      // Only assign ownership if the parent is non-null. If parent is null
+      // (the root node), the owner should have already been assigned.
+      // See RootRenderObjectElement.assignOwner().
+      _owner = parent.owner;
+    }
+    assert(owner != null);
+    final Key? key = widget.key;
+    if (key is GlobalKey) {
+      owner!._registerGlobalKey(key, this);
+    }
+    _updateInheritance();
+  }
 }
 
 class _ElementDiagnosticableTreeNode extends DiagnosticableTreeNode {
@@ -4713,9 +4793,17 @@ abstract class ComponentElement extends Element {
     assert(_child != null);
   }
 
+  @override
+  void mountYielding(Element? parent, Object? newSlot) {
+    super.mountYielding(parent, newSlot);
+    assert(_child == null);
+    assert(_lifecycleState == _ElementLifecycle.active);
+  }
+
   void _firstBuild() {
     // StatefulElement overrides this to also call state.didChangeDependencies.
-    rebuild(); // This eventually calls performRebuild.
+    //rebuild(); // This eventually calls performRebuild.
+    _performIterativeFirstBuild(this);
   }
 
   /// Calls the [StatelessWidget.build] method of the [StatelessWidget] object
@@ -4776,6 +4864,64 @@ abstract class ComponentElement extends Element {
       );
       _child = updateChild(null, built, slot);
     }
+  }
+
+  @override
+  @pragma('vm:notify-debugger-on-exception')
+  ElementContinuation? performRebuildYielding() {
+    final ElementContinuation continuation = ElementContinuation();
+    assert(_debugSetAllowIgnoredCallsToMarkNeedsBuild(true));
+    assert(_child == null);
+    Widget? built;
+    try {
+      assert(() {
+        _debugDoingBuild = true;
+        return true;
+      }());
+      built = build();
+      assert(() {
+        _debugDoingBuild = false;
+        return true;
+      }());
+      debugWidgetBuilderValue(widget, built);
+    } catch (e, stack) {
+      _debugDoingBuild = false;
+      built = ErrorWidget.builder(
+        _debugReportException(
+          ErrorDescription('building $this'),
+          e,
+          stack,
+          informationCollector: () => <DiagnosticsNode>[
+            if (kDebugMode)
+              DiagnosticsDebugCreator(DebugCreator(this)),
+          ],
+        ),
+      );
+    } finally {
+      // We delay marking the element as clean until after calling build() so
+      // that attempts to markNeedsBuild() during build() will be ignored.
+      _dirty = false;
+      assert(_debugSetAllowIgnoredCallsToMarkNeedsBuild(false));
+    }
+    try {
+      _child = updateChildYielding(built, slot);
+      assert(_child != null);
+    } catch (e, stack) {
+      built = ErrorWidget.builder(
+        _debugReportException(
+          ErrorDescription('building $this'),
+          e,
+          stack,
+          informationCollector: () => <DiagnosticsNode>[
+            if (kDebugMode)
+              DiagnosticsDebugCreator(DebugCreator(this)),
+          ],
+        ),
+      );
+      _child = updateChildYielding(built, slot);
+    }
+    return continuation
+      ..child = _child;
   }
 
   /// Subclasses should override this function to actually call the appropriate
@@ -4869,7 +5015,17 @@ class StatefulElement extends ComponentElement {
   }
 
   @override
-  void _firstBuild() {
+  void performRebuild() {
+    if (_didChangeDependencies) {
+      state.didChangeDependencies();
+      _didChangeDependencies = false;
+    }
+    super.performRebuild();
+  }
+
+  @override
+  @pragma('vm:notify-debugger-on-exception')
+  ElementContinuation? performRebuildYielding() {
     assert(state._debugLifecycleState == _StateLifecycle.created);
     try {
       _debugSetAllowIgnoredCallsToMarkNeedsBuild(true);
@@ -4899,16 +5055,7 @@ class StatefulElement extends ComponentElement {
       state._debugLifecycleState = _StateLifecycle.ready;
       return true;
     }());
-    super._firstBuild();
-  }
-
-  @override
-  void performRebuild() {
-    if (_didChangeDependencies) {
-      state.didChangeDependencies();
-      _didChangeDependencies = false;
-    }
-    super.performRebuild();
+    return super.performRebuildYielding();
   }
 
   @override
@@ -5620,6 +5767,28 @@ abstract class RenderObjectElement extends Element {
   }
 
   @override
+  void mountYielding(Element? parent, Object? newSlot) {
+    super.mountYielding(parent, newSlot);
+    assert(() {
+      _debugDoingBuild = true;
+      return true;
+    }());
+    _renderObject = widget.createRenderObject(this);
+    assert(!_renderObject!.debugDisposed!);
+    assert(() {
+      _debugDoingBuild = false;
+      return true;
+    }());
+    assert(() {
+      _debugUpdateRenderObjectOwner();
+      return true;
+    }());
+    assert(_slot == newSlot);
+    attachRenderObject(newSlot);
+    _dirty = false;
+  }
+
+  @override
   void update(covariant RenderObjectWidget newWidget) {
     super.update(newWidget);
     assert(widget == newWidget);
@@ -5640,6 +5809,22 @@ abstract class RenderObjectElement extends Element {
   @override
   void performRebuild() {
     _performRebuild(); // calls widget.updateRenderObject()
+  }
+
+  @override
+  @pragma('vm:notify-debugger-on-exception')
+  ElementContinuation? performRebuildYielding() {
+    assert(() {
+      _debugDoingBuild = true;
+      return true;
+    }());
+    widget.updateRenderObject(this, renderObject);
+    assert(() {
+      _debugDoingBuild = false;
+      return true;
+    }());
+    _dirty = false;
+    return ElementContinuation();
   }
 
   @pragma('vm:prefer-inline')
@@ -6230,6 +6415,11 @@ class LeafRenderObjectElement extends RenderObjectElement {
   List<DiagnosticsNode> debugDescribeChildren() {
     return widget.debugDescribeChildren();
   }
+
+  @override
+  ElementContinuation? performRebuildYielding() {
+    return null;
+  }
 }
 
 /// An [Element] that uses a [SingleChildRenderObjectWidget] as its configuration.
@@ -6295,6 +6485,23 @@ class SingleChildRenderObjectElement extends RenderObjectElement {
     assert(renderObject.child == child);
     renderObject.child = null;
     assert(renderObject == this.renderObject);
+  }
+
+  @override
+  ElementContinuation? performRebuildYielding() {
+    final ElementContinuation? continuation =  super.performRebuildYielding();
+    if (continuation == null) {
+      return null;
+    }
+    continuation.child = _child;
+
+    return continuation;
+  }
+
+  @override
+  void mountYielding(Element? parent, Object? newSlot) {
+    super.mountYielding(parent, newSlot);
+    _child = updateChildYielding(widget.child, null);
   }
 }
 
@@ -6421,6 +6628,29 @@ class MultiChildRenderObjectElement extends RenderObjectElement {
   }
 
   @override
+  void mountYielding(Element? parent, Object? newSlot) {
+    super.mountYielding(parent, newSlot);
+    final List<Element> children = List<Element>.filled(widget.children.length, _NullElement.instance);
+    Element? previousChild;
+    for (int i = 0; i < children.length; i += 1) {
+      final Element newChild = inflateWidgetYielding(widget.children[i], IndexedSlot<Element?>(i, previousChild));
+      children[i] = newChild;
+      previousChild = newChild;
+    }
+    _children = children;
+  }
+
+  @override
+  ElementContinuation? performRebuildYielding() {
+    final ElementContinuation? continuation = super.performRebuildYielding();
+    if (continuation == null) {
+      return null;
+    }
+    continuation.children = _children;
+    return continuation;
+  }
+
+  @override
   void update(MultiChildRenderObjectWidget newWidget) {
     super.update(newWidget);
     assert(widget == newWidget);
@@ -6512,6 +6742,9 @@ class _NullElement extends Element {
 
   @override
   void performRebuild() => throw UnimplementedError();
+
+  @override
+  ElementContinuation? performRebuildYielding() => throw UnimplementedError();
 }
 
 class _NullWidget extends Widget {
@@ -6525,4 +6758,28 @@ class _NullWidget extends Widget {
 // a reassemble.
 bool _debugShouldReassemble(DebugReassembleConfig? config, Widget? widget) {
   return config == null || config.widgetName == null || widget?.runtimeType.toString() == config.widgetName;
+}
+
+class ElementContinuation {
+  Element? child;
+  List<Element>? children;
+}
+
+void _performIterativeFirstBuild(Element element) {
+  Element? current = element;
+  final List<Element> children = <Element>[];
+  while (current != null || children.isNotEmpty) {
+    current ??= children.removeLast();
+    final ElementContinuation? continuation = current.performRebuildYielding();
+    if (continuation == null) {
+      current.performRebuild();
+      current = null;
+      continue;
+    }
+
+    current = continuation.child;
+    if (continuation.children != null) {
+      children.addAll(continuation.children!);
+    }
+  }
 }

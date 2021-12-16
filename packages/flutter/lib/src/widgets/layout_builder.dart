@@ -85,6 +85,12 @@ class _LayoutBuilderElement<ConstraintType extends Constraints> extends RenderOb
   }
 
   @override
+  void mountYielding(Element? parent, Object? newSlot) {
+    super.mountYielding(parent, newSlot); // Creates the renderObject.
+    renderObject.updateCallback(_layout);
+  }
+
+  @override
   void update(ConstrainedLayoutBuilder<ConstraintType> newWidget) {
     assert(widget != newWidget);
     super.update(newWidget);
@@ -106,6 +112,18 @@ class _LayoutBuilderElement<ConstraintType extends Constraints> extends RenderOb
     // configuration, or an inherited widget.
     renderObject.markNeedsBuild();
     super.performRebuild(); // Calls widget.updateRenderObject (a no-op in this case).
+  }
+
+  @override
+  ElementContinuation? performRebuildYielding() {
+    // This gets called if markNeedsBuild() is called on us.
+    // That might happen if, e.g., our builder uses Inherited widgets.
+
+    // Force the callback to be called, even if the layout constraints are the
+    // same. This is because that callback may depend on the updated widget
+    // configuration, or an inherited widget.
+    renderObject.markNeedsBuild();
+    return super.performRebuildYielding(); // Calls widget.updateRenderObject (a no-op in this case).
   }
 
   @override

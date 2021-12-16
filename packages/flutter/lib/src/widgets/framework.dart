@@ -6646,7 +6646,7 @@ class MultiChildRenderObjectElement extends RenderObjectElement {
     if (continuation == null) {
       return null;
     }
-    continuation.children = _children;
+    continuation.children = children.toList();
     return continuation;
   }
 

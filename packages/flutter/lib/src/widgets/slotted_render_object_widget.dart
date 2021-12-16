@@ -218,6 +218,12 @@ class SlottedRenderObjectElement<S> extends RenderObjectElement {
   }
 
   @override
+  void mountYielding(Element? parent, Object? newSlot) {
+    super.mountYielding(parent, newSlot);
+    _updateChildren();
+  }
+
+  @override
   void update(SlottedMultiChildRenderObjectWidgetMixin<S> newWidget) {
     super.update(newWidget);
     assert(widget == newWidget);

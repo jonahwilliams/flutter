@@ -1211,6 +1211,11 @@ class SliverMultiBoxAdaptorElement extends RenderObjectElement implements Render
     }
   }
 
+  @override
+  ElementContinuation? performRebuildYielding() {
+    return null;
+  }
+
   Widget? _build(int index) {
     return widget.delegate.build(this, index);
   }

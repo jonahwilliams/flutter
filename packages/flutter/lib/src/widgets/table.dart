@@ -295,6 +295,11 @@ class _TableElement extends RenderObjectElement {
   bool _doingMountOrUpdate = false;
 
   @override
+  ElementContinuation? performRebuildYielding() {
+    return null;
+  }
+
+  @override
   void mount(Element? parent, Object? newSlot) {
     assert(!_doingMountOrUpdate);
     _doingMountOrUpdate = true;
@@ -315,6 +320,7 @@ class _TableElement extends RenderObjectElement {
     assert(_doingMountOrUpdate);
     _doingMountOrUpdate = false;
   }
+
 
   @override
   void insertRenderObjectChild(RenderBox child, _TableSlot slot) {

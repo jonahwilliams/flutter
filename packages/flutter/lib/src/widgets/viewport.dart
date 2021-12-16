@@ -224,6 +224,12 @@ class _ViewportElement extends MultiChildRenderObjectElement {
   }
 
   @override
+  void mountYielding(Element? parent, Object? newSlot) {
+    super.mountYielding(parent, newSlot);
+    _updateCenter();
+  }
+
+  @override
   void update(MultiChildRenderObjectWidget newWidget) {
     super.update(newWidget);
     _updateCenter();

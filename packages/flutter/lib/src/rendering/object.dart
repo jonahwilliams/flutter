@@ -1891,7 +1891,9 @@ abstract class RenderObject extends AbstractNode with DiagnosticableTreeMixin im
         return true;
       }());
     } catch (e, stack) {
-      _debugReportException('performLayout', e, stack);
+      print(e);
+      print(stack);
+      //_debugReportException('performLayout', e, stack);
     }
     assert(() {
       _debugActiveLayout = debugPreviousActiveLayout;

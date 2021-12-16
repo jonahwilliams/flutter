@@ -267,6 +267,12 @@ class _SliverPersistentHeaderElement extends RenderObjectElement {
   }
 
   @override
+  void mountYielding(Element? parent, Object? newSlot) {
+    super.mountYielding(parent, newSlot);
+    renderObject._element = this;
+  }
+
+  @override
   void unmount() {
     renderObject._element = null;
     super.unmount();
@@ -287,6 +293,13 @@ class _SliverPersistentHeaderElement extends RenderObjectElement {
   void performRebuild() {
     super.performRebuild();
     renderObject.triggerRebuild();
+  }
+
+  @override
+  ElementContinuation? performRebuildYielding() {
+    final ElementContinuation? continuation = super.performRebuildYielding();
+    renderObject.triggerRebuild();
+    return continuation;
   }
 
   Element? child;

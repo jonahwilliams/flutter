@@ -2549,7 +2549,7 @@ class BuildOwner {
       _debugBuilding = true;
       return true;
     }());
-    var sw = Stopwatch()..start();
+
     // if (!kReleaseMode) {
     //   Map<String, String> debugTimelineArguments = timelineArgumentsIndicatingLandmarkEvent;
     //   assert(() {
@@ -2707,9 +2707,6 @@ class BuildOwner {
       }());
     }
     assert(_debugStateLockLevel >= 0);
-    sw.stop();
-    if (sw.elapsedMilliseconds >= 1)
-      print(sw.elapsed);
   }
 
   Map<Element, Set<GlobalKey>>? _debugElementsThatWillNeedToBeRebuiltDueToGlobalKeyShenanigans;
@@ -6646,7 +6643,7 @@ class MultiChildRenderObjectElement extends RenderObjectElement {
     if (continuation == null) {
       return null;
     }
-    continuation.children = children.toList();
+    continuation.children = _children;
     return continuation;
   }
 
@@ -6767,9 +6764,9 @@ class ElementContinuation {
 
 void _performIterativeFirstBuild(Element element) {
   Element? current = element;
-  final List<Element> children = <Element>[];
-  while (current != null || children.isNotEmpty) {
-    current ??= children.removeLast();
+  final ElementList elements = ElementList();
+  while (current != null || elements.isNotEmpty) {
+    current ??= elements.removeLast();
     final ElementContinuation? continuation = current.performRebuildYielding();
     if (continuation == null) {
       current.performRebuild();
@@ -6779,7 +6776,40 @@ void _performIterativeFirstBuild(Element element) {
 
     current = continuation.child;
     if (continuation.children != null) {
-      children.addAll(continuation.children!);
+      elements.append(continuation.children!);
     }
+  }
+}
+
+class ElementList {
+  final List<List<Element>> _elementLists = <List<Element>>[];
+  final List<int> _indexes = <int>[];
+
+  int length = 0;
+
+  void append(List<Element> children) {
+    if (children.isEmpty) {
+      return;
+    }
+    length += children.length;
+    _indexes.add(children.length - 1);
+    _elementLists.add(children);
+  }
+
+  bool get isNotEmpty {
+    return _elementLists.isNotEmpty;
+  }
+
+  Element removeLast() {
+    var elements = _elementLists[_elementLists.length - 1];
+    var index = _indexes[_elementLists.length - 1];
+    var element = elements[index];
+    if (index == 0) {
+      _elementLists.removeLast();
+      _indexes.removeLast();
+    } else {
+      _indexes[_elementLists.length - 1] = index - 1;
+    }
+    return element;
   }
 }

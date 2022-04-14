@@ -103,7 +103,7 @@ class PaintingContext extends ClipContext {
     );
   }
 
-  static void _repaintCompositedChild(
+   static void _repaintCompositedChild(
     RenderObject child, {
     bool debugAlsoPaintedParent = false,
     PaintingContext? childContext,
@@ -117,6 +117,7 @@ class PaintingContext extends ClipContext {
       );
       return true;
     }());
+
     OffsetLayer? childLayer = child._layerHandle.layer as OffsetLayer?;
     if (childLayer == null) {
       assert(debugAlsoPaintedParent);
@@ -125,10 +126,10 @@ class PaintingContext extends ClipContext {
       // replace the layer for repaint boundaries. That assertion does not
       // apply here because this is exactly the place designed to create a
       // layer for repaint boundaries.
-      final OffsetLayer layer = OffsetLayer();
+      final OffsetLayer layer = child.createCompositedLayer();
       child._layerHandle.layer = childLayer = layer;
     } else {
-      assert(debugAlsoPaintedParent || childLayer.attached);
+       assert(debugAlsoPaintedParent || childLayer.attached);
       childLayer.removeAllChildren();
     }
     assert(identical(childLayer, child._layerHandle.layer));
@@ -182,32 +183,14 @@ class PaintingContext extends ClipContext {
 
     if (child.isRepaintBoundary) {
       stopRecordingIfNeeded();
-      _compositeChild(child, offset);
+      assert(!_isRecording);
+      assert(child.isRepaintBoundary);
+      assert(_canvas == null || _canvas!.getSaveCount() == 1);
+
+      child._compositeChild(this, offset);
     } else {
       child._paintWithContext(this, offset);
     }
-  }
-
-  void _compositeChild(RenderObject child, Offset offset) {
-    assert(!_isRecording);
-    assert(child.isRepaintBoundary);
-    assert(_canvas == null || _canvas!.getSaveCount() == 1);
-
-    // Create a layer for our child, and paint the child into it.
-    if (child._needsPaint) {
-      repaintCompositedChild(child, debugAlsoPaintedParent: true);
-    } else {
-      assert(() {
-        // register the call for RepaintBoundary metrics
-        child.debugRegisterRepaintBoundaryPaint();
-        child._layerHandle.layer!.debugCreator = child.debugCreator ?? child;
-        return true;
-      }());
-    }
-    assert(child._layerHandle.layer is OffsetLayer);
-    final OffsetLayer childOffsetLayer = child._layerHandle.layer! as OffsetLayer;
-    childOffsetLayer.offset = offset;
-    appendLayer(childOffsetLayer);
   }
 
   /// Adds a layer to the recording requiring that the recording is already
@@ -2080,6 +2063,46 @@ abstract class RenderObject extends AbstractNode with DiagnosticableTreeMixin im
   /// See [RepaintBoundary] for more information about how repaint boundaries function.
   bool get isRepaintBoundary => false;
 
+  void _compositeChild(PaintingContext context, Offset offset) {
+    // Create a layer for our child, and paint the child into it.
+    if (_needsPaint) {
+      final ContainerLayer layer = createCompositedLayer();
+      updateLayer(offset);
+      final PaintingContext childContext = PaintingContext(layer, paintBounds);
+      _paintWithContext(childContext, Offset.zero);
+      childContext.stopRecordingIfNeeded();
+    } else {
+      assert(() {
+        // register the call for RepaintBoundary metrics
+        debugRegisterRepaintBoundaryPaint();
+        _layerHandle.layer!.debugCreator = debugCreator ?? this;
+        return true;
+      }());
+      updateLayer(offset);
+    }
+    context.appendLayer(layer!);
+  }
+
+  /// Create the compositer layer managed by this RenderObject.
+  void updateLayer(Offset offset) {
+    assert(isRepaintBoundary);
+    final OffsetLayer currentLayer = layer! as OffsetLayer;
+    currentLayer.offset = offset;
+  }
+
+  /// Update the properties of the layer managed by this RenderObject.
+  OffsetLayer createCompositedLayer() {
+    assert(isRepaintBoundary);
+    OffsetLayer? childLayer = layer as OffsetLayer?;
+    if (childLayer == null) {
+      final OffsetLayer layer = OffsetLayer();
+      this.layer = childLayer = layer;
+    } else {
+      childLayer.removeAllChildren();
+    }
+    return childLayer;
+  }
+
   /// Called, in debug mode, if [isRepaintBoundary] is true, when either the
   /// this render object or its parent attempt to paint.
   ///
@@ -2125,18 +2148,18 @@ abstract class RenderObject extends AbstractNode with DiagnosticableTreeMixin im
   /// field.
   @protected
   ContainerLayer? get layer {
-    assert(!isRepaintBoundary || _layerHandle.layer == null || _layerHandle.layer is OffsetLayer);
+   // assert(!isRepaintBoundary || _layerHandle.layer == null || _layerHandle.layer is OffsetLayer);
     return _layerHandle.layer;
   }
 
   @protected
   set layer(ContainerLayer? newLayer) {
-    assert(
-      !isRepaintBoundary,
-      'Attempted to set a layer to a repaint boundary render object.\n'
-      'The framework creates and assigns an OffsetLayer to a repaint '
-      'boundary automatically.',
-    );
+    // assert(
+    //   !isRepaintBoundary,
+    //   'Attempted to set a layer to a repaint boundary render object.\n'
+    //   'The framework creates and assigns an OffsetLayer to a repaint '
+    //   'boundary automatically.',
+    // );
     _layerHandle.layer = newLayer;
   }
 

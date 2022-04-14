@@ -845,7 +845,30 @@ class RenderOpacity extends RenderProxyBox {
   @override
   bool get alwaysNeedsCompositing => child != null && (_alpha > 0);
 
+  @override
+  bool get isRepaintBoundary => true;
+
   int _alpha;
+
+  @override
+  void updateLayer(Offset offset) {
+    final OpacityLayer currentLayer = layer! as OpacityLayer;
+    currentLayer
+      ..offset = offset
+      ..alpha = _alpha;
+  }
+
+  @override
+  OffsetLayer createCompositedLayer() {
+    OffsetLayer? childLayer = layer as OffsetLayer?;
+    if (childLayer == null) {
+      final OpacityLayer layer = OpacityLayer();
+      this.layer = childLayer = layer;
+    } else {
+      childLayer.removeAllChildren();
+    }
+    return childLayer;
+  }
 
   /// The fraction to scale the child's alpha value.
   ///
@@ -889,18 +912,18 @@ class RenderOpacity extends RenderProxyBox {
     markNeedsSemanticsUpdate();
   }
 
-  @override
-  void paint(PaintingContext context, Offset offset) {
-    if (child != null) {
-      if (_alpha == 0) {
-        // No need to keep the layer. We'll create a new one if necessary.
-        layer = null;
-        return;
-      }
-      assert(needsCompositing);
-      layer = context.pushOpacity(offset, _alpha, super.paint, oldLayer: layer as OpacityLayer?);
-    }
-  }
+  // @override
+  // void paint(PaintingContext context, Offset offset) {
+  //   if (child != null) {
+  //     if (_alpha == 0) {
+  //       // No need to keep the layer. We'll create a new one if necessary.
+  //       layer = null;
+  //       return;
+  //     }
+  //     assert(needsCompositing);
+  //     layer = context.pushOpacity(offset, _alpha, super.paint, oldLayer: layer as OpacityLayer?);
+  //   }
+  // }
 
   @override
   void visitChildrenForSemantics(RenderObjectVisitor visitor) {
@@ -927,6 +950,29 @@ mixin RenderAnimatedOpacityMixin<T extends RenderObject> on RenderObjectWithChil
   @override
   bool get alwaysNeedsCompositing => child != null && _currentlyNeedsCompositing!;
   bool? _currentlyNeedsCompositing;
+
+  @override
+  bool get isRepaintBoundary => true;
+
+  @override
+  void updateLayer(Offset offset) {
+    final OpacityLayer currentLayer = layer! as OpacityLayer;
+    currentLayer
+      ..offset = offset
+      ..alpha = _alpha;
+  }
+
+  @override
+  OffsetLayer createCompositedLayer() {
+    OffsetLayer? childLayer = layer as OffsetLayer?;
+    if (childLayer == null) {
+      final OpacityLayer layer = OpacityLayer();
+      this.layer = childLayer = layer;
+    } else {
+      childLayer.removeAllChildren();
+    }
+    return childLayer;
+  }
 
   /// The animation that drives this render object's opacity.
   ///
@@ -993,19 +1039,6 @@ mixin RenderAnimatedOpacityMixin<T extends RenderObject> on RenderObjectWithChil
       markNeedsPaint();
       if (oldAlpha == 0 || _alpha == 0)
         markNeedsSemanticsUpdate();
-    }
-  }
-
-  @override
-  void paint(PaintingContext context, Offset offset) {
-    if (child != null) {
-      if (_alpha == 0) {
-        // No need to keep the layer. We'll create a new one if necessary.
-        layer = null;
-        return;
-      }
-      assert(needsCompositing);
-      layer = context.pushOpacity(offset, _alpha!, super.paint, oldLayer: layer as OpacityLayer?);
     }
   }
 

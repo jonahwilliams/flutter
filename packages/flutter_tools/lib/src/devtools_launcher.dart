@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-// @dart = 2.8
 
 import 'dart:async';
 
@@ -20,10 +19,10 @@ import 'resident_runner.dart';
 /// start a server instance.
 class DevtoolsServerLauncher extends DevtoolsLauncher {
   DevtoolsServerLauncher({
-    @required ProcessManager processManager,
-    @required String dartExecutable,
-    @required Logger logger,
-    @required BotDetector botDetector,
+    required ProcessManager processManager,
+    required String dartExecutable,
+    required Logger logger,
+    required BotDetector botDetector,
   })  : _processManager = processManager,
         _dartExecutable = dartExecutable,
         _logger = logger,
@@ -35,10 +34,10 @@ class DevtoolsServerLauncher extends DevtoolsLauncher {
   final BotDetector _botDetector;
   final Completer<void> _processStartCompleter = Completer<void>();
 
-  io.Process _devToolsProcess;
+  late io.Process _devToolsProcess;
   bool _devToolsProcessKilled = false;
   @visibleForTesting
-  Future<void> devToolsProcessExit;
+  late Future<void> devToolsProcessExit;
 
   static final RegExp _serveDevToolsPattern =
       RegExp(r'Serving DevTools at ((http|//)[a-zA-Z0-9:/=_\-\.\[\]]+?)\.?$');
@@ -47,7 +46,7 @@ class DevtoolsServerLauncher extends DevtoolsLauncher {
   Future<void> get processStart => _processStartCompleter.future;
 
   @override
-  Future<void> launch(Uri vmServiceUri, {List<String> additionalArguments}) async {
+  Future<void> launch(Uri? vmServiceUri, {List<String>? additionalArguments}) async {
     // Place this entire method in a try/catch that swallows exceptions because
     // this method is guaranteed not to return a Future that throws.
     try {
@@ -64,9 +63,9 @@ class DevtoolsServerLauncher extends DevtoolsLauncher {
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen((String line) {
-            final Match match = _serveDevToolsPattern.firstMatch(line);
+            final Match? match = _serveDevToolsPattern.firstMatch(line);
             if (match != null) {
-              final String url = match[1];
+              final String url = match[1]!;
               completer.complete(Uri.parse(url));
             }
          });
@@ -95,14 +94,11 @@ class DevtoolsServerLauncher extends DevtoolsLauncher {
     if (activeDevToolsServer == null) {
       await launch(null);
     }
-    return activeDevToolsServer;
+    return activeDevToolsServer!;
   }
 
   @override
   Future<void> close() async {
-    if (devToolsUrl != null) {
-      devToolsUrl = null;
-    }
     if (_devToolsProcess != null) {
       _devToolsProcessKilled = true;
       _devToolsProcess.kill();

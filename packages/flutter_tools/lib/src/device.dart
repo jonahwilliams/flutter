@@ -558,7 +558,7 @@ abstract class Device {
   /// copies the files across the local file system.
   DevFSWriter? createDevFSWriter(
     covariant ApplicationPackage app,
-    String userIdentifier,
+    String? userIdentifier,
   ) {
     return null;
   }

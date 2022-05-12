@@ -99,7 +99,7 @@ typedef CompileExpression = Future<String> Function(
 /// A method that pulls an SkSL shader from the device and writes it to a file.
 ///
 /// The name of the file returned as a result.
-typedef GetSkSLMethod = Future<String> Function();
+typedef GetSkSLMethod = Future<String?> Function();
 
 Future<io.WebSocket> _defaultOpenChannel(String url, {
   io.CompressionOptions compression = io.CompressionOptions.compressionDefault,
@@ -265,9 +265,9 @@ Future<vm_service.VmService> setUpVmService(
   }
   if (skSLMethod != null) {
     vmService.registerServiceCallback('flutterGetSkSL', (Map<String, Object?> params) async {
-      final String filename = await skSLMethod();
+      final String? filename = await skSLMethod();
       return <String, Object>{
-        'result': <String, Object>{
+        'result': <String, Object?>{
           'type': 'Success',
           'filename': filename,
         },
@@ -983,7 +983,7 @@ class VmServiceDisappearedException implements Exception { }
 
 /// Whether the event attached to an [Isolate.pauseEvent] should be considered
 /// a "pause" event.
-bool isPauseEvent(String kind) {
+bool isPauseEvent(String? kind) {
   return kind == vm_service.EventKind.kPauseStart ||
          kind == vm_service.EventKind.kPauseExit ||
          kind == vm_service.EventKind.kPauseBreakpoint ||

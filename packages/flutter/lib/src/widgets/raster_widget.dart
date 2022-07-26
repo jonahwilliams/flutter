@@ -31,8 +31,6 @@ enum RasterizeMode {
 
   /// the children are not rasterized and the [RasterWidgetFallbackDelegate],
   /// if provided, is used to draw the children.
-  ///
-  ///
   fallback,
 }
 
@@ -374,9 +372,9 @@ class RenderRasterWidget extends RenderProxyBox {
 
   // Paint [child] with this painting context, then convert to a raster and detach all
   // children from this layer.
-  ui.Image? _paintAndDetachToImage() {
+  ui.Image? _paintAndDetachToImage(Offset offset) {
     final OffsetLayer offsetLayer = OffsetLayer();
-    final PaintingContext context = PaintingContext(offsetLayer, Offset.zero & size);
+    final PaintingContext context = PaintingContext(offsetLayer, offset & size);
     super.paint(context, Offset.zero);
     // This ignore is here because this method is protected by the `PaintingContext`. Adding a new
     // method that performs the work of `_paintAndDetachToImage` would avoid the need for this, but
@@ -410,7 +408,7 @@ class RenderRasterWidget extends RenderProxyBox {
       if (_useFallback) {
         fallback?.paintFallback(context, offset, size, super.paint);
       } else {
-        _childRaster ??= _paintAndDetachToImage();
+        _childRaster ??= _paintAndDetachToImage(offset);
         if (_childRaster == null && _useFallback) {
           fallback?.paintFallback(context, offset, size, super.paint);
         } else {

@@ -3,8 +3,10 @@
 // found in the LICENSE file.
 
 import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:flutter/rendering.dart';
+import 'package:flutter/src/widgets/raster_widget.dart';
 
 import 'basic.dart';
 import 'container.dart';
@@ -1084,5 +1086,143 @@ class AnimatedBuilder extends AnimatedWidget {
   @override
   Widget build(BuildContext context) {
     return builder(context, child);
+  }
+}
+
+/// Animates the opacity of a widget.
+///
+/// For a widget that automatically animates between the sizes of two children,
+/// fading between them, see [AnimatedCrossFade].
+///
+/// See also:
+///
+///  * [FadeTransition]
+class RasterFadeTransition extends StatefulWidget {
+  /// Creates an opacity transition.
+  ///
+  /// The [opacity] argument must not be null.
+  const RasterFadeTransition({
+    super.key,
+    required this.opacity,
+    required this.child,
+  }) : assert(opacity != null);
+
+  /// The animation that controls the opacity of the child.
+  ///
+  /// If the current value of the opacity animation is v, the child will be
+  /// painted with an opacity of v. For example, if v is 0.5, the child will be
+  /// blended 50% with its background. Similarly, if v is 0.0, the child will be
+  /// completely transparent.
+  final Animation<double> opacity;
+
+  final Widget child;
+
+  @override
+  State<RasterFadeTransition> createState() => _RasterFadeTransitionState();
+}
+
+class _RasterFadeTransitionState extends State<RasterFadeTransition> {
+  late _AnimatedOpacityRasterDelegate delegate;
+  RasterWidgetController controller = RasterWidgetController();
+
+  // Enable rasterization only if opacity is not 1.0 or 0.0 and the
+  // animation is not stopped.
+  bool _computeRasterizeStatus() {
+    setState(() { });
+    final double value = widget.opacity.value;
+    if (value == 1.0) {
+      return false;
+    }
+    if (value == 0.0) {
+      return false;
+    }
+    return true;
+  }
+
+  void _handleOpacityChange() {
+    controller.rasterize = _computeRasterizeStatus();
+  }
+
+  @override
+  void initState() {
+    delegate = _AnimatedOpacityRasterDelegate(widget.opacity);
+    widget.opacity.addListener(_handleOpacityChange);
+    super.initState();
+  }
+
+  @override
+  void didUpdateWidget(covariant RasterFadeTransition oldWidget) {
+    if (oldWidget.opacity != widget.opacity) {
+      delegate.dispose();
+      delegate = _AnimatedOpacityRasterDelegate(widget.opacity);
+      oldWidget.opacity.removeListener(_handleOpacityChange);
+      widget.opacity.addListener(_handleOpacityChange);
+
+    }
+    super.didUpdateWidget(oldWidget);
+  }
+
+  @override
+  void dispose() {
+    delegate.dispose();
+    widget.opacity.removeListener(_handleOpacityChange);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.opacity.value == 0.0) {
+      return const SizedBox();
+    }
+    return RasterWidget(
+      controller: controller,
+      delegate: delegate,
+      child: widget.child,
+    );
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(DiagnosticsProperty<Animation<double>>('opacity', widget.opacity));
+  }
+}
+
+class _AnimatedOpacityRasterDelegate extends RasterWidgetDelegate {
+  _AnimatedOpacityRasterDelegate(this.opacity) {
+    opacity.addListener(notifyListeners);
+  }
+
+  final Animation<double> opacity;
+  final LayerHandle<OpacityLayer> layerHandle = LayerHandle<OpacityLayer>();
+
+  @override
+  void paint(PaintingContext context, Offset offset, Size size, Image image, double pixelRatio) {
+    assert(opacity.value != 0.0 && opacity.value != 1.0);
+    final Rect src = Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
+    final Rect dst = Rect.fromLTWH(offset.dx, offset.dy, size.width, size.height);
+    final Paint paint = Paint()
+      ..color = Color.fromRGBO(0, 0, 0, opacity.value)
+      ..filterQuality = FilterQuality.low;
+    
+    context.canvas.drawImageRect(
+      image,
+      src,
+      dst,
+      paint,
+    );
+    context.canvas.drawRect(offset & size, Paint()..color = Color(0xFFFF0000).withOpacity(0.4));
+  }
+
+  @override
+  bool shouldRepaint(covariant _AnimatedOpacityRasterDelegate oldDelegate) {
+    return oldDelegate.opacity.value != opacity.value;
+  }
+
+  @override
+  void dispose() {
+    opacity.removeListener(notifyListeners);
+    layerHandle.layer = null;
+    super.dispose();
   }
 }

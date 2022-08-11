@@ -5,6 +5,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:vector_math/vector_math_64.dart';
 
+import 'alignment.dart';
 import 'basic_types.dart';
 
 /// Utility functions for working with matrices.
@@ -531,6 +532,38 @@ class MatrixUtils {
     return Matrix4.identity()
       ..setRow(0, Vector4(0, 0, 0, offset.dx))
       ..setRow(1, Vector4(0, 0, 0, offset.dy));
+  }
+
+  /// Compute the effective transform for a given [transform] on a shape with
+  /// a given size, alignment, text direction, origin.
+  static Matrix4? computeEffectiveTransform({
+    required Matrix4? transform,
+    required TextDirection? textDirection,
+    required Size size,
+    required AlignmentGeometry? alignment,
+    required Offset? origin,
+  }) {
+    final Alignment? resolvedAlignment = alignment?.resolve(textDirection);
+    if (origin == null && resolvedAlignment == null) {
+      return transform;
+    }
+    final Matrix4 result = Matrix4.identity();
+    if (origin != null) {
+      result.translate(origin.dx, origin.dy);
+    }
+    Offset? translation;
+    if (resolvedAlignment != null) {
+      translation = resolvedAlignment.alongSize(size);
+      result.translate(translation.dx, translation.dy);
+    }
+    result.multiply(transform!);
+    if (resolvedAlignment != null) {
+      result.translate(-translation!.dx, -translation.dy);
+    }
+    if (origin != null) {
+      result.translate(-origin.dx, origin.dy);
+    }
+    return result;
   }
 }
 

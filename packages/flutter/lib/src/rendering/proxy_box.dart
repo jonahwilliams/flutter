@@ -2553,27 +2553,13 @@ class RenderTransform extends RenderProxyBox {
   }
 
   Matrix4? get _effectiveTransform {
-    final Alignment? resolvedAlignment = alignment?.resolve(textDirection);
-    if (_origin == null && resolvedAlignment == null) {
-      return _transform;
-    }
-    final Matrix4 result = Matrix4.identity();
-    if (_origin != null) {
-      result.translate(_origin!.dx, _origin!.dy);
-    }
-    Offset? translation;
-    if (resolvedAlignment != null) {
-      translation = resolvedAlignment.alongSize(size);
-      result.translate(translation.dx, translation.dy);
-    }
-    result.multiply(_transform!);
-    if (resolvedAlignment != null) {
-      result.translate(-translation!.dx, -translation.dy);
-    }
-    if (_origin != null) {
-      result.translate(-_origin!.dx, -_origin!.dy);
-    }
-    return result;
+    return MatrixUtils.computeEffectiveTransform(
+      transform: _transform,
+      textDirection: textDirection,
+      alignment: alignment,
+      origin: origin,
+      size: size,
+    );
   }
 
   @override

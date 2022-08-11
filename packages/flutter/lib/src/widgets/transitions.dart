@@ -1089,19 +1089,24 @@ class AnimatedBuilder extends AnimatedWidget {
   }
 }
 
-/// Animates the opacity of a widget.
+/// Animates the opacity of a snapshot of a child widget.
 ///
-/// For a widget that automatically animates between the sizes of two children,
-/// fading between them, see [AnimatedCrossFade].
+/// When the provided [opacity] is between `0.0` and `1.0`, a snapshot of the
+/// child widget is used in-place of the actual child widget. Thus as the animation
+/// proceeds the child widget will not update until it reaches fully opaque or
+/// fully transparent - only the opacity will change.
+///
+/// For a widget that automatically the opacity of a child while still allowing
+/// the child widget to update, see [FadeTransition].
 ///
 /// See also:
 ///
-///  * [FadeTransition]
-class RasterFadeTransition extends StatefulWidget {
+///  * [FadeTransition], a non-snapshot based version of this transition.
+class SnapshotFadeTransition extends StatefulWidget {
   /// Creates an opacity transition.
   ///
   /// The [opacity] argument must not be null.
-  const RasterFadeTransition({
+  const SnapshotFadeTransition({
     super.key,
     required this.opacity,
     required this.child,
@@ -1115,25 +1120,27 @@ class RasterFadeTransition extends StatefulWidget {
   /// completely transparent.
   final Animation<double> opacity;
 
+  /// The widget below this widget in the tree.
+  ///
+  /// {@macro flutter.widgets.ProxyWidget.child}
   final Widget child;
 
   @override
-  State<RasterFadeTransition> createState() => _RasterFadeTransitionState();
+  State<SnapshotFadeTransition> createState() => _SnapshotFadeTransitionState();
 }
 
-class _RasterFadeTransitionState extends State<RasterFadeTransition> {
+class _SnapshotFadeTransitionState extends State<SnapshotFadeTransition> {
   late _AnimatedOpacityRasterDelegate delegate;
   RasterWidgetController controller = RasterWidgetController();
 
-  // Enable rasterization only if opacity is not 1.0 or 0.0 and the
-  // animation is not stopped.
+  // Enable rasterization only if opacity is not 1.0 or 0.0.
   bool _computeRasterizeStatus() {
-    setState(() { });
     final double value = widget.opacity.value;
     if (value == 1.0) {
       return false;
     }
     if (value == 0.0) {
+      setState(() { });
       return false;
     }
     return true;
@@ -1151,7 +1158,7 @@ class _RasterFadeTransitionState extends State<RasterFadeTransition> {
   }
 
   @override
-  void didUpdateWidget(covariant RasterFadeTransition oldWidget) {
+  void didUpdateWidget(covariant SnapshotFadeTransition oldWidget) {
     if (oldWidget.opacity != widget.opacity) {
       delegate.dispose();
       delegate = _AnimatedOpacityRasterDelegate(widget.opacity);
@@ -1204,14 +1211,13 @@ class _AnimatedOpacityRasterDelegate extends RasterWidgetDelegate {
     final Paint paint = Paint()
       ..color = Color.fromRGBO(0, 0, 0, opacity.value)
       ..filterQuality = FilterQuality.low;
-    
+
     context.canvas.drawImageRect(
       image,
       src,
       dst,
       paint,
     );
-    context.canvas.drawRect(offset & size, Paint()..color = Color(0xFFFF0000).withOpacity(0.4));
   }
 
   @override
@@ -1223,6 +1229,170 @@ class _AnimatedOpacityRasterDelegate extends RasterWidgetDelegate {
   void dispose() {
     opacity.removeListener(notifyListeners);
     layerHandle.layer = null;
+    super.dispose();
+  }
+}
+
+/// Animates the rotation of a snapshot of a widget.
+///
+///
+/// See also:
+///
+///  * [ScaleTransition], a widget that animates the scale of a transformed
+///    widget.
+///  * [SizeTransition], a widget that animates its own size and clips and
+///    aligns its child.
+class SnapshotRotationTransition extends StatefulWidget {
+  /// Creates a rotation transition.
+  ///
+  /// The [turns] argument must not be null.
+  const SnapshotRotationTransition({
+    super.key,
+    required this.turns,
+    this.alignment = Alignment.center,
+    this.child,
+  }) : assert(turns != null);
+
+  /// The animation that controls the rotation of the child.
+  ///
+  /// If the current value of the turns animation is v, the child will be
+  /// rotated v * 2 * pi radians before being painted.
+  final Animation<double> turns;
+
+  /// The alignment of the origin of the coordinate system around which the
+  /// rotation occurs, relative to the size of the box.
+  ///
+  /// For example, to set the origin of the rotation to top right corner, use
+  /// an alignment of (1.0, -1.0) or use [Alignment.topRight]
+  final Alignment alignment;
+
+  /// The widget below this widget in the tree.
+  ///
+  /// {@macro flutter.widgets.ProxyWidget.child}
+  final Widget? child;
+
+  @override
+  State<SnapshotRotationTransition> createState() => _SnapshotRotationTransitionState();
+}
+
+class _SnapshotRotationTransitionState extends State<SnapshotRotationTransition> {
+  late _AnimatedRotationRasterDelegate delegate;
+  RasterWidgetController controller = RasterWidgetController();
+
+  // Enable rasterization when `turns` resolves to a 0 radian rotation
+  // (or multiple thereof).
+  bool _computeRasterizeStatus() {
+    final double value = widget.turns.value;
+    if ((value - value.truncateToDouble()).abs() < 0.001) {
+      return false;
+    }
+    return true;
+  }
+
+  void _handleOpacityChange() {
+    controller.rasterize = _computeRasterizeStatus();
+  }
+
+  @override
+  void initState() {
+    delegate = _AnimatedRotationRasterDelegate(widget.turns, widget.alignment);
+    widget.turns.addListener(_handleOpacityChange);
+    super.initState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    delegate.textDirection = Directionality.of(context);
+    super.didChangeDependencies();
+  }
+
+  @override
+  void didUpdateWidget(covariant SnapshotRotationTransition oldWidget) {
+    if (oldWidget.turns != widget.turns) {
+      delegate.dispose();
+      delegate = _AnimatedRotationRasterDelegate(widget.turns, widget.alignment);
+      oldWidget.turns.removeListener(_handleOpacityChange);
+      widget.turns.addListener(_handleOpacityChange);
+
+    }
+    super.didUpdateWidget(oldWidget);
+  }
+
+  @override
+  void dispose() {
+    delegate.dispose();
+    widget.turns.removeListener(_handleOpacityChange);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return RasterWidget(
+      controller: controller,
+      delegate: delegate,
+      child: widget.child,
+    );
+  }
+
+  @override
+  void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
+    properties.add(DiagnosticsProperty<Animation<double>>('turns', widget.turns));
+  }
+}
+
+class _AnimatedRotationRasterDelegate extends RasterWidgetDelegate {
+  _AnimatedRotationRasterDelegate(this.turns, this.alignment) {
+    turns.addListener(notifyListeners);
+  }
+
+  final Animation<double> turns;
+  final AlignmentGeometry? alignment;
+
+  TextDirection? get textDirection => _textDirection;
+  TextDirection? _textDirection;
+  set textDirection(TextDirection? value) {
+    if (value == textDirection) {
+      return;
+    }
+    _textDirection = value;
+    notifyListeners();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset, Size size, Image image, double pixelRatio) {
+    final Rect src = Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
+    final Rect dst = Rect.fromLTWH(offset.dx, offset.dy, size.width, size.height);
+    final Paint paint = Paint()
+      ..filterQuality = FilterQuality.low;
+
+    final Matrix4? transform = MatrixUtils.computeEffectiveTransform(
+      transform: Matrix4.rotationZ(turns.value * 2 * math.pi),
+      textDirection: textDirection,
+      alignment: alignment,
+      origin: offset,
+      size: size,
+    );
+
+    context.canvas.save();
+    context.canvas.transform(transform!.storage);
+    context.canvas.drawImageRect(
+      image,
+      src,
+      dst,
+      paint,
+    );
+    context.canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _AnimatedRotationRasterDelegate oldDelegate) {
+    return oldDelegate.turns.value != turns.value;
+  }
+
+  @override
+  void dispose() {
+    turns.removeListener(notifyListeners);
     super.dispose();
   }
 }

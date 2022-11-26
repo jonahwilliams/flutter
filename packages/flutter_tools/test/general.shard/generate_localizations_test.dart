@@ -1580,51 +1580,6 @@ import 'output-localization-file_en.dart' deferred as output-localization-file_e
       expect(localizationsFile, contains('output-localization-file_en.loadLibrary()'));
     });
 
-    group('placeholder tests', () {
-      testWithoutContext('should throw attempting to generate a select message without placeholders', () {
-        const String selectMessageWithoutPlaceholdersAttribute = '''
-{
-  "helloWorld": "Hello {name}",
-  "@helloWorld": {
-    "description": "Improperly formatted since it has no placeholder attribute.",
-    "placeholders": {
-      "hello": {},
-      "world": {}
-    }
-  }
-}''';
-
-        final Directory l10nDirectory = fs.currentDirectory.childDirectory('lib').childDirectory('l10n')
-          ..createSync(recursive: true);
-        l10nDirectory.childFile(defaultTemplateArbFileName)
-          .writeAsStringSync(selectMessageWithoutPlaceholdersAttribute);
-
-        expect(
-          () {
-            LocalizationsGenerator(
-              fileSystem: fs,
-              inputPathString: defaultL10nPathString,
-              outputPathString: defaultL10nPathString,
-              templateArbFileName: defaultTemplateArbFileName,
-              outputFileString: defaultOutputFileString,
-              classNameString: defaultClassNameString,
-              logger: logger,
-            )
-              ..loadResources()
-              ..writeOutputFiles();
-          },
-          throwsA(isA<L10nException>().having(
-            (L10nException e) => e.message,
-            'message',
-            contains('''
-Make sure that the specified placeholder is defined in your arb file.
-Hello {name}
-       ^'''),
-          )),
-        );
-      });
-    });
-
     group('DateTime tests', () {
       testWithoutContext('imports package:intl', () {
         const String singleDateMessageArbFileString = '''
@@ -1940,13 +1895,7 @@ Hello {name}
           throwsA(isA<L10nException>().having(
             (L10nException e) => e.message,
             'message',
-            // TODO(thkim1011): Uncomment after work on refactoring the Message class.
-            // See https://github.com/flutter/flutter/issues/112709.
-//             contains('''
-// Make sure that the specified plural placeholder is defined in your arb file.
-// {count,plural, =0{Hello}=1{Hello World}=2{Hello two worlds}few{Hello {count} worlds}many{Hello all {count} worlds}other{Hello other {count} worlds}}
-//  ^'''),
-            contains('Cannot find the count placeholder in plural message "helloWorlds".'),
+            contains('Check to see if the plural message is in the proper ICU syntax format'),
           )),
         );
       });
@@ -1983,13 +1932,7 @@ Hello {name}
           throwsA(isA<L10nException>().having(
             (L10nException e) => e.message,
             'message',
-            // TODO(thkim1011): Uncomment after work on refactoring the Message class.
-            // See https://github.com/flutter/flutter/issues/112709.
-//             contains('''
-// Make sure that the specified plural placeholder is defined in your arb file.
-// {count,plural, =0{Hello}=1{Hello World}=2{Hello two worlds}few{Hello {count} worlds}many{Hello all {count} worlds}other{Hello other {count} worlds}}
-//  ^'''),
-            contains('Cannot find the count placeholder in plural message "helloWorlds".'),
+            contains('Check to see if the plural message is in the proper ICU syntax format'),
           )),
         );
       });
@@ -2022,13 +1965,7 @@ Hello {name}
           throwsA(isA<L10nException>().having(
             (L10nException e) => e.message,
             'message',
-            // TODO(thkim1011): Uncomment after work on refactoring the Message class.
-            // See https://github.com/flutter/flutter/issues/112709.
-//             contains('''
-// Make sure that the specified plural placeholder is defined in your arb file.
-// {count,plural, =0{Hello}=1{Hello World}=2{Hello two worlds}few{Hello {count} worlds}many{Hello all {count} worlds}other{Hello other {count} worlds}}
-//  ^'''),
-            contains('Resource attribute "@helloWorlds" was not found. Please ensure that plural resources have a corresponding @resource.'),
+            contains('Resource attribute "@helloWorlds" was not found'),
           )),
         );
       });
@@ -2071,6 +2008,36 @@ Hello {name}
           )),
         );
       });
+
+      testWithoutContext('should warn attempting to generate a plural message whose placeholder is not num or null', () {
+        const String pluralMessageWithIncorrectPlaceholderType = '''
+{
+  "helloWorlds": "{count,plural, =0{Hello}=1{Hello World}=2{Hello two worlds}few{Hello {count} worlds}many{Hello all {count} worlds}other{Hello other {count} worlds}}",
+  "@helloWorlds": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  }
+}''';
+        final Directory l10nDirectory = fs.currentDirectory.childDirectory('lib').childDirectory('l10n')
+          ..createSync(recursive: true);
+        l10nDirectory.childFile(defaultTemplateArbFileName)
+          .writeAsStringSync(pluralMessageWithIncorrectPlaceholderType);
+        LocalizationsGenerator(
+          fileSystem: fs,
+          inputPathString: defaultL10nPathString,
+          outputPathString: defaultL10nPathString,
+          templateArbFileName: defaultTemplateArbFileName,
+          outputFileString: defaultOutputFileString,
+          classNameString: defaultClassNameString,
+          logger: logger,
+        )
+          ..loadResources()
+          ..writeOutputFiles();
+        expect(logger.warningText, contains("Placeholders for plurals are automatically converted to type 'num'"));
+      });
     });
 
     group('select messages', () {
@@ -2105,10 +2072,7 @@ Hello {name}
           throwsA(isA<L10nException>().having(
             (L10nException e) => e.message,
             'message',
-            contains('''
-Make sure that the specified select placeholder is defined in your arb file.
-{gender, select, female {She} male {He} other {they} }
- ^'''),
+            contains('Check to see if the select message is in the proper ICU syntax format'),
           )),
         );
       });
@@ -2145,10 +2109,7 @@ Make sure that the specified select placeholder is defined in your arb file.
           throwsA(isA<L10nException>().having(
             (L10nException e) => e.message,
             'message',
-            contains('''
-Make sure that the specified select placeholder is defined in your arb file.
-{gender, select, female {She} male {He} other {they} }
- ^'''),
+            contains('Check to see if the select message is in the proper ICU syntax format'),
           )),
         );
       });
@@ -2181,13 +2142,7 @@ Make sure that the specified select placeholder is defined in your arb file.
           throwsA(isA<L10nException>().having(
             (L10nException e) => e.message,
             'message',
-            // TODO(thkim1011): Uncomment after work on refactoring the Message class.
-            // See https://github.com/flutter/flutter/issues/112709.
-//             contains('''
-// Make sure that the specified select placeholder is defined in your arb file.
-// {gender, select, female {She} male {He} other {they} }
-//  ^'''),
-            contains('Resource attribute "@genderSelect" was not found. Please ensure that select resources have a corresponding @resource.'),
+            contains('Resource attribute "@genderSelect" was not found'),
           )),
         );
       });
@@ -2264,10 +2219,10 @@ Make sure that the specified select placeholder is defined in your arb file.
           throwsA(isA<L10nException>().having(
             (L10nException e) => e.message,
             'message',
-            contains('''
-Select expressions must have an "other" case.
-[app_en.arb:genderSelect] {gender, select,}
-                                          ^'''),
+            allOf(
+              contains('Incorrect select message format for'),
+              contains('Check to see if the select message is in the proper ICU syntax format.'),
+            ),
           )),
         );
       });
@@ -2588,27 +2543,27 @@ Select expressions must have an "other" case.
       expect(localizationsFile, contains(r'${six}m'));
       expect(localizationsFile, contains(r'$seven'));
       expect(localizationsFile, contains(r'$eight'));
-      expect(localizationsFile, contains(r'$nine'));
+      expect(localizationsFile, contains(r'${nine}'));
     });
 
     testWithoutContext('check for string interpolation rules - plurals', () {
       const String enArbCheckList = '''
 {
-  "first": "{count,plural, =0{test {count} test} =1{哈{count}哈} =2{m{count}m} few{_{count}_} many{{count} test} other{{count}m}}",
+  "first": "{count,plural, =0{test {count} test} =1{哈{count}哈} =2{m{count}m} few{_{count}_} many{{count} test} other{{count}m}",
   "@first": {
     "description": "First set of plural messages to test.",
     "placeholders": {
       "count": {}
     }
   },
-  "second": "{count,plural, =0{test {count}} other{ {count}}}",
+  "second": "{count,plural, =0{test {count}} other{ {count}}",
   "@second": {
     "description": "Second set of plural messages to test.",
     "placeholders": {
       "count": {}
     }
   },
-  "third": "{total,plural, =0{test {total}} other{ {total}}}",
+  "third": "{total,plural, =0{test {total}} other{ {total}}",
   "@third": {
     "description": "Third set of plural messages to test, for number.",
     "placeholders": {
@@ -2625,8 +2580,8 @@ Select expressions must have an "other" case.
       // generated code for use of '${variable}' vs '$variable'
       const String esArbCheckList = '''
 {
-  "first": "{count,plural, =0{test {count} test} =1{哈{count}哈} =2{m{count}m} few{_{count}_} many{{count} test} other{{count}m}}",
-  "second": "{count,plural, =0{test {count}} other{ {count}}}"
+  "first": "{count,plural, =0{test {count} test} =1{哈{count}哈} =2{m{count}m} few{_{count}_} many{{count} test} other{{count}m}",
+  "second": "{count,plural, =0{test {count}} other{ {count}}"
 }
 ''';
 
@@ -2659,8 +2614,8 @@ Select expressions must have an "other" case.
       expect(localizationsFile, contains(r'test $count'));
       expect(localizationsFile, contains(r' $count'));
       expect(localizationsFile, contains(r'String totalString = totalNumberFormat'));
-      expect(localizationsFile, contains(r'totalString'));
-      expect(localizationsFile, contains(r'totalString'));
+      expect(localizationsFile, contains(r'test $totalString'));
+      expect(localizationsFile, contains(r' $totalString'));
     });
 
     testWithoutContext(
@@ -3039,38 +2994,4 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
     expect(localizationsFile, containsIgnoringWhitespace(r'String tryToPollute(num count) {'));
     expect(localizationsFile, containsIgnoringWhitespace(r'String withoutType(num count) {'));
   });
-
-  // TODO(thkim1011): Uncomment when implementing escaping.
-  // See https://github.com/flutter/flutter/issues/113455.
-//   testWithoutContext('escaping with single quotes', () {
-//     const String arbFile = '''
-// {
-//   "singleQuote": "Flutter''s amazing!",
-//   "@singleQuote": {
-//     "description": "A message with a single quote."
-//   }
-// }''';
-
-//     final Directory l10nDirectory = fs.currentDirectory.childDirectory('lib').childDirectory('l10n')
-//       ..createSync(recursive: true);
-//     l10nDirectory.childFile(defaultTemplateArbFileName)
-//         .writeAsStringSync(arbFile);
-
-//     LocalizationsGenerator(
-//       fileSystem: fs,
-//       inputPathString: defaultL10nPathString,
-//       outputPathString: defaultL10nPathString,
-//       templateArbFileName: defaultTemplateArbFileName,
-//       outputFileString: defaultOutputFileString,
-//       classNameString: defaultClassNameString,
-//       logger: logger,
-//     )
-//       ..loadResources()
-//       ..writeOutputFiles();
-
-//     final String localizationsFile = fs.file(
-//       fs.path.join(syntheticL10nPackagePath, 'output-localization-file_en.dart'),
-//     ).readAsStringSync();
-//     expect(localizationsFile, contains(r"Flutter\'s amazing"));
-//   });
 }

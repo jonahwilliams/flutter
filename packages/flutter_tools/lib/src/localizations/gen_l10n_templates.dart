@@ -137,35 +137,68 @@ const String getterTemplate = '''
 const String methodTemplate = '''
   @override
   String @(name)(@(parameters)) {
-@(dateFormatting)
-@(numberFormatting)
-@(helperMethods)
     return @(message);
   }''';
 
-const String messageHelperTemplate = '''
-    String @(name)(@(parameters)) {
-      return @(message);
-    }''';
+const String formatMethodTemplate = '''
+  @override
+  String @(name)(@(parameters)) {
+@(dateFormatting)
+@(numberFormatting)
+    return @(message);
+  }''';
 
-const String pluralHelperTemplate = '''
-    String @(name)(@(parameters)) {
-      return intl.Intl.pluralLogic(
-        @(count),
-        locale: localeName,
-@(pluralLogicArgs)
-      );
-    }''';
+const String pluralMethodTemplate = '''
+  @override
+  String @(name)(@(parameters)) {
+@(dateFormatting)
+@(numberFormatting)
+    return intl.Intl.pluralLogic(
+      @(count),
+      locale: localeName,
+@(pluralLogicArgs),
+    );
+  }''';
 
-const String selectHelperTemplate = '''
-    String @(name)(@(parameters)) {
-      return intl.Intl.selectLogic(
-        @(choice),
-        {
-@(selectCases)
-        },
-      );
-    }''';
+const String pluralMethodTemplateInString = '''
+  @override
+  String @(name)(@(parameters)) {
+@(dateFormatting)
+@(numberFormatting)
+    final String @(variable) = intl.Intl.pluralLogic(
+      @(count),
+      locale: localeName,
+@(pluralLogicArgs),
+    );
+
+    return @(string);
+  }''';
+
+const String selectMethodTemplate = '''
+  @override
+  String @(name)(@(parameters)) {
+    return intl.Intl.select(
+      @(choice),
+      {
+        @(cases)
+      },
+      desc: '@(description)'
+    );
+  }''';
+
+const String selectMethodTemplateInString = '''
+  @override
+  String @(name)(@(parameters)) {
+    final String @(variable) = intl.Intl.select(
+      @(choice),
+      {
+        @(cases)
+      },
+      desc: '@(description)'
+    );
+
+    return @(string);
+  }''';
 
 const String classFileTemplate = '''
 @(header)@(requiresIntlImport)import '@(fileName)';

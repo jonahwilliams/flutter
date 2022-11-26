@@ -7,10 +7,12 @@ import 'package:args/command_runner.dart';
 import 'package:completion/completion.dart';
 import 'package:file/file.dart';
 
+import '../android/stack_mapper.dart';
 import '../artifacts.dart';
 import '../base/common.dart';
 import '../base/context.dart';
 import '../base/file_system.dart';
+import '../base/logger.dart';
 import '../base/terminal.dart';
 import '../base/user_messages.dart';
 import '../base/utils.dart';
@@ -177,7 +179,7 @@ class FlutterCommandRunner extends CommandRunner<void> {
 
   @override
   Future<void> runCommand(ArgResults topLevelResults) async {
-    final Map<Type, Object?> contextOverrides = <Type, Object?>{};
+    final Map<Type, Generator> contextOverrides = <Type, Generator>{};
 
     // Don't set wrapColumns unless the user said to: if it's set, then all
     // wrapping will occur at this width explicitly, and won't adapt if the
@@ -199,7 +201,7 @@ class FlutterCommandRunner extends CommandRunner<void> {
     final bool useWrapping = topLevelResults.wasParsed('wrap')
         ? topLevelResults['wrap'] as bool
         : globals.stdio.terminalColumns != null && topLevelResults['wrap'] as bool;
-    contextOverrides[OutputPreferences] = OutputPreferences(
+    contextOverrides[OutputPreferences] = () => OutputPreferences(
       wrapText: useWrapping,
       showColor: topLevelResults['color'] as bool?,
       wrapColumn: wrapColumn,
@@ -221,15 +223,19 @@ class FlutterCommandRunner extends CommandRunner<void> {
       topLevelResults['packages'] as String?,
     );
     if (engineBuildPaths != null) {
-      contextOverrides.addAll(<Type, Object?>{
-        Artifacts: Artifacts.getLocalEngine(engineBuildPaths),
-      });
+      contextOverrides[Artifacts] = () => Artifacts.getLocalEngine(engineBuildPaths);
+      if (engineBuildPaths.targetEngine.contains('android') && !globals.platform.isWindows) {
+        contextOverrides[Logger] = () => StackMapper(
+          logger: globals.logger,
+          manager: globals.processManager,
+          artifacts: globals.artifacts! as LocalEngineArtifacts,
+          fileSystem: globals.fs,
+        );
+      }
     }
 
     await context.run<void>(
-      overrides: contextOverrides.map<Type, Generator>((Type type, Object? value) {
-        return MapEntry<Type, Generator>(type, () => value);
-      }),
+      overrides: contextOverrides,
       body: () async {
         globals.logger.quiet = (topLevelResults['quiet'] as bool?) ?? false;
 

@@ -19,7 +19,7 @@ enum _MappingState {
 
 /// The stack mapper runs Android native crashes though ndk-stack for local
 /// engine builds of flutter.
-class StackMapper extends DelegatingLogger {
+class StackMapper {
   StackMapper({
     required LocalEngineArtifacts artifacts,
     required ProcessManager manager,
@@ -28,8 +28,7 @@ class StackMapper extends DelegatingLogger {
   }) : _artifacts = artifacts,
        _processManager = manager,
        _fileSystem = fileSystem,
-       _logger = logger,
-       super(logger);
+       _logger = logger;
 
   final LocalEngineArtifacts _artifacts;
   final ProcessManager _processManager;
@@ -44,12 +43,6 @@ class StackMapper extends DelegatingLogger {
 
   StringBuffer? _currentBuffer;
   _MappingState _state = _MappingState.normal;
-
-  @override
-  void printStatus(String message, {bool? emphasis, TerminalColor? color, bool? newline, int? indent, int? hangingIndent, bool? wrap}) {
-    processLine(message);
-    super.printStatus(message, emphasis: emphasis, color: color, newline: newline, indent: indent, hangingIndent: hangingIndent, wrap: wrap);
-  }
 
   /// Process each log line, checking if it contains the start of a crash header.
   ///

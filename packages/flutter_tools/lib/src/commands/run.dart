@@ -10,6 +10,8 @@ import 'package:meta/meta.dart';
 import 'package:vm_service/vm_service.dart';
 
 import '../android/android_device.dart';
+import '../android/stack_mapper.dart';
+import '../artifacts.dart';
 import '../base/common.dart';
 import '../base/file_system.dart';
 import '../base/io.dart';
@@ -666,6 +668,7 @@ class RunCommand extends RunCommandBase {
           buildInfo: buildInfo,
           userIdentifier: userIdentifier,
           platform: globals.platform,
+          stackMapper: _createStackMapper()!,
         ),
     ];
 
@@ -743,5 +746,13 @@ class RunCommand extends RunCommandBase {
       ],
       endTimeOverride: appStartedTime,
     );
+  }
+
+  StackMapper? _createStackMapper() {
+    final Artifacts? artifacts = globals.artifacts;
+    if (artifacts is LocalEngineArtifacts && artifacts.localEngineName.contains('android')) {
+      return StackMapper(artifacts: artifacts, manager: globals.processManager, fileSystem: globals.fs, logger: globals.logger);
+    }
+    return null;
   }
 }

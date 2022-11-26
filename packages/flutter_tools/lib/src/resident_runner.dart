@@ -9,6 +9,7 @@ import 'package:meta/meta.dart';
 import 'package:package_config/package_config.dart';
 import 'package:vm_service/vm_service.dart' as vm_service;
 
+import 'android/stack_mapper.dart';
 import 'application_package.dart';
 import 'artifacts.dart';
 import 'asset.dart';
@@ -51,7 +52,9 @@ class FlutterDevice {
     ResidentCompiler? generator,
     this.userIdentifier,
     required this.developmentShaderCompiler,
+    StackMapper? stackMapper,
   }) : assert(buildInfo.trackWidgetCreation != null),
+       _stackMapper = stackMapper,
        generator = generator ?? ResidentCompiler(
          globals.artifacts!.getArtifactPath(
            Artifact.flutterPatchedSdkPath,
@@ -79,6 +82,7 @@ class FlutterDevice {
     required String? target,
     required BuildInfo buildInfo,
     required Platform platform,
+    StackMapper? stackMapper,
     TargetModel targetModel = TargetModel.flutter,
     List<String>? experimentalFlags,
     ResidentCompiler? generator,
@@ -197,6 +201,7 @@ class FlutterDevice {
       buildInfo: buildInfo,
       userIdentifier: userIdentifier,
       developmentShaderCompiler: shaderCompiler,
+      stackMapper: stackMapper,
     );
   }
 
@@ -206,6 +211,7 @@ class FlutterDevice {
   final BuildInfo buildInfo;
   final String? userIdentifier;
   final DevelopmentShaderCompiler developmentShaderCompiler;
+  final StackMapper? _stackMapper;
 
   DevFSWriter? devFSWriter;
   Stream<Uri?>? observatoryUris;
@@ -384,6 +390,7 @@ class FlutterDevice {
       return;
     }
     _loggingSubscription = logStream.listen((String line) {
+      _stackMapper?.processLine(line);
       if (!line.contains(globals.kVMServiceMessageRegExp)) {
         globals.printStatus(line, wrap: false);
       }

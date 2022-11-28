@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
-
 import 'dart:async';
 
 import 'package:meta/meta.dart';
@@ -668,7 +666,7 @@ class RunCommand extends RunCommandBase {
           buildInfo: buildInfo,
           userIdentifier: userIdentifier,
           platform: globals.platform,
-          stackMapper: _createStackMapper()!,
+          stackMapper: _createStackMapper(),
         ),
     ];
 
@@ -751,7 +749,15 @@ class RunCommand extends RunCommandBase {
   StackMapper? _createStackMapper() {
     final Artifacts? artifacts = globals.artifacts;
     if (artifacts is LocalEngineArtifacts && artifacts.localEngineName.contains('android')) {
-      return StackMapper(artifacts: artifacts, manager: globals.processManager, fileSystem: globals.fs, logger: globals.logger);
+      final StackMapper mapper = StackMapper(
+        artifacts: artifacts,
+        manager: globals.processManager,
+        fileSystem: globals.fs,
+        logger: globals.logger,
+        fileSystemUtils: globals.fsUtils,
+      );
+      globals.shutdownHooks.addShutdownHook(mapper.waitForReport);
+      return mapper;
     }
     return null;
   }

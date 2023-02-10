@@ -41,11 +41,8 @@ void main() {
     ], workingDirectory: exampleAppDir.path);
     expect(result.exitCode, 0);
 
-    final Directory appBuildDir = fileSystem.directory(fileSystem.path.join(
-      exampleAppDir.path,
-      'build',
-      'web_wasm'
-    ));
+    final Directory appBuildDir = fileSystem.directory(
+        fileSystem.path.join(exampleAppDir.path, 'build', 'web_wasm'));
     for (final String filename in const <String>[
       'flutter.js',
       'flutter_service_worker.js',

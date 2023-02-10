@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
-
 import 'dart:async';
 import 'dart:math' as math;
 
@@ -31,9 +29,9 @@ class WebDriverService extends DriverService {
     required ProcessUtils processUtils,
     required String dartSdkPath,
     required Logger logger,
-  }) : _processUtils = processUtils,
-       _dartSdkPath = dartSdkPath,
-       _logger = logger;
+  })  : _processUtils = processUtils,
+        _dartSdkPath = dartSdkPath,
+        _logger = logger;
 
   final ProcessUtils _processUtils;
   final String _dartSdkPath;
@@ -71,16 +69,16 @@ class WebDriverService extends DriverService {
       flutterDevice,
       target: mainPath,
       ipv6: ipv6,
-      debuggingOptions: buildInfo.isRelease ?
-        DebuggingOptions.disabled(
-          buildInfo,
-          port: debuggingOptions.port,
-        )
-        : DebuggingOptions.enabled(
-          buildInfo,
-          port: debuggingOptions.port,
-          disablePortPublication: debuggingOptions.disablePortPublication,
-        ),
+      debuggingOptions: buildInfo.isRelease
+          ? DebuggingOptions.disabled(
+              buildInfo,
+              port: debuggingOptions.port,
+            )
+          : DebuggingOptions.enabled(
+              buildInfo,
+              port: debuggingOptions.port,
+              disablePortPublication: debuggingOptions.disablePortPublication,
+            ),
       stayResident: true,
       flutterProject: FlutterProject.current(),
       fileSystem: globals.fs,
@@ -108,9 +106,8 @@ class WebDriverService extends DriverService {
 
     if (_runResult != null) {
       throw ToolExit(
-        'Application exited before the test started. Check web driver logs '
-        'for possible application-side errors.'
-      );
+          'Application exited before the test started. Check web driver logs '
+          'for possible application-side errors.');
     }
 
     if (!isAppStarted) {
@@ -153,12 +150,10 @@ class WebDriverService extends DriverService {
       );
     } on SocketException catch (error) {
       _logger.printTrace('$error');
-      throwToolExit(
-        'Unable to start a WebDriver session for web testing.\n'
-        'Make sure you have the correct WebDriver server (e.g. chromedriver) running at $driverPort.\n'
-        'For instructions on how to obtain and run a WebDriver server, see:\n'
-        'https://flutter.dev/docs/testing/integration-tests#running-in-a-browser\n'
-      );
+      throwToolExit('Unable to start a WebDriver session for web testing.\n'
+          'Make sure you have the correct WebDriver server (e.g. chromedriver) running at $driverPort.\n'
+          'For instructions on how to obtain and run a WebDriver server, see:\n'
+          'https://flutter.dev/docs/testing/integration-tests#running-in-a-browser\n');
     }
 
     final bool isAndroidChrome = browser == Browser.androidChrome;
@@ -171,7 +166,8 @@ class WebDriverService extends DriverService {
         x = int.parse(browserDimension![0]);
         y = int.parse(browserDimension[1]);
       } on FormatException catch (ex) {
-        throwToolExit('Dimension provided to --browser-dimension is invalid: $ex');
+        throwToolExit(
+            'Dimension provided to --browser-dimension is invalid: $ex');
       }
       final async_io.Window window = await webDriver.window;
       await window.setLocation(const math.Point<int>(0, 0));
@@ -199,27 +195,33 @@ class WebDriverService extends DriverService {
 
     if (appDidFinishPrematurely) {
       throw ToolExit(
-        'Application exited before the test finished. Check web driver logs '
-        'for possible application-side errors.'
-      );
+          'Application exited before the test finished. Check web driver logs '
+          'for possible application-side errors.');
     }
   }
 
-  Map<String, String> _additionalDriverEnvironment(async_io.WebDriver webDriver, String? browserName, bool? androidEmulator) {
+  Map<String, String> _additionalDriverEnvironment(async_io.WebDriver webDriver,
+      String? browserName, bool? androidEmulator) {
     return <String, String>{
       'DRIVER_SESSION_ID': webDriver.id,
       'DRIVER_SESSION_URI': webDriver.uri.toString(),
       'DRIVER_SESSION_SPEC': webDriver.spec.toString(),
       'DRIVER_SESSION_CAPABILITIES': json.encode(webDriver.capabilities),
-      'SUPPORT_TIMELINE_ACTION': (_browserNameToEnum(browserName) == Browser.chrome).toString(),
+      'SUPPORT_TIMELINE_ACTION':
+          (_browserNameToEnum(browserName) == Browser.chrome).toString(),
       'FLUTTER_WEB_TEST': 'true',
-      'ANDROID_CHROME_ON_EMULATOR': (_browserNameToEnum(browserName) == Browser.androidChrome && androidEmulator!).toString(),
+      'ANDROID_CHROME_ON_EMULATOR':
+          (_browserNameToEnum(browserName) == Browser.androidChrome &&
+                  androidEmulator!)
+              .toString(),
     };
   }
 
   @override
-  Future<void> reuseApplication(Uri vmServiceUri, Device device, DebuggingOptions debuggingOptions, bool ipv6) async {
-    throwToolExit('--use-existing-app is not supported with flutter web driver');
+  Future<void> reuseApplication(Uri vmServiceUri, Device device,
+      DebuggingOptions debuggingOptions, bool ipv6) async {
+    throwToolExit(
+        '--use-existing-app is not supported with flutter web driver');
   }
 }
 
@@ -227,14 +229,19 @@ class WebDriverService extends DriverService {
 enum Browser {
   /// Chrome on Android: https://developer.chrome.com/multidevice/android/overview
   androidChrome,
+
   /// Chrome: https://www.google.com/chrome/
   chrome,
+
   /// Edge: https://www.microsoft.com/en-us/windows/microsoft-edge
   edge,
+
   /// Firefox: https://www.mozilla.org/en-US/firefox/
   firefox,
+
   /// Safari in iOS: https://www.apple.com/safari/
   iosSafari,
+
   /// Safari in macOS: https://www.apple.com/safari/
   safari,
 }
@@ -258,8 +265,7 @@ Map<String, dynamic> getDesiredCapabilities(
           async_io.LogType.performance: 'ALL',
         },
         'chromeOptions': <String, dynamic>{
-          if (chromeBinary != null)
-            'binary': chromeBinary,
+          if (chromeBinary != null) 'binary': chromeBinary,
           'w3c': false,
           'args': <String>[
             '--bwsi',
@@ -275,10 +281,9 @@ Map<String, dynamic> getDesiredCapabilities(
             ...webBrowserFlags,
           ],
           'perfLoggingPrefs': <String, String>{
-            'traceCategories':
-            'devtools.timeline,'
-            'v8,blink.console,benchmark,blink,'
-            'blink.user_timing',
+            'traceCategories': 'devtools.timeline,'
+                'v8,blink.console,benchmark,blink,'
+                'blink.user_timing',
           },
         },
       };
@@ -286,7 +291,7 @@ Map<String, dynamic> getDesiredCapabilities(
       return <String, dynamic>{
         'acceptInsecureCerts': true,
         'browserName': 'firefox',
-        'moz:firefoxOptions' : <String, dynamic>{
+        'moz:firefoxOptions': <String, dynamic>{
           'args': <String>[
             if (headless!) '-headless',
             ...webBrowserFlags,
@@ -337,12 +342,18 @@ Map<String, dynamic> getDesiredCapabilities(
 /// Converts [browserName] string to [Browser]
 Browser _browserNameToEnum(String? browserName) {
   switch (browserName) {
-    case 'android-chrome': return Browser.androidChrome;
-    case 'chrome': return Browser.chrome;
-    case 'edge': return Browser.edge;
-    case 'firefox': return Browser.firefox;
-    case 'ios-safari': return Browser.iosSafari;
-    case 'safari': return Browser.safari;
+    case 'android-chrome':
+      return Browser.androidChrome;
+    case 'chrome':
+      return Browser.chrome;
+    case 'edge':
+      return Browser.edge;
+    case 'firefox':
+      return Browser.firefox;
+    case 'ios-safari':
+      return Browser.iosSafari;
+    case 'safari':
+      return Browser.safari;
   }
   throw UnsupportedError('Browser $browserName not supported');
 }

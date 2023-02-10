@@ -48,7 +48,8 @@ void main() {
   setUp(() {
     exceptionHandler = FileExceptionHandler();
     operatingSystemUtils = FakeOperatingSystemUtils();
-    platform = FakePlatform(operatingSystem: 'macos', environment: <String, String>{
+    platform =
+        FakePlatform(operatingSystem: 'macos', environment: <String, String>{
       kChromeEnvironment: 'example_chrome',
     });
     fileSystem = MemoryFileSystem.test(opHandle: exceptionHandler.opHandle);
@@ -64,16 +65,15 @@ void main() {
   });
 
   testWithoutContext('can launch chrome and connect to the devtools', () async {
-    await expectReturnsNormallyLater(
-      _testLaunchChrome(
-        '/.tmp_rand0/flutter_tools_chrome_device.rand0',
-        processManager,
-        chromeLauncher,
-      )
-    );
+    await expectReturnsNormallyLater(_testLaunchChrome(
+      '/.tmp_rand0/flutter_tools_chrome_device.rand0',
+      processManager,
+      chromeLauncher,
+    ));
   });
 
-  testWithoutContext('cannot have two concurrent instances of chrome', () async {
+  testWithoutContext('cannot have two concurrent instances of chrome',
+      () async {
     await _testLaunchChrome(
       '/.tmp_rand0/flutter_tools_chrome_device.rand0',
       processManager,
@@ -90,7 +90,8 @@ void main() {
     );
   });
 
-  testWithoutContext('can launch new chrome after stopping a previous chrome', () async {
+  testWithoutContext('can launch new chrome after stopping a previous chrome',
+      () async {
     final Chromium chrome = await _testLaunchChrome(
       '/.tmp_rand0/flutter_tools_chrome_device.rand0',
       processManager,
@@ -98,16 +99,16 @@ void main() {
     );
     await chrome.close();
 
-    await expectReturnsNormallyLater(
-      _testLaunchChrome(
-        '/.tmp_rand0/flutter_tools_chrome_device.rand1',
-        processManager,
-        chromeLauncher,
-      )
-    );
+    await expectReturnsNormallyLater(_testLaunchChrome(
+      '/.tmp_rand0/flutter_tools_chrome_device.rand1',
+      processManager,
+      chromeLauncher,
+    ));
   });
 
-  testWithoutContext('does not crash if saving profile information fails due to a file system exception.', () async {
+  testWithoutContext(
+      'does not crash if saving profile information fails due to a file system exception.',
+      () async {
     final BufferLogger logger = BufferLogger.test();
     chromeLauncher = ChromiumLauncher(
       fileSystem: fileSystem,
@@ -136,9 +137,11 @@ void main() {
 
     // Create cache dir that the Chrome launcher will attempt to persist, and a file
     // that will thrown an exception when it is read.
-    const String directoryPrefix = '/.tmp_rand0/flutter_tools_chrome_device.rand0/Default';
-    fileSystem.directory('$directoryPrefix/Local Storage')
-      .createSync(recursive: true);
+    const String directoryPrefix =
+        '/.tmp_rand0/flutter_tools_chrome_device.rand0/Default';
+    fileSystem
+        .directory('$directoryPrefix/Local Storage')
+        .createSync(recursive: true);
     final File file = fileSystem.file('$directoryPrefix/Local Storage/foo')
       ..createSync(recursive: true);
     exceptionHandler.addError(
@@ -151,7 +154,9 @@ void main() {
     expect(logger.errorText, contains('Failed to save Chrome preferences'));
   });
 
-  testWithoutContext('does not crash if restoring profile information fails due to a file system exception.', () async {
+  testWithoutContext(
+      'does not crash if restoring profile information fails due to a file system exception.',
+      () async {
     final BufferLogger logger = BufferLogger.test();
     final File file = fileSystem.file('/Default/foo')
       ..createSync(recursive: true);
@@ -188,15 +193,18 @@ void main() {
     );
 
     // Create cache dir that the Chrome launcher will attempt to persist.
-    fileSystem.directory('/.tmp_rand0/flutter_tools_chrome_device.rand0/Default/Local Storage')
-      .createSync(recursive: true);
+    fileSystem
+        .directory(
+            '/.tmp_rand0/flutter_tools_chrome_device.rand0/Default/Local Storage')
+        .createSync(recursive: true);
 
     await chrome.close(); // does not exit with error.
     expect(logger.errorText, contains('Failed to restore Chrome preferences'));
   });
 
   testWithoutContext('can launch Chrome on x86_64 macOS', () async {
-    final OperatingSystemUtils macOSUtils = FakeOperatingSystemUtils(hostPlatform: HostPlatform.darwin_x64);
+    final OperatingSystemUtils macOSUtils =
+        FakeOperatingSystemUtils(hostPlatform: HostPlatform.darwin_x64);
     final ChromiumLauncher chromiumLauncher = ChromiumLauncher(
       fileSystem: fileSystem,
       platform: platform,
@@ -219,16 +227,15 @@ void main() {
       ),
     ]);
 
-    await expectReturnsNormallyLater(
-      chromiumLauncher.launch(
-        'example_url',
-        skipCheck: true,
-      )
-    );
+    await expectReturnsNormallyLater(chromiumLauncher.launch(
+      'example_url',
+      skipCheck: true,
+    ));
   });
 
   testWithoutContext('can launch x86_64 Chrome on ARM macOS', () async {
-    final OperatingSystemUtils macOSUtils = FakeOperatingSystemUtils(hostPlatform: HostPlatform.darwin_arm64);
+    final OperatingSystemUtils macOSUtils =
+        FakeOperatingSystemUtils(hostPlatform: HostPlatform.darwin_arm64);
     final ChromiumLauncher chromiumLauncher = ChromiumLauncher(
       fileSystem: fileSystem,
       platform: platform,
@@ -258,16 +265,16 @@ void main() {
       ),
     ]);
 
-    await expectReturnsNormallyLater(
-      chromiumLauncher.launch(
-        'example_url',
-        skipCheck: true,
-      )
-    );
+    await expectReturnsNormallyLater(chromiumLauncher.launch(
+      'example_url',
+      skipCheck: true,
+    ));
   });
 
-  testWithoutContext('can launch ARM Chrome natively on ARM macOS when installed', () async {
-    final OperatingSystemUtils macOSUtils = FakeOperatingSystemUtils(hostPlatform: HostPlatform.darwin_arm64);
+  testWithoutContext(
+      'can launch ARM Chrome natively on ARM macOS when installed', () async {
+    final OperatingSystemUtils macOSUtils =
+        FakeOperatingSystemUtils(hostPlatform: HostPlatform.darwin_arm64);
     final ChromiumLauncher chromiumLauncher = ChromiumLauncher(
       fileSystem: fileSystem,
       platform: platform,
@@ -299,12 +306,10 @@ void main() {
       ),
     ]);
 
-    await expectReturnsNormallyLater(
-      chromiumLauncher.launch(
-        'example_url',
-        skipCheck: true,
-      )
-    );
+    await expectReturnsNormallyLater(chromiumLauncher.launch(
+      'example_url',
+      skipCheck: true,
+    ));
   });
 
   testWithoutContext('can launch chrome with a custom debug port', () async {
@@ -319,13 +324,11 @@ void main() {
       stderr: kDevtoolsStderr,
     ));
 
-    await expectReturnsNormallyLater(
-      chromeLauncher.launch(
-        'example_url',
-        skipCheck: true,
-        debugPort: 10000,
-      )
-    );
+    await expectReturnsNormallyLater(chromeLauncher.launch(
+      'example_url',
+      skipCheck: true,
+      debugPort: 10000,
+    ));
   });
 
   testWithoutContext('can launch chrome with arbitrary flags', () async {
@@ -370,35 +373,33 @@ void main() {
       stderr: kDevtoolsStderr,
     ));
 
-    await expectReturnsNormallyLater(
-      chromeLauncher.launch(
-        'example_url',
-        skipCheck: true,
-        headless: true,
-      )
-    );
+    await expectReturnsNormallyLater(chromeLauncher.launch(
+      'example_url',
+      skipCheck: true,
+      headless: true,
+    ));
   });
 
-  testWithoutContext('can seed chrome temp directory with existing session data, excluding Cache folder', () async {
+  testWithoutContext(
+      'can seed chrome temp directory with existing session data, excluding Cache folder',
+      () async {
     final Completer<void> exitCompleter = Completer<void>.sync();
     final Directory dataDir = fileSystem.directory('chrome-stuff');
-    final File preferencesFile = dataDir
-      .childDirectory('Default')
-      .childFile('preferences');
+    final File preferencesFile =
+        dataDir.childDirectory('Default').childFile('preferences');
     preferencesFile
       ..createSync(recursive: true)
       ..writeAsStringSync('"exit_type":"Crashed"');
 
-    final Directory defaultContentDirectory = dataDir
-      .childDirectory('Default')
-      .childDirectory('Foo');
+    final Directory defaultContentDirectory =
+        dataDir.childDirectory('Default').childDirectory('Foo');
     defaultContentDirectory.createSync(recursive: true);
     // Create Cache directories that should be skipped
     for (final String cache in kCodeCache) {
       dataDir
-        .childDirectory('Default')
-        .childDirectory(cache)
-        .createSync(recursive: true);
+          .childDirectory('Default')
+          .childDirectory(cache)
+          .createSync(recursive: true);
     }
 
     processManager.addCommand(FakeCommand(
@@ -425,7 +426,6 @@ void main() {
     // writes non-crash back to dart_tool
     expect(preferencesFile.readAsStringSync(), '"exit_type":"Normal"');
 
-
     // validate any Default content is copied
     final Directory defaultContentDir = fileSystem
         .directory('.tmp_rand0/flutter_tools_chrome_device.rand0')
@@ -436,10 +436,12 @@ void main() {
 
     // Validate cache dirs are not copied.
     for (final String cache in kCodeCache) {
-      expect(fileSystem
-        .directory('.tmp_rand0/flutter_tools_chrome_device.rand0')
-        .childDirectory('Default')
-        .childDirectory(cache), isNot(exists));
+      expect(
+          fileSystem
+              .directory('.tmp_rand0/flutter_tools_chrome_device.rand0')
+              .childDirectory('Default')
+              .childDirectory(cache),
+          isNot(exists));
     }
   });
 
@@ -461,8 +463,8 @@ void main() {
       processManager.addCommand(const FakeCommand(
         command: args,
         stderr: 'Inconsistency detected by ld.so: ../elf/dl-tls.c: 493: '
-                '_dl_allocate_tls_init: Assertion `listp->slotinfo[cnt].gen '
-                "<= GL(dl_tls_generation)' failed!",
+            '_dl_allocate_tls_init: Assertion `listp->slotinfo[cnt].gen '
+            "<= GL(dl_tls_generation)' failed!",
       ));
     }
 
@@ -472,13 +474,11 @@ void main() {
       stderr: kDevtoolsStderr,
     ));
 
-    await expectReturnsNormallyLater(
-      chromeLauncher.launch(
-        'example_url',
-        skipCheck: true,
-        headless: true,
-      )
-    );
+    await expectReturnsNormallyLater(chromeLauncher.launch(
+      'example_url',
+      skipCheck: true,
+      headless: true,
+    ));
   });
 
   testWithoutContext('can retry launch when chrome fails to start', () async {
@@ -508,16 +508,15 @@ void main() {
       stderr: kDevtoolsStderr,
     ));
 
-    await expectReturnsNormallyLater(
-      chromeLauncher.launch(
-        'example_url',
-        skipCheck: true,
-        headless: true,
-      )
-    );
+    await expectReturnsNormallyLater(chromeLauncher.launch(
+      'example_url',
+      skipCheck: true,
+      headless: true,
+    ));
   });
 
-  testWithoutContext('gives up retrying when an error happens more than 3 times', () async {
+  testWithoutContext(
+      'gives up retrying when an error happens more than 3 times', () async {
     final BufferLogger logger = BufferLogger.test();
     final ChromiumLauncher chromiumLauncher = ChromiumLauncher(
       fileSystem: fileSystem,
@@ -552,10 +551,12 @@ void main() {
       ),
       contains('Failed to launch browser.'),
     );
-    expect(logger.errorText, contains('nothing in the std error indicating glibc error'));
+    expect(logger.errorText,
+        contains('nothing in the std error indicating glibc error'));
   });
 
-  testWithoutContext('Logs an error and exits if connection check fails.', () async {
+  testWithoutContext('Logs an error and exits if connection check fails.',
+      () async {
     final BufferLogger logger = BufferLogger.test();
     final ChromiumLauncher chromiumLauncher = ChromiumLauncher(
       fileSystem: fileSystem,
@@ -587,7 +588,8 @@ void main() {
 
   test('can recover if getTabs throws a connection exception', () async {
     final BufferLogger logger = BufferLogger.test();
-    final FakeChromeConnection chromeConnection = FakeChromeConnection(maxRetries: 4);
+    final FakeChromeConnection chromeConnection =
+        FakeChromeConnection(maxRetries: 4);
     final ChromiumLauncher chromiumLauncher = ChromiumLauncher(
       fileSystem: fileSystem,
       platform: platform,
@@ -596,7 +598,8 @@ void main() {
       browserFinder: findChromeExecutable,
       logger: logger,
     );
-    final Chromium chrome = Chromium(0, chromeConnection, chromiumLauncher: chromiumLauncher);
+    final Chromium chrome =
+        Chromium(0, chromeConnection, chromiumLauncher: chromiumLauncher);
     expect(await chromiumLauncher.connect(chrome, false), equals(chrome));
     expect(logger.errorText, isEmpty);
   });
@@ -612,15 +615,17 @@ void main() {
       browserFinder: findChromeExecutable,
       logger: logger,
     );
-    final Chromium chrome = Chromium(0, chromeConnection, chromiumLauncher: chromiumLauncher);
+    final Chromium chrome =
+        Chromium(0, chromeConnection, chromiumLauncher: chromiumLauncher);
     await expectToolExitLater(
-      chromiumLauncher.connect(chrome, false),
+        chromiumLauncher.connect(chrome, false),
         allOf(
           contains('Unable to connect to Chrome debug port'),
           contains('incorrect format'),
         ));
-    expect(logger.errorText,
-      allOf(
+    expect(
+        logger.errorText,
+        allOf(
           contains('incorrect format'),
           contains('OK'),
           contains('<html> ...'),
@@ -628,7 +633,8 @@ void main() {
   });
 }
 
-Future<Chromium> _testLaunchChrome(String userDataDir, FakeProcessManager processManager, ChromiumLauncher chromeLauncher) {
+Future<Chromium> _testLaunchChrome(String userDataDir,
+    FakeProcessManager processManager, ChromiumLauncher chromeLauncher) {
   processManager.addCommand(FakeCommand(
     command: <String>[
       'example_chrome',
@@ -648,29 +654,29 @@ Future<Chromium> _testLaunchChrome(String userDataDir, FakeProcessManager proces
 
 /// Fake chrome connection that fails to get tabs a few times.
 class FakeChromeConnection extends Fake implements ChromeConnection {
-
   /// Create a connection that throws a connection exception on first
   /// [maxRetries] calls to [getTabs].
   /// If [maxRetries] is `null`, [getTabs] calls never succeed.
-  FakeChromeConnection({this.maxRetries}): _retries = 0;
+  FakeChromeConnection({this.maxRetries}) : _retries = 0;
 
   final List<ChromeTab> tabs = <ChromeTab>[];
   final int? maxRetries;
   int _retries;
 
   @override
-  Future<ChromeTab?> getTab(bool Function(ChromeTab tab) accept, {Duration? retryFor}) async {
+  Future<ChromeTab?> getTab(bool Function(ChromeTab tab) accept,
+      {Duration? retryFor}) async {
     return tabs.firstWhere(accept);
   }
 
   @override
   Future<List<ChromeTab>> getTabs({Duration? retryFor}) async {
-    _retries ++;
+    _retries++;
     if (maxRetries == null || _retries < maxRetries!) {
       throw ConnectionException(
-        formatException: const FormatException('incorrect format'),
-        responseStatus: 'OK,',
-        responseBody: '<html> ...');
+          formatException: const FormatException('incorrect format'),
+          responseStatus: 'OK,',
+          responseBody: '<html> ...');
     }
     return tabs;
   }

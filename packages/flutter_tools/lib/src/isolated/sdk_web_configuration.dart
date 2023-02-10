@@ -12,7 +12,6 @@ import '../base/file_system.dart';
 
 /// Provides paths to SDK files for dart SDK used in flutter.
 class SdkWebConfigurationProvider extends SdkConfigurationProvider {
-
   SdkWebConfigurationProvider(this._artifacts);
 
   final Artifacts _artifacts;
@@ -23,10 +22,16 @@ class SdkWebConfigurationProvider extends SdkConfigurationProvider {
   @override
   Future<SdkConfiguration> get configuration async {
     if (_configuration == null) {
-      final String sdkDir = _artifacts.getHostArtifact(HostArtifact.flutterWebSdk).path;
-      final String weakSdkSummaryPath = _artifacts.getHostArtifact(HostArtifact.webPlatformDDCKernelDill).path;
-      final String soundSdkSummaryPath = _artifacts.getHostArtifact(HostArtifact.webPlatformDDCSoundKernelDill).path;
-      final String librariesPath = _artifacts.getHostArtifact(HostArtifact.flutterWebLibrariesJson).path;
+      final String sdkDir =
+          _artifacts.getHostArtifact(HostArtifact.flutterWebSdk).path;
+      final String weakSdkSummaryPath = _artifacts
+          .getHostArtifact(HostArtifact.webPlatformDDCKernelDill)
+          .path;
+      final String soundSdkSummaryPath = _artifacts
+          .getHostArtifact(HostArtifact.webPlatformDDCSoundKernelDill)
+          .path;
+      final String librariesPath =
+          _artifacts.getHostArtifact(HostArtifact.flutterWebLibrariesJson).path;
 
       _configuration = SdkConfiguration(
         sdkDirectory: sdkDir,
@@ -39,7 +44,8 @@ class SdkWebConfigurationProvider extends SdkConfigurationProvider {
   }
 
   /// Validate that SDK configuration exists on disk.
-  static void validate(SdkConfiguration configuration, { required FileSystem fileSystem }) {
+  static void validate(SdkConfiguration configuration,
+      {required FileSystem fileSystem}) {
     configuration.validateSdkDir(fileSystem: fileSystem);
     configuration.validateSummaries(fileSystem: fileSystem);
     configuration.validateLibrariesSpec(fileSystem: fileSystem);

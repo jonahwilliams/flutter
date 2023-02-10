@@ -12,7 +12,7 @@ import 'package:test/fake.dart';
 
 import '../../src/common.dart';
 
-void main () {
+void main() {
   group('CMake project migration', () {
     group('migrate add_custom_command() to use VERBATIM', () {
       late MemoryFileSystem memoryFileSystem;
@@ -33,23 +33,29 @@ void main () {
       });
 
       testWithoutContext('skipped if files are missing', () {
-        final CmakeCustomCommandMigration cmakeProjectMigration = CmakeCustomCommandMigration(
+        final CmakeCustomCommandMigration cmakeProjectMigration =
+            CmakeCustomCommandMigration(
           mockCmakeProject,
           testLogger,
         );
         cmakeProjectMigration.migrate();
         expect(managedCmakeFile.existsSync(), isFalse);
 
-        expect(testLogger.traceText, contains('CMake project not found, skipping add_custom_command() VERBATIM migration'));
+        expect(
+            testLogger.traceText,
+            contains(
+                'CMake project not found, skipping add_custom_command() VERBATIM migration'));
         expect(testLogger.statusText, isEmpty);
       });
 
       testWithoutContext('skipped if nothing to migrate', () {
         const String contents = 'Nothing to migrate';
         managedCmakeFile.writeAsStringSync(contents);
-        final DateTime projectLastModified = managedCmakeFile.lastModifiedSync();
+        final DateTime projectLastModified =
+            managedCmakeFile.lastModifiedSync();
 
-        final CmakeCustomCommandMigration cmakeProjectMigration = CmakeCustomCommandMigration(
+        final CmakeCustomCommandMigration cmakeProjectMigration =
+            CmakeCustomCommandMigration(
           mockCmakeProject,
           testLogger,
         );
@@ -74,9 +80,11 @@ add_custom_command(
 )
 ''';
         managedCmakeFile.writeAsStringSync(contents);
-        final DateTime projectLastModified = managedCmakeFile.lastModifiedSync();
+        final DateTime projectLastModified =
+            managedCmakeFile.lastModifiedSync();
 
-        final CmakeCustomCommandMigration cmakeProjectMigration = CmakeCustomCommandMigration(
+        final CmakeCustomCommandMigration cmakeProjectMigration =
+            CmakeCustomCommandMigration(
           mockCmakeProject,
           testLogger,
         );
@@ -100,7 +108,8 @@ add_custom_command(
 )
 ''');
 
-        final CmakeCustomCommandMigration cmakeProjectMigration = CmakeCustomCommandMigration(
+        final CmakeCustomCommandMigration cmakeProjectMigration =
+            CmakeCustomCommandMigration(
           mockCmakeProject,
           testLogger,
         );
@@ -118,7 +127,10 @@ add_custom_command(
 )
 ''');
 
-        expect(testLogger.statusText, contains('add_custom_command() missing VERBATIM or FLUTTER_TARGET_PLATFORM, updating.'));
+        expect(
+            testLogger.statusText,
+            contains(
+                'add_custom_command() missing VERBATIM or FLUTTER_TARGET_PLATFORM, updating.'));
       });
 
       testWithoutContext('is migrated to use FLUTTER_TARGET_PLATFORM', () {
@@ -134,7 +146,8 @@ add_custom_command(
 )
 ''');
 
-        final CmakeCustomCommandMigration cmakeProjectMigration = CmakeCustomCommandMigration(
+        final CmakeCustomCommandMigration cmakeProjectMigration =
+            CmakeCustomCommandMigration(
           mockCmakeProject,
           testLogger,
         );
@@ -152,7 +165,10 @@ add_custom_command(
 )
 ''');
 
-        expect(testLogger.statusText, contains('add_custom_command() missing VERBATIM or FLUTTER_TARGET_PLATFORM, updating.'));
+        expect(
+            testLogger.statusText,
+            contains(
+                'add_custom_command() missing VERBATIM or FLUTTER_TARGET_PLATFORM, updating.'));
       });
     });
   });

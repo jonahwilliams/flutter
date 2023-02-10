@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-
 /// Generates the flutter.js file.
 ///
 /// flutter.js should be completely static, so **do not use any parameter or

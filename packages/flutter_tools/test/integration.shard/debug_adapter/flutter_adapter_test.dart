@@ -39,35 +39,40 @@ void main() {
   });
 
   group('launch', () {
-    testWithoutContext('can run and terminate a Flutter app in debug mode', () async {
+    testWithoutContext('can run and terminate a Flutter app in debug mode',
+        () async {
       final BasicProject project = BasicProject();
       await project.setUpIn(tempDir);
 
       // Once the "topLevelFunction" output arrives, we can terminate the app.
       unawaited(
         dap.client.output
-            .firstWhere((String output) => output.startsWith('topLevelFunction'))
+            .firstWhere(
+                (String output) => output.startsWith('topLevelFunction'))
             .whenComplete(() => dap.client.terminate()),
       );
 
-      final List<OutputEventBody> outputEvents = await dap.client.collectAllOutput(
-        launch: () => dap.client
-            .launch(
-              cwd: project.dir.path,
-              toolArgs: <String>['-d', 'flutter-tester'],
-            ),
+      final List<OutputEventBody> outputEvents =
+          await dap.client.collectAllOutput(
+        launch: () => dap.client.launch(
+          cwd: project.dir.path,
+          toolArgs: <String>['-d', 'flutter-tester'],
+        ),
       );
 
       final String output = _uniqueOutputLines(outputEvents);
 
-      expectLines(output, <Object>[
-        'Launching $relativeMainPath on Flutter test device in debug mode...',
-        startsWith('Connecting to VM Service at'),
-        'topLevelFunction',
-        'Application finished.',
-        '',
-        startsWith('Exited'),
-      ], allowExtras: true);
+      expectLines(
+          output,
+          <Object>[
+            'Launching $relativeMainPath on Flutter test device in debug mode...',
+            startsWith('Connecting to VM Service at'),
+            'topLevelFunction',
+            'Application finished.',
+            '',
+            startsWith('Exited'),
+          ],
+          allowExtras: true);
     });
 
     testWithoutContext('logs to client when sendLogsToClient=true', () async {
@@ -76,7 +81,8 @@ void main() {
 
       // Launch the app and wait for it to print "topLevelFunction".
       await Future.wait(<Future<void>>[
-        dap.client.stdoutOutput.firstWhere((String output) => output.startsWith('topLevelFunction')),
+        dap.client.stdoutOutput.firstWhere(
+            (String output) => output.startsWith('topLevelFunction')),
         dap.client.start(
           launch: () => dap.client.launch(
             cwd: project.dir.path,
@@ -88,12 +94,16 @@ void main() {
       ], eagerError: true);
 
       // Capture events while terminating.
-      final Future<List<Event>> logEventsFuture = dap.client.events('dart.log').toList();
+      final Future<List<Event>> logEventsFuture =
+          dap.client.events('dart.log').toList();
       await dap.client.terminate();
 
       // Ensure logs contain both the app.stop request and the result.
       final List<Event> logEvents = await logEventsFuture;
-      final List<String> logMessages = logEvents.map((Event l) => (l.body! as Map<String, Object?>)['message']! as String).toList();
+      final List<String> logMessages = logEvents
+          .map((Event l) =>
+              (l.body! as Map<String, Object?>)['message']! as String)
+          .toList();
       expect(
         logMessages,
         containsAll(<Matcher>[
@@ -103,35 +113,40 @@ void main() {
       );
     });
 
-    testWithoutContext('can run and terminate a Flutter app in noDebug mode', () async {
+    testWithoutContext('can run and terminate a Flutter app in noDebug mode',
+        () async {
       final BasicProject project = BasicProject();
       await project.setUpIn(tempDir);
 
       // Once the "topLevelFunction" output arrives, we can terminate the app.
       unawaited(
         dap.client.stdoutOutput
-            .firstWhere((String output) => output.startsWith('topLevelFunction'))
+            .firstWhere(
+                (String output) => output.startsWith('topLevelFunction'))
             .whenComplete(() => dap.client.terminate()),
       );
 
-      final List<OutputEventBody> outputEvents = await dap.client.collectAllOutput(
-        launch: () => dap.client
-            .launch(
-              cwd: project.dir.path,
-              noDebug: true,
-              toolArgs: <String>['-d', 'flutter-tester'],
-            ),
+      final List<OutputEventBody> outputEvents =
+          await dap.client.collectAllOutput(
+        launch: () => dap.client.launch(
+          cwd: project.dir.path,
+          noDebug: true,
+          toolArgs: <String>['-d', 'flutter-tester'],
+        ),
       );
 
       final String output = _uniqueOutputLines(outputEvents);
 
-      expectLines(output, <Object>[
-        'Launching $relativeMainPath on Flutter test device in debug mode...',
-        'topLevelFunction',
-        'Application finished.',
-        '',
-        startsWith('Exited'),
-      ], allowExtras: true);
+      expectLines(
+          output,
+          <Object>[
+            'Launching $relativeMainPath on Flutter test device in debug mode...',
+            'topLevelFunction',
+            'Application finished.',
+            '',
+            startsWith('Exited'),
+          ],
+          allowExtras: true);
 
       // If we're running with an out-of-process debug adapter, ensure that its
       // own process shuts down after we terminated.
@@ -141,8 +156,10 @@ void main() {
       }
     });
 
-    testWithoutContext('outputs useful message on invalid DAP protocol messages', () async {
-      final OutOfProcessDapTestServer server = dap.server as OutOfProcessDapTestServer;
+    testWithoutContext(
+        'outputs useful message on invalid DAP protocol messages', () async {
+      final OutOfProcessDapTestServer server =
+          dap.server as OutOfProcessDapTestServer;
       final CompileErrorProject project = CompileErrorProject();
       await project.setUpIn(tempDir);
 
@@ -155,23 +172,30 @@ void main() {
 
       // Verify the user-friendly message was included in the output.
       final String error = stderrOutput.toString();
-      expect(error, contains('Input could not be parsed as a Debug Adapter Protocol message'));
-      expect(error, contains('The "flutter debug-adapter" command is intended for use by tooling'));
+      expect(
+          error,
+          contains(
+              'Input could not be parsed as a Debug Adapter Protocol message'));
+      expect(
+          error,
+          contains(
+              'The "flutter debug-adapter" command is intended for use by tooling'));
       // This test only runs with out-of-process DAP as it's testing _actual_
       // stderr output and that the debug-adapter process terminates, which is
       // not possible when running the DAP Server in-process.
     }, skip: useInProcessDap); // [intended] See above.
 
-    testWithoutContext('correctly outputs launch errors and terminates', () async {
+    testWithoutContext('correctly outputs launch errors and terminates',
+        () async {
       final CompileErrorProject project = CompileErrorProject();
       await project.setUpIn(tempDir);
 
-      final List<OutputEventBody> outputEvents = await dap.client.collectAllOutput(
-        launch: () => dap.client
-            .launch(
-              cwd: project.dir.path,
-              toolArgs: <String>['-d', 'flutter-tester'],
-            ),
+      final List<OutputEventBody> outputEvents =
+          await dap.client.collectAllOutput(
+        launch: () => dap.client.launch(
+          cwd: project.dir.path,
+          toolArgs: <String>['-d', 'flutter-tester'],
+        ),
       );
 
       final String output = _uniqueOutputLines(outputEvents);
@@ -182,37 +206,43 @@ void main() {
 
     /// Helper that tests exception output in either debug or noDebug mode.
     Future<void> testExceptionOutput({required bool noDebug}) async {
-        final BasicProjectThatThrows project = BasicProjectThatThrows();
-        await project.setUpIn(tempDir);
+      final BasicProjectThatThrows project = BasicProjectThatThrows();
+      await project.setUpIn(tempDir);
 
-        final List<OutputEventBody> outputEvents =
-            await dap.client.collectAllOutput(launch: () {
-          // Terminate the app after we see the exception because otherwise
-          // it will keep running and `collectAllOutput` won't end.
-          dap.client.output
-              .firstWhere((String output) => output.contains(endOfErrorOutputMarker))
-              .then((_) => dap.client.terminate());
-          return dap.client.launch(
-            noDebug: noDebug,
-            cwd: project.dir.path,
-            toolArgs: <String>['-d', 'flutter-tester'],
-          );
-        });
+      final List<OutputEventBody> outputEvents =
+          await dap.client.collectAllOutput(launch: () {
+        // Terminate the app after we see the exception because otherwise
+        // it will keep running and `collectAllOutput` won't end.
+        dap.client.output
+            .firstWhere(
+                (String output) => output.contains(endOfErrorOutputMarker))
+            .then((_) => dap.client.terminate());
+        return dap.client.launch(
+          noDebug: noDebug,
+          cwd: project.dir.path,
+          toolArgs: <String>['-d', 'flutter-tester'],
+        );
+      });
 
-        final String output = _uniqueOutputLines(outputEvents);
-        final List<String> outputLines = output.split('\n');
-        expect( outputLines, containsAllInOrder(<String>[
+      final String output = _uniqueOutputLines(outputEvents);
+      final List<String> outputLines = output.split('\n');
+      expect(
+          outputLines,
+          containsAllInOrder(<String>[
             '══╡ EXCEPTION CAUGHT BY WIDGETS LIBRARY ╞═══════════════════════════════════════════════════════════',
             'The following _Exception was thrown building App(dirty):',
             'Exception: c',
             'The relevant error-causing widget was:',
-        ]));
-        expect(output, contains('App:${Uri.file(project.dir.path)}/lib/main.dart:24:12'));
+          ]));
+      expect(output,
+          contains('App:${Uri.file(project.dir.path)}/lib/main.dart:24:12'));
     }
 
-    testWithoutContext('correctly outputs exceptions in debug mode', () => testExceptionOutput(noDebug: false));
+    testWithoutContext('correctly outputs exceptions in debug mode',
+        () => testExceptionOutput(noDebug: false));
 
-    testWithoutContext('correctly outputs exceptions in noDebug mode', () => testExceptionOutput(noDebug: true));
+    testWithoutContext('correctly outputs exceptions in noDebug mode',
+        () => testExceptionOutput(noDebug: true));
 
     testWithoutContext('can hot reload', () async {
       final BasicProject project = BasicProject();
@@ -220,7 +250,8 @@ void main() {
 
       // Launch the app and wait for it to print "topLevelFunction".
       await Future.wait(<Future<void>>[
-        dap.client.stdoutOutput.firstWhere((String output) => output.startsWith('topLevelFunction')),
+        dap.client.stdoutOutput.firstWhere(
+            (String output) => output.startsWith('topLevelFunction')),
         dap.client.start(
           launch: () => dap.client.launch(
             cwd: project.dir.path,
@@ -241,33 +272,36 @@ void main() {
       await dap.client.hotReload();
 
       expectLines(
-          (await outputEventsFuture).join(),
-          <Object>[
-            startsWith('Reloaded'),
-            'topLevelFunction',
-          ],
+        (await outputEventsFuture).join(),
+        <Object>[
+          startsWith('Reloaded'),
+          'topLevelFunction',
+        ],
       );
 
       await dap.client.terminate();
     });
 
-    testWithoutContext('sends progress notifications during hot reload', () async {
+    testWithoutContext('sends progress notifications during hot reload',
+        () async {
       final BasicProject project = BasicProject();
       await project.setUpIn(tempDir);
 
       // Launch the app and wait for it to print "topLevelFunction".
       await Future.wait(<Future<void>>[
-        dap.client.stdoutOutput.firstWhere((String output) => output.startsWith('topLevelFunction')),
+        dap.client.stdoutOutput.firstWhere(
+            (String output) => output.startsWith('topLevelFunction')),
         dap.client.initialize(supportsProgressReporting: true),
         dap.client.launch(
-              cwd: project.dir.path,
-              noDebug: true,
-              toolArgs: <String>['-d', 'flutter-tester'],
-            ),
+          cwd: project.dir.path,
+          noDebug: true,
+          toolArgs: <String>['-d', 'flutter-tester'],
+        ),
       ], eagerError: true);
 
       // Capture progress events during a reload.
-      final Future<List<Event>> progressEventsFuture = dap.client.progressEvents().toList();
+      final Future<List<Event>> progressEventsFuture =
+          dap.client.progressEvents().toList();
       await dap.client.hotReload();
       await dap.client.terminate();
 
@@ -275,12 +309,18 @@ void main() {
       final List<Event> progressEvents = await progressEventsFuture;
       expect(progressEvents, hasLength(2));
 
-      final List<String> eventKinds = progressEvents.map((Event event) => event.event).toList();
+      final List<String> eventKinds =
+          progressEvents.map((Event event) => event.event).toList();
       expect(eventKinds, <String>['progressStart', 'progressEnd']);
 
-      final List<Map<String, Object?>> eventBodies = progressEvents.map((Event event) => event.body).cast<Map<String, Object?>>().toList();
-      final ProgressStartEventBody start = ProgressStartEventBody.fromMap(eventBodies[0]);
-      final ProgressEndEventBody end = ProgressEndEventBody.fromMap(eventBodies[1]);
+      final List<Map<String, Object?>> eventBodies = progressEvents
+          .map((Event event) => event.body)
+          .cast<Map<String, Object?>>()
+          .toList();
+      final ProgressStartEventBody start =
+          ProgressStartEventBody.fromMap(eventBodies[0]);
+      final ProgressEndEventBody end =
+          ProgressEndEventBody.fromMap(eventBodies[1]);
       expect(start.progressId, isNotNull);
       expect(start.title, 'Flutter');
       expect(start.message, 'Hot reloading…');
@@ -294,7 +334,8 @@ void main() {
 
       // Launch the app and wait for it to print "topLevelFunction".
       await Future.wait(<Future<void>>[
-        dap.client.stdoutOutput.firstWhere((String output) => output.startsWith('topLevelFunction')),
+        dap.client.stdoutOutput.firstWhere(
+            (String output) => output.startsWith('topLevelFunction')),
         dap.client.start(
           launch: () => dap.client.launch(
             cwd: project.dir.path,
@@ -315,33 +356,36 @@ void main() {
       await dap.client.hotRestart();
 
       expectLines(
-          (await outputEventsFuture).join(),
-          <Object>[
-            startsWith('Restarted application'),
-            'topLevelFunction',
-          ],
+        (await outputEventsFuture).join(),
+        <Object>[
+          startsWith('Restarted application'),
+          'topLevelFunction',
+        ],
       );
 
       await dap.client.terminate();
     });
 
-    testWithoutContext('sends progress notifications during hot restart', () async {
+    testWithoutContext('sends progress notifications during hot restart',
+        () async {
       final BasicProject project = BasicProject();
       await project.setUpIn(tempDir);
 
       // Launch the app and wait for it to print "topLevelFunction".
       await Future.wait(<Future<void>>[
-        dap.client.stdoutOutput.firstWhere((String output) => output.startsWith('topLevelFunction')),
+        dap.client.stdoutOutput.firstWhere(
+            (String output) => output.startsWith('topLevelFunction')),
         dap.client.initialize(supportsProgressReporting: true),
         dap.client.launch(
-              cwd: project.dir.path,
-              noDebug: true,
-              toolArgs: <String>['-d', 'flutter-tester'],
-            ),
+          cwd: project.dir.path,
+          noDebug: true,
+          toolArgs: <String>['-d', 'flutter-tester'],
+        ),
       ], eagerError: true);
 
       // Capture progress events during a restart.
-      final Future<List<Event>> progressEventsFuture = dap.client.progressEvents().toList();
+      final Future<List<Event>> progressEventsFuture =
+          dap.client.progressEvents().toList();
       await dap.client.hotRestart();
       await dap.client.terminate();
 
@@ -349,12 +393,18 @@ void main() {
       final List<Event> progressEvents = await progressEventsFuture;
       expect(progressEvents, hasLength(2));
 
-      final List<String> eventKinds = progressEvents.map((Event event) => event.event).toList();
+      final List<String> eventKinds =
+          progressEvents.map((Event event) => event.event).toList();
       expect(eventKinds, <String>['progressStart', 'progressEnd']);
 
-      final List<Map<String, Object?>> eventBodies = progressEvents.map((Event event) => event.body).cast<Map<String, Object?>>().toList();
-      final ProgressStartEventBody start = ProgressStartEventBody.fromMap(eventBodies[0]);
-      final ProgressEndEventBody end = ProgressEndEventBody.fromMap(eventBodies[1]);
+      final List<Map<String, Object?>> eventBodies = progressEvents
+          .map((Event event) => event.body)
+          .cast<Map<String, Object?>>()
+          .toList();
+      final ProgressStartEventBody start =
+          ProgressStartEventBody.fromMap(eventBodies[0]);
+      final ProgressEndEventBody end =
+          ProgressEndEventBody.fromMap(eventBodies[1]);
       expect(start.progressId, isNotNull);
       expect(start.title, 'Flutter');
       expect(start.message, 'Hot restarting…');
@@ -362,7 +412,8 @@ void main() {
       expect(end.message, isNull);
     });
 
-    testWithoutContext('can hot restart when exceptions occur on outgoing isolates', () async {
+    testWithoutContext(
+        'can hot restart when exceptions occur on outgoing isolates', () async {
       final BasicProjectThatThrows project = BasicProjectThatThrows();
       await project.setUpIn(tempDir);
 
@@ -370,7 +421,8 @@ void main() {
       late int originalThreadId, newThreadId;
       await Future.wait(<Future<void>>[
         // Capture the thread ID of the stopped thread.
-        dap.client.stoppedEvents.first.then((StoppedEventBody event) => originalThreadId = event.threadId!),
+        dap.client.stoppedEvents.first.then(
+            (StoppedEventBody event) => originalThreadId = event.threadId!),
         dap.client.start(
           exceptionPauseMode: 'All', // Ensure we stop on all exceptions
           launch: () => dap.client.launch(
@@ -384,7 +436,8 @@ void main() {
       // to pause.
       await Future.wait(<Future<void>>[
         // Capture the thread ID of the newly stopped thread.
-        dap.client.stoppedEvents.first.then((StoppedEventBody event) => newThreadId = event.threadId!),
+        dap.client.stoppedEvents.first
+            .then((StoppedEventBody event) => newThreadId = event.threadId!),
         dap.client.hotRestart(),
       ], eagerError: true);
 
@@ -409,7 +462,8 @@ void main() {
       // Launch the app and wait for it to print "topLevelFunction" so we know
       // it's up and running.
       await Future.wait(<Future<void>>[
-        dap.client.stdoutOutput.firstWhere((String output) => output.startsWith('topLevelFunction')),
+        dap.client.stdoutOutput.firstWhere(
+            (String output) => output.startsWith('topLevelFunction')),
         dap.client.start(
           launch: () => dap.client.launch(
             cwd: project.dir.path,
@@ -436,8 +490,10 @@ void main() {
       );
 
       // Ensure the event occurred, and its value was as expected.
-      final Map<String, Object?> stateChangeEvent = await stateChangeEventFuture;
-      expect(stateChangeEvent['value'], 'true'); // extension state change values are always strings
+      final Map<String, Object?> stateChangeEvent =
+          await stateChangeEventFuture;
+      expect(stateChangeEvent['value'],
+          'true'); // extension state change values are always strings
 
       await dap.client.terminate();
     });
@@ -471,7 +527,8 @@ void main() {
       await project.setUpIn(tempDir);
       testProcess = await SimpleFlutterRunner.start(tempDir);
 
-      breakpointFilePath = globals.fs.path.join(project.dir.path, 'lib', 'main.dart');
+      breakpointFilePath =
+          globals.fs.path.join(project.dir.path, 'lib', 'main.dart');
       breakpointLine = project.buildMethodBreakpointLine;
     });
 
@@ -480,12 +537,14 @@ void main() {
       await testProcess.process.exitCode;
     });
 
-    testWithoutContext('can attach to an already-running Flutter app and reload', () async {
+    testWithoutContext(
+        'can attach to an already-running Flutter app and reload', () async {
       final Uri vmServiceUri = await testProcess.vmServiceUri;
 
       // Launch the app and wait for it to print "topLevelFunction".
       await Future.wait(<Future<void>>[
-        dap.client.stdoutOutput.firstWhere((String output) => output.startsWith('topLevelFunction')),
+        dap.client.stdoutOutput.firstWhere(
+            (String output) => output.startsWith('topLevelFunction')),
         dap.client.start(
           launch: () => dap.client.attach(
             cwd: project.dir.path,
@@ -505,23 +564,26 @@ void main() {
       // by printed output, to ensure the app is running again.
       await dap.client.hotReload();
       expectLines(
-          (await outputEventsFuture).join(),
-          <Object>[
-            startsWith('Reloaded'),
-            'topLevelFunction',
-          ],
-          allowExtras: true,
+        (await outputEventsFuture).join(),
+        <Object>[
+          startsWith('Reloaded'),
+          'topLevelFunction',
+        ],
+        allowExtras: true,
       );
 
       await dap.client.terminate();
     });
 
-    testWithoutContext('can attach to an already-running Flutter app and hit breakpoints', () async {
+    testWithoutContext(
+        'can attach to an already-running Flutter app and hit breakpoints',
+        () async {
       final Uri vmServiceUri = await testProcess.vmServiceUri;
 
       // Launch the app and wait for it to print "topLevelFunction".
       await Future.wait(<Future<void>>[
-        dap.client.stdoutOutput.firstWhere((String output) => output.startsWith('topLevelFunction')),
+        dap.client.stdoutOutput.firstWhere(
+            (String output) => output.startsWith('topLevelFunction')),
         dap.client.start(
           launch: () => dap.client.attach(
             cwd: project.dir.path,
@@ -532,7 +594,8 @@ void main() {
       ], eagerError: true);
 
       // Set a breakpoint and expect to hit it.
-      final Future<StoppedEventBody> stoppedFuture = dap.client.stoppedEvents.firstWhere((StoppedEventBody e) => e.reason == 'breakpoint');
+      final Future<StoppedEventBody> stoppedFuture = dap.client.stoppedEvents
+          .firstWhere((StoppedEventBody e) => e.reason == 'breakpoint');
       await Future.wait(<Future<void>>[
         stoppedFuture,
         dap.client.setBreakpoint(breakpointFilePath, breakpointLine),
@@ -544,7 +607,8 @@ void main() {
 
       // Launch the app and wait for it to print "topLevelFunction".
       await Future.wait(<Future<void>>[
-        dap.client.stdoutOutput.firstWhere((String output) => output.startsWith('topLevelFunction')),
+        dap.client.stdoutOutput.firstWhere(
+            (String output) => output.startsWith('topLevelFunction')),
         dap.client.start(
           launch: () => dap.client.attach(
             cwd: project.dir.path,
@@ -555,7 +619,8 @@ void main() {
       ], eagerError: true);
 
       // Set a breakpoint and expect to hit it.
-      final Future<StoppedEventBody> stoppedFuture = dap.client.stoppedEvents.firstWhere((StoppedEventBody e) => e.reason == 'breakpoint');
+      final Future<StoppedEventBody> stoppedFuture = dap.client.stoppedEvents
+          .firstWhere((StoppedEventBody e) => e.reason == 'breakpoint');
       await Future.wait(<Future<void>>[
         stoppedFuture,
         dap.client.setBreakpoint(breakpointFilePath, breakpointLine),
@@ -564,15 +629,16 @@ void main() {
       // Detach and expected resume and correct output.
       await Future.wait(<Future<void>>[
         // We should print "Detached" instead of "Exited".
-        dap.client.outputEvents.firstWhere((OutputEventBody event) => event.output.contains('\nDetached')),
+        dap.client.outputEvents.firstWhere(
+            (OutputEventBody event) => event.output.contains('\nDetached')),
         // We should still get terminatedEvent (this signals the DAP server terminating).
         dap.client.event('terminated'),
         // We should get output showing the app resumed.
-        testProcess.output.firstWhere((String output) => output.contains('topLevelFunction')),
+        testProcess.output
+            .firstWhere((String output) => output.contains('topLevelFunction')),
         // Trigger the detach.
         dap.client.terminate(),
       ]);
-
     });
   });
 }
@@ -584,10 +650,9 @@ String _uniqueOutputLines(List<OutputEventBody> outputEvents) {
   return outputEvents
       .map((OutputEventBody e) => e.output)
       .where((String output) {
-        // Skip the item if it's the same as the previous one.
-        final bool isDupe = output == lastItem;
-        lastItem = output;
-        return !isDupe;
-      })
-      .join();
+    // Skip the item if it's the same as the previous one.
+    final bool isDupe = output == lastItem;
+    lastItem = output;
+    return !isDupe;
+  }).join();
 }

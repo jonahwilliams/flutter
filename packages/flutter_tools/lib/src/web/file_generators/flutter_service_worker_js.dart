@@ -7,6 +7,7 @@ enum ServiceWorkerStrategy {
   /// Download the app shell eagerly and all other assets lazily.
   /// Prefer the offline cached version.
   offlineFirst,
+
   /// Do not generate a service worker,
   none,
 }

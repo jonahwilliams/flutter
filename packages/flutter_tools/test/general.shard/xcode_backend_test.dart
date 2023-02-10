@@ -62,8 +62,8 @@ void main() {
         scriptOutputStreamFile: pipe,
       );
       expect(
-          () => context.run(),
-          throwsException,
+        () => context.run(),
+        throwsException,
       );
       expect(
         context.stderr,
@@ -133,7 +133,8 @@ void main() {
       const String buildMode = 'Release';
       const String dartObfuscation = 'false';
       const String dartDefines = 'flutter.inspector.structuredErrors%3Dtrue';
-      const String expandedCodeSignIdentity = 'F1326572E0B71C3C8442805230CB4B33B708A2E2';
+      const String expandedCodeSignIdentity =
+          'F1326572E0B71C3C8442805230CB4B33B708A2E2';
       const String extraFrontEndOptions = '--some-option';
       const String extraGenSnapshotOptions = '--obfuscate';
       const String sdkRoot = '/path/to/sdk';
@@ -226,7 +227,10 @@ class TestContext extends Context {
     required List<FakeCommand> commands,
     File? scriptOutputStreamFile,
   })  : processManager = FakeProcessManager.list(commands),
-        super(arguments: arguments, environment: environment, scriptOutputStreamFile: scriptOutputStreamFile);
+        super(
+            arguments: arguments,
+            environment: environment,
+            scriptOutputStreamFile: scriptOutputStreamFile);
 
   final FileSystem fileSystem;
   final FakeProcessManager processManager;

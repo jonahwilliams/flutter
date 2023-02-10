@@ -27,7 +27,8 @@ void main() {
   testWithoutContext('simple build apk succeeds', () async {
     final MultidexProject project = MultidexProject(true);
     await project.setUpIn(tempDir);
-    final String flutterBin = fileSystem.path.join(getFlutterRoot(), 'bin', 'flutter');
+    final String flutterBin =
+        fileSystem.path.join(getFlutterRoot(), 'bin', 'flutter');
     final ProcessResult result = await processManager.run(<String>[
       flutterBin,
       ...getLocalEngineArguments(),
@@ -40,10 +41,12 @@ void main() {
     expect(result.stdout.toString(), contains('app-debug.apk'));
   });
 
-  testWithoutContext('simple build apk without FlutterMultiDexApplication fails', () async {
+  testWithoutContext(
+      'simple build apk without FlutterMultiDexApplication fails', () async {
     final MultidexProject project = MultidexProject(false);
     await project.setUpIn(tempDir);
-    final String flutterBin = fileSystem.path.join(getFlutterRoot(), 'bin', 'flutter');
+    final String flutterBin =
+        fileSystem.path.join(getFlutterRoot(), 'bin', 'flutter');
     final ProcessResult result = await processManager.run(<String>[
       flutterBin,
       ...getLocalEngineArguments(),
@@ -52,8 +55,12 @@ void main() {
       '--debug',
     ], workingDirectory: tempDir.path);
 
-    expect(result.stderr.toString(), contains('Cannot fit requested classes in a single dex file'));
-    expect(result.stderr.toString(), contains('The number of method references in a .dex file cannot exceed 64K.'));
+    expect(result.stderr.toString(),
+        contains('Cannot fit requested classes in a single dex file'));
+    expect(
+        result.stderr.toString(),
+        contains(
+            'The number of method references in a .dex file cannot exceed 64K.'));
     expect(result.exitCode, 1);
   });
 }

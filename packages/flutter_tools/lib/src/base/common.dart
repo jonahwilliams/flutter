@@ -6,7 +6,7 @@
 /// where the tool should exit with a clear message to the user
 /// and no stack trace unless the --verbose option is specified.
 /// For example: network errors.
-Never throwToolExit(String? message, { int? exitCode }) {
+Never throwToolExit(String? message, {int? exitCode}) {
   throw ToolExit(message, exitCode: exitCode);
 }
 
@@ -15,11 +15,12 @@ Never throwToolExit(String? message, { int? exitCode }) {
 /// and no stack trace unless the --verbose option is specified.
 /// For example: network errors.
 class ToolExit implements Exception {
-  ToolExit(this.message, { this.exitCode });
+  ToolExit(this.message, {this.exitCode});
 
   final String? message;
   final int? exitCode;
 
   @override
-  String toString() => 'Exception: $message'; // TODO(ianh): Really this should say "Error".
+  String toString() =>
+      'Exception: $message'; // TODO(ianh): Really this should say "Error".
 }

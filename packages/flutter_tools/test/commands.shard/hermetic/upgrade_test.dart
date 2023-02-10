@@ -79,7 +79,13 @@ void main() {
       ),
       // test if there already exists a local beta branch; 0 exit code means yes
       const FakeCommand(
-        command: <String>['git', 'show-ref', '--verify', '--quiet', 'refs/heads/beta'],
+        command: <String>[
+          'git',
+          'show-ref',
+          '--verify',
+          '--quiet',
+          'refs/heads/beta'
+        ],
       ),
       const FakeCommand(
         command: <String>['git', 'checkout', 'beta', '--'],
@@ -93,7 +99,12 @@ void main() {
       // re-enter flutter command with the newer version, so that `doctor`
       // checks will be up to date
       FakeCommand(
-        command: const <String>['bin/flutter', 'upgrade', '--continue', '--no-version-check'],
+        command: const <String>[
+          'bin/flutter',
+          'upgrade',
+          '--continue',
+          '--no-version-check'
+        ],
         onRun: reEnterTool,
         completer: reEntryCompleter,
       ),
@@ -105,7 +116,12 @@ void main() {
         stdout: latestUpstreamTag,
       ),
       const FakeCommand(
-        command: <String>['bin/flutter', '--no-color', '--no-version-check', 'precache'],
+        command: <String>[
+          'bin/flutter',
+          '--no-color',
+          '--no-version-check',
+          'precache'
+        ],
       ),
       const FakeCommand(
         command: <String>['bin/flutter', '--no-version-check', 'doctor'],
@@ -113,7 +129,8 @@ void main() {
     ]);
     await runner.run(<String>['upgrade']);
     expect(processManager, hasNoRemainingExpectations);
-    expect(logger.statusText, contains("Transitioning from 'dev' to 'beta'..."));
+    expect(
+        logger.statusText, contains("Transitioning from 'dev' to 'beta'..."));
   }, overrides: <Type, Generator>{
     FileSystem: () => fileSystem,
     FlutterVersion: () => flutterVersion,

@@ -19,13 +19,16 @@ import 'package:flutter_tools/src/project.dart';
 import '../src/common.dart';
 
 void main() {
-
-  Future<Map<String, List<String>>> extractAssetManifestFromBundle(ManifestAssetBundle bundle) async {
-    final String manifestJson = utf8.decode(await bundle.entries['AssetManifest.json']!.contentsAsBytes());
-    final Map<String, dynamic> parsedJson = json.decode(manifestJson) as Map<String, dynamic>;
+  Future<Map<String, List<String>>> extractAssetManifestFromBundle(
+      ManifestAssetBundle bundle) async {
+    final String manifestJson = utf8
+        .decode(await bundle.entries['AssetManifest.json']!.contentsAsBytes());
+    final Map<String, dynamic> parsedJson =
+        json.decode(manifestJson) as Map<String, dynamic>;
     final Iterable<String> keys = parsedJson.keys;
-    final Map<String, List<String>> parsedManifest = <String, List<String>> {
-      for (final String key in keys) key: List<String>.from(parsedJson[key] as List<dynamic>),
+    final Map<String, List<String>> parsedManifest = <String, List<String>>{
+      for (final String key in keys)
+        key: List<String>.from(parsedJson[key] as List<dynamic>),
     };
     return parsedManifest;
   }
@@ -38,15 +41,11 @@ void main() {
       platform = FakePlatform();
       fs = MemoryFileSystem.test();
       Cache.flutterRoot = Cache.defaultFlutterRoot(
-        platform: platform,
-        fileSystem: fs,
-        userMessages: UserMessages()
-      );
+          platform: platform, fileSystem: fs, userMessages: UserMessages());
 
       fs.file('.packages').createSync();
 
-      fs.file('pubspec.yaml').writeAsStringSync(
-'''
+      fs.file('pubspec.yaml').writeAsStringSync('''
 name: test
 dependencies:
   flutter:
@@ -57,11 +56,12 @@ flutter:
     - assets/notAVariant/
     - assets/folder/
     - assets/normalFolder/
-'''
-      );
+''');
     });
 
-    testWithoutContext('Only images in folders named with device pixel ratios (e.g. 2x, 3.0x) should be considered as variants of other images', () async {
+    testWithoutContext(
+        'Only images in folders named with device pixel ratios (e.g. 2x, 3.0x) should be considered as variants of other images',
+        () async {
       const String image = 'assets/image.jpg';
       const String image2xVariant = 'assets/2x/image.jpg';
       const String imageNonVariant = 'assets/notAVariant/image.jpg';
@@ -86,17 +86,19 @@ flutter:
 
       await bundle.build(
         packagesPath: '.packages',
-        flutterProject:  FlutterProject.fromDirectoryTest(fs.currentDirectory),
+        flutterProject: FlutterProject.fromDirectoryTest(fs.currentDirectory),
       );
 
-      final Map<String, List<String>> manifest = await extractAssetManifestFromBundle(bundle);
+      final Map<String, List<String>> manifest =
+          await extractAssetManifestFromBundle(bundle);
 
       expect(manifest, hasLength(2));
       expect(manifest[image], equals(<String>[image, image2xVariant]));
       expect(manifest[imageNonVariant], equals(<String>[imageNonVariant]));
     });
 
-    testWithoutContext('Asset directories are recursively searched for assets', () async {
+    testWithoutContext('Asset directories are recursively searched for assets',
+        () async {
       const String topLevelImage = 'assets/image.jpg';
       const String secondLevelImage = 'assets/folder/secondLevel.jpg';
       const String secondLevel2xVariant = 'assets/folder/2x/secondLevel.jpg';
@@ -121,23 +123,24 @@ flutter:
 
       await bundle.build(
         packagesPath: '.packages',
-        flutterProject:  FlutterProject.fromDirectoryTest(fs.currentDirectory),
+        flutterProject: FlutterProject.fromDirectoryTest(fs.currentDirectory),
       );
 
-      final Map<String, List<String>> manifest = await extractAssetManifestFromBundle(bundle);
+      final Map<String, List<String>> manifest =
+          await extractAssetManifestFromBundle(bundle);
       expect(manifest, hasLength(2));
       expect(manifest[topLevelImage], equals(<String>[topLevelImage]));
-      expect(manifest[secondLevelImage], equals(<String>[secondLevelImage, secondLevel2xVariant]));
+      expect(manifest[secondLevelImage],
+          equals(<String>[secondLevelImage, secondLevel2xVariant]));
     });
 
     testWithoutContext('Asset paths should never be URI-encoded', () async {
-      const String image = 'assets/normalFolder/i have URI-reserved_characters.jpg';
-      const String imageVariant = 'assets/normalFolder/3x/i have URI-reserved_characters.jpg';
+      const String image =
+          'assets/normalFolder/i have URI-reserved_characters.jpg';
+      const String imageVariant =
+          'assets/normalFolder/3x/i have URI-reserved_characters.jpg';
 
-      final List<String> assets = <String>[
-        image,
-        imageVariant
-      ];
+      final List<String> assets = <String>[image, imageVariant];
 
       for (final String asset in assets) {
         final File assetFile = fs.file(asset);
@@ -153,15 +156,15 @@ flutter:
 
       await bundle.build(
         packagesPath: '.packages',
-        flutterProject:  FlutterProject.fromDirectoryTest(fs.currentDirectory),
+        flutterProject: FlutterProject.fromDirectoryTest(fs.currentDirectory),
       );
 
-      final Map<String, List<String>> manifest = await extractAssetManifestFromBundle(bundle);
+      final Map<String, List<String>> manifest =
+          await extractAssetManifestFromBundle(bundle);
       expect(manifest, hasLength(1));
       expect(manifest[image], equals(<String>[image, imageVariant]));
     });
   });
-
 
   group('AssetBundle asset variants (with Windows-style filepaths)', () {
     late final Platform platform;
@@ -171,15 +174,11 @@ flutter:
       platform = FakePlatform(operatingSystem: 'windows');
       fs = MemoryFileSystem.test(style: FileSystemStyle.windows);
       Cache.flutterRoot = Cache.defaultFlutterRoot(
-        platform: platform,
-        fileSystem: fs,
-        userMessages: UserMessages()
-      );
+          platform: platform, fileSystem: fs, userMessages: UserMessages());
 
       fs.file('.packages').createSync();
 
-      fs.file('pubspec.yaml').writeAsStringSync(
-'''
+      fs.file('pubspec.yaml').writeAsStringSync('''
 name: test
 dependencies:
   flutter:
@@ -188,11 +187,11 @@ flutter:
   assets:
     - assets/
     - assets/somewhereElse/
-'''
-      );
+''');
     });
 
-    testWithoutContext('Variant detection works with windows-style filepaths', () async {
+    testWithoutContext('Variant detection works with windows-style filepaths',
+        () async {
       const List<String> assets = <String>[
         r'assets\foo.jpg',
         r'assets\2x\foo.jpg',
@@ -214,14 +213,21 @@ flutter:
 
       await bundle.build(
         packagesPath: '.packages',
-        flutterProject:  FlutterProject.fromDirectoryTest(fs.currentDirectory),
+        flutterProject: FlutterProject.fromDirectoryTest(fs.currentDirectory),
       );
 
-      final Map<String, List<String>> manifest = await extractAssetManifestFromBundle(bundle);
+      final Map<String, List<String>> manifest =
+          await extractAssetManifestFromBundle(bundle);
 
       expect(manifest, hasLength(2));
-      expect(manifest['assets/foo.jpg'], equals(<String>['assets/foo.jpg', 'assets/2x/foo.jpg']));
-      expect(manifest['assets/somewhereElse/bar.jpg'], equals(<String>['assets/somewhereElse/bar.jpg', 'assets/somewhereElse/2x/bar.jpg']));
+      expect(manifest['assets/foo.jpg'],
+          equals(<String>['assets/foo.jpg', 'assets/2x/foo.jpg']));
+      expect(
+          manifest['assets/somewhereElse/bar.jpg'],
+          equals(<String>[
+            'assets/somewhereElse/bar.jpg',
+            'assets/somewhereElse/2x/bar.jpg'
+          ]));
     });
   });
 }

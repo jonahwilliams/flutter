@@ -26,7 +26,9 @@ void main() {
     );
   });
 
-  testWithoutContext('AndroidDevices returns empty device list and diagnostics on null adb', () async {
+  testWithoutContext(
+      'AndroidDevices returns empty device list and diagnostics on null adb',
+      () async {
     final AndroidDevices androidDevices = AndroidDevices(
       androidSdk: FakeAndroidSdk(null),
       logger: BufferLogger.test(),
@@ -44,7 +46,9 @@ void main() {
     expect(await androidDevices.getDiagnostics(), isEmpty);
   });
 
-  testWithoutContext('AndroidDevices returns empty device list and diagnostics when adb cannot be run', () async {
+  testWithoutContext(
+      'AndroidDevices returns empty device list and diagnostics when adb cannot be run',
+      () async {
     final FakeProcessManager fakeProcessManager = FakeProcessManager.empty();
     fakeProcessManager.excludedExecutables.add('adb');
     final AndroidDevices androidDevices = AndroidDevices(
@@ -65,7 +69,9 @@ void main() {
     expect(fakeProcessManager, hasNoRemainingExpectations);
   });
 
-  testWithoutContext('AndroidDevices returns empty device list and diagnostics on null Android SDK', () async {
+  testWithoutContext(
+      'AndroidDevices returns empty device list and diagnostics on null Android SDK',
+      () async {
     final AndroidDevices androidDevices = AndroidDevices(
       logger: BufferLogger.test(),
       androidWorkflow: AndroidWorkflow(
@@ -100,7 +106,7 @@ void main() {
     );
 
     expect(androidDevices.pollingGetDevices(),
-      throwsToolExit(message: RegExp('Unable to run "adb"')));
+        throwsToolExit(message: RegExp('Unable to run "adb"')));
   });
 
   testWithoutContext('AndroidDevices is disabled if feature is disabled', () {
@@ -122,7 +128,8 @@ void main() {
     expect(androidDevices.supportsPlatform, false);
   });
 
-  testWithoutContext('AndroidDevices can parse output for physical devices', () async {
+  testWithoutContext('AndroidDevices can parse output for physical devices',
+      () async {
     final AndroidDevices androidDevices = AndroidDevices(
       userMessages: UserMessages(),
       androidWorkflow: androidWorkflow,
@@ -149,7 +156,9 @@ List of devices attached
     expect(devices.first.category, Category.mobile);
   });
 
-  testWithoutContext('AndroidDevices can parse output for emulators and short listings', () async {
+  testWithoutContext(
+      'AndroidDevices can parse output for emulators and short listings',
+      () async {
     final AndroidDevices androidDevices = AndroidDevices(
       userMessages: UserMessages(),
       androidWorkflow: androidWorkflow,
@@ -179,7 +188,8 @@ emulator-5612          host features:shell_2
     expect(devices[2].name, 'emulator-5612');
   });
 
-  testWithoutContext('AndroidDevices can parse output from android n', () async {
+  testWithoutContext('AndroidDevices can parse output from android n',
+      () async {
     final AndroidDevices androidDevices = AndroidDevices(
       userMessages: UserMessages(),
       androidWorkflow: androidWorkflow,
@@ -205,7 +215,8 @@ ZX1G22JJWR             device usb:3-3 product:shamu model:Nexus_6 device:shamu f
     expect(devices.first.name, 'Nexus 6');
   });
 
-  testWithoutContext('AndroidDevices provides adb error message as diagnostics', () async {
+  testWithoutContext('AndroidDevices provides adb error message as diagnostics',
+      () async {
     final AndroidDevices androidDevices = AndroidDevices(
       userMessages: UserMessages(),
       androidWorkflow: androidWorkflow,

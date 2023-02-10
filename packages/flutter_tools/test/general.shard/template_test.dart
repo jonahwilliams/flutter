@@ -16,22 +16,30 @@ import '../src/common.dart';
 import '../src/context.dart';
 
 void main() {
-  testWithoutContext('Template constructor throws ToolExit when source directory is missing', () {
+  testWithoutContext(
+      'Template constructor throws ToolExit when source directory is missing',
+      () {
     final FileExceptionHandler handler = FileExceptionHandler();
-    final MemoryFileSystem fileSystem = MemoryFileSystem.test(opHandle: handler.opHandle);
+    final MemoryFileSystem fileSystem =
+        MemoryFileSystem.test(opHandle: handler.opHandle);
 
-    expect(() => Template(
-      fileSystem.directory('doesNotExist'),
-      fileSystem.currentDirectory,
-      fileSystem: fileSystem,
-      logger: BufferLogger.test(),
-      templateRenderer: FakeTemplateRenderer(),
-    ), throwsToolExit());
+    expect(
+        () => Template(
+              fileSystem.directory('doesNotExist'),
+              fileSystem.currentDirectory,
+              fileSystem: fileSystem,
+              logger: BufferLogger.test(),
+              templateRenderer: FakeTemplateRenderer(),
+            ),
+        throwsToolExit());
   });
 
-  testWithoutContext('Template.render throws ToolExit when FileSystem exception is raised', () {
+  testWithoutContext(
+      'Template.render throws ToolExit when FileSystem exception is raised',
+      () {
     final FileExceptionHandler handler = FileExceptionHandler();
-    final MemoryFileSystem fileSystem = MemoryFileSystem.test(opHandle: handler.opHandle);
+    final MemoryFileSystem fileSystem =
+        MemoryFileSystem.test(opHandle: handler.opHandle);
     final Template template = Template(
       fileSystem.directory('examples')..createSync(recursive: true),
       fileSystem.currentDirectory,
@@ -40,10 +48,11 @@ void main() {
       templateRenderer: FakeTemplateRenderer(),
     );
     final Directory directory = fileSystem.directory('foo');
-    handler.addError(directory, FileSystemOp.create, const FileSystemException());
+    handler.addError(
+        directory, FileSystemOp.create, const FileSystemException());
 
-    expect(() => template.render(directory, <String, Object>{}),
-      throwsToolExit());
+    expect(
+        () => template.render(directory, <String, Object>{}), throwsToolExit());
   });
 
   group('template image directory', () {
@@ -52,7 +61,9 @@ void main() {
       ProcessManager: () => FakeProcessManager.any(),
     };
 
-    testUsingContext('templateImageDirectory returns parent template directory if passed null name', () async {
+    testUsingContext(
+        'templateImageDirectory returns parent template directory if passed null name',
+        () async {
       final String packageConfigPath = globals.fs.path.join(
         Cache.flutterRoot!,
         'packages',
@@ -77,15 +88,17 @@ void main() {
 }
 ''');
       expect(
-          (await templateImageDirectory(null, globals.fs, globals.logger)).path,
-          globals.fs.path.absolute(
-            'flutter_template_images',
-            'templates',
-          ),
+        (await templateImageDirectory(null, globals.fs, globals.logger)).path,
+        globals.fs.path.absolute(
+          'flutter_template_images',
+          'templates',
+        ),
       );
     }, overrides: overrides);
 
-    testUsingContext('templateImageDirectory returns the directory containing the `name` template directory', () async {
+    testUsingContext(
+        'templateImageDirectory returns the directory containing the `name` template directory',
+        () async {
       final String packageConfigPath = globals.fs.path.join(
         Cache.flutterRoot!,
         'packages',
@@ -109,7 +122,8 @@ void main() {
 }
 ''');
       expect(
-        (await templateImageDirectory('app_shared', globals.fs, globals.logger)).path,
+        (await templateImageDirectory('app_shared', globals.fs, globals.logger))
+            .path,
         globals.fs.path.absolute(
           'flutter_template_images',
           'templates',
@@ -146,7 +160,8 @@ void main() {
       );
     });
 
-    testWithoutContext('overwrites .img.tmpl files with files from the image source', () {
+    testWithoutContext(
+        'overwrites .img.tmpl files with files from the image source', () {
       expect(template.render(destination, <String, Object>{}), 1);
 
       final File destinationImage = destination.childFile(imageName);
@@ -163,10 +178,13 @@ void main() {
 
       expect(destinationImage.readAsBytesSync(), equals(sourceImageBytes));
       expect(logger.errorText, isEmpty);
-      expect(logger.statusText, contains('${destinationImage.path} (overwritten)'));
+      expect(logger.statusText,
+          contains('${destinationImage.path} (overwritten)'));
     });
 
-    testWithoutContext('does not overwrite .img.tmpl files with files from the image source', () {
+    testWithoutContext(
+        'does not overwrite .img.tmpl files with files from the image source',
+        () {
       expect(template.render(destination, <String, Object>{}), 1);
 
       final File destinationImage = destination.childFile(imageName);
@@ -177,7 +195,10 @@ void main() {
       logger.clear();
 
       // Run it again, do not overwrite (returns 0 files updated).
-      expect(template.render(destination, <String, Object>{}, overwriteExisting: false), 0);
+      expect(
+          template.render(destination, <String, Object>{},
+              overwriteExisting: false),
+          0);
 
       expect(destinationImage, exists);
       expect(logger.errorText, isEmpty);
@@ -185,7 +206,8 @@ void main() {
     });
 
     testWithoutContext('can suppress file printing', () {
-      template.render(destination, <String, Object>{}, printStatusWhenWriting: false);
+      template.render(destination, <String, Object>{},
+          printStatusWhenWriting: false);
 
       final File destinationImage = destination.childFile(imageName);
       expect(destinationImage, exists);
@@ -198,7 +220,8 @@ void main() {
 
 class FakeTemplateRenderer extends TemplateRenderer {
   @override
-  String renderString(String template, dynamic context, {bool htmlEscapeValues = false}) {
+  String renderString(String template, dynamic context,
+      {bool htmlEscapeValues = false}) {
     return '';
   }
 }

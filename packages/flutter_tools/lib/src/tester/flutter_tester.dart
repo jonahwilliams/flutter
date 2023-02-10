@@ -29,8 +29,8 @@ class FlutterTesterApp extends ApplicationPackage {
   }
 
   FlutterTesterApp._(Directory directory)
-    : _directory = directory,
-      super(id: directory.path);
+      : _directory = directory,
+        super(id: directory.path);
 
   final Directory _directory;
 
@@ -44,24 +44,25 @@ class FlutterTesterApp extends ApplicationPackage {
 /// also be used as a regular device when `--show-test-device` is provided
 /// to the flutter command.
 class FlutterTesterDevice extends Device {
-  FlutterTesterDevice(super.deviceId, {
+  FlutterTesterDevice(
+    super.deviceId, {
     required ProcessManager processManager,
     required FlutterVersion flutterVersion,
     required Logger logger,
     required FileSystem fileSystem,
     required Artifacts artifacts,
     required OperatingSystemUtils operatingSystemUtils,
-  }) : _processManager = processManager,
-       _flutterVersion = flutterVersion,
-       _logger = logger,
-       _fileSystem = fileSystem,
-       _artifacts = artifacts,
-       _operatingSystemUtils = operatingSystemUtils,
-       super(
-        platformType: null,
-        category: null,
-        ephemeral: false,
-      );
+  })  : _processManager = processManager,
+        _flutterVersion = flutterVersion,
+        _logger = logger,
+        _fileSystem = fileSystem,
+        _artifacts = artifacts,
+        _operatingSystemUtils = operatingSystemUtils,
+        super(
+          platformType: null,
+          category: null,
+          ephemeral: false,
+        );
 
   final ProcessManager _processManager;
   final FlutterVersion _flutterVersion;
@@ -98,7 +99,7 @@ class FlutterTesterDevice extends Device {
   Future<TargetPlatform> get targetPlatform async => TargetPlatform.tester;
 
   @override
-  void clearLogs() { }
+  void clearLogs() {}
 
   final DesktopLogReader _logReader = DesktopLogReader();
 
@@ -114,13 +115,15 @@ class FlutterTesterDevice extends Device {
   Future<bool> installApp(
     ApplicationPackage app, {
     String? userIdentifier,
-  }) async => true;
+  }) async =>
+      true;
 
   @override
   Future<bool> isAppInstalled(
     ApplicationPackage app, {
     String? userIdentifier,
-  }) async => false;
+  }) async =>
+      false;
 
   @override
   Future<bool> isLatestBuildInstalled(ApplicationPackage app) async => false;
@@ -145,8 +148,8 @@ class FlutterTesterDevice extends Device {
       return LaunchResult.failed();
     }
 
-    final Directory assetDirectory = _fileSystem.systemTempDirectory
-      .createTempSync('flutter_tester.');
+    final Directory assetDirectory =
+        _fileSystem.systemTempDirectory.createTempSync('flutter_tester.');
     final String applicationKernelFilePath = getKernelPathForTransformerOptions(
       _fileSystem.path.join(assetDirectory.path, 'flutter-tester-app.dill'),
       trackWidgetCreation: buildInfo.trackWidgetCreation,
@@ -157,7 +160,8 @@ class FlutterTesterDevice extends Device {
       buildInfo: buildInfo,
       mainPath: mainPath,
       applicationKernelFilePath: applicationKernelFilePath,
-      platform: getTargetPlatformForName(getNameForHostPlatform(_operatingSystemUtils.hostPlatform)),
+      platform: getTargetPlatformForName(
+          getNameForHostPlatform(_operatingSystemUtils.hostPlatform)),
       assetDirPath: assetDirectory.path,
     );
 
@@ -165,12 +169,10 @@ class FlutterTesterDevice extends Device {
       _artifacts.getArtifactPath(Artifact.flutterTester),
       '--run-forever',
       '--non-interactive',
-      if (debuggingOptions.enableDartProfiling)
-        '--enable-dart-profiling',
+      if (debuggingOptions.enableDartProfiling) '--enable-dart-profiling',
       '--packages=${debuggingOptions.buildInfo.packagesPath}',
       '--flutter-assets-dir=${assetDirectory.path}',
-      if (debuggingOptions.startPaused)
-        '--start-paused',
+      if (debuggingOptions.startPaused) '--start-paused',
       if (debuggingOptions.disableServiceAuthCodes)
         '--disable-service-auth-codes',
       if (debuggingOptions.hostVmServicePort != null)
@@ -181,7 +183,8 @@ class FlutterTesterDevice extends Device {
     ProtocolDiscovery? observatoryDiscovery;
     try {
       _logger.printTrace(command.join(' '));
-      _process = await _processManager.start(command,
+      _process = await _processManager.start(
+        command,
         environment: <String, String>{
           'FLUTTER_TEST': 'true',
         },
@@ -229,7 +232,8 @@ class FlutterTesterDevice extends Device {
   Future<bool> uninstallApp(
     ApplicationPackage app, {
     String? userIdentifier,
-  }) async => true;
+  }) async =>
+      true;
 
   @override
   bool isSupportedForProject(FlutterProject flutterProject) => true;
@@ -259,16 +263,16 @@ class FlutterTesterDevices extends PollingDeviceDiscovery {
     required Logger logger,
     required FlutterVersion flutterVersion,
     required OperatingSystemUtils operatingSystemUtils,
-  }) : _testerDevice = FlutterTesterDevice(
-        kTesterDeviceId,
-        fileSystem: fileSystem,
-        artifacts: artifacts,
-        processManager: processManager,
-        logger: logger,
-        flutterVersion: flutterVersion,
-        operatingSystemUtils: operatingSystemUtils,
-      ),
-       super('Flutter tester');
+  })  : _testerDevice = FlutterTesterDevice(
+          kTesterDeviceId,
+          fileSystem: fileSystem,
+          artifacts: artifacts,
+          processManager: processManager,
+          logger: logger,
+          flutterVersion: flutterVersion,
+          operatingSystemUtils: operatingSystemUtils,
+        ),
+        super('Flutter tester');
 
   static const String kTesterDeviceId = 'flutter-tester';
 
@@ -283,7 +287,7 @@ class FlutterTesterDevices extends PollingDeviceDiscovery {
   bool get supportsPlatform => true;
 
   @override
-  Future<List<Device>> pollingGetDevices({ Duration? timeout }) async {
+  Future<List<Device>> pollingGetDevices({Duration? timeout}) async {
     return showFlutterTesterDevice ? <Device>[_testerDevice] : <Device>[];
   }
 

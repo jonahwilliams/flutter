@@ -39,7 +39,8 @@ void main() {
     testUsingContext('no error when no connected devices', () async {
       final DevicesCommand command = DevicesCommand();
       await createTestCommandRunner(command).run(<String>['devices']);
-      expect(testLogger.statusText, containsIgnoringWhitespace('No devices detected'));
+      expect(testLogger.statusText,
+          containsIgnoringWhitespace('No devices detected'));
     }, overrides: <Type, Generator>{
       AndroidSdk: () => null,
       DeviceManager: () => NoDevicesManager(),
@@ -62,10 +63,11 @@ void main() {
 
     testUsingContext('Outputs parsable JSON with --machine flag', () async {
       final DevicesCommand command = DevicesCommand();
-      await createTestCommandRunner(command).run(<String>['devices', '--machine']);
+      await createTestCommandRunner(command)
+          .run(<String>['devices', '--machine']);
       expect(
         json.decode(testLogger.statusText),
-        <Map<String,Object>>[
+        <Map<String, Object>>[
           <String, Object>{
             'name': 'ephemeral',
             'id': 'ephemeral',
@@ -83,7 +85,7 @@ void main() {
               'startPaused': true,
             },
           },
-          <String,Object>{
+          <String, Object>{
             'name': 'webby',
             'id': 'webby',
             'isSupported': true,
@@ -112,17 +114,14 @@ void main() {
     testUsingContext('available devices and diagnostics', () async {
       final DevicesCommand command = DevicesCommand();
       await createTestCommandRunner(command).run(<String>['devices']);
-      expect(
-        testLogger.statusText,
-        '''
+      expect(testLogger.statusText, '''
 2 connected devices:
 
 ephemeral (mobile) • ephemeral • android-arm    • Test SDK (1.2.3) (emulator)
 webby (mobile)     • webby     • web-javascript • Web SDK (1.2.4) (emulator)
 
 • Cannot connect to device ABC
-'''
-      );
+''');
     }, overrides: <Type, Generator>{
       DeviceManager: () => _FakeDeviceManager(),
       ProcessManager: () => FakeProcessManager.any(),
@@ -134,17 +133,16 @@ class _FakeDeviceManager extends DeviceManager {
   _FakeDeviceManager() : super(logger: testLogger);
 
   @override
-  Future<List<Device>> getAllConnectedDevices() =>
-    Future<List<Device>>.value(fakeDevices.map((FakeDeviceJsonData d) => d.dev).toList());
+  Future<List<Device>> getAllConnectedDevices() => Future<List<Device>>.value(
+      fakeDevices.map((FakeDeviceJsonData d) => d.dev).toList());
 
   @override
   Future<List<Device>> refreshAllConnectedDevices({Duration? timeout}) =>
-    getAllConnectedDevices();
+      getAllConnectedDevices();
 
   @override
-  Future<List<String>> getDeviceDiagnostics() => Future<List<String>>.value(
-    <String>['Cannot connect to device ABC']
-  );
+  Future<List<String>> getDeviceDiagnostics() =>
+      Future<List<String>>.value(<String>['Cannot connect to device ABC']);
 
   @override
   List<DeviceDiscovery> get deviceDiscoverers => <DeviceDiscovery>[];
@@ -158,7 +156,7 @@ class NoDevicesManager extends DeviceManager {
 
   @override
   Future<List<Device>> refreshAllConnectedDevices({Duration? timeout}) =>
-    getAllConnectedDevices();
+      getAllConnectedDevices();
 
   @override
   List<DeviceDiscovery> get deviceDiscoverers => <DeviceDiscovery>[];

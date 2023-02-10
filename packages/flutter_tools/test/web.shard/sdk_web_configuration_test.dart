@@ -20,23 +20,29 @@ void main() {
       fileSystem = MemoryFileSystem.test();
       fileSystem.directory('HostArtifact.flutterWebSdk').createSync();
       fileSystem.file('HostArtifact.webPlatformDDCKernelDill').createSync();
-      fileSystem.file('HostArtifact.webPlatformDDCSoundKernelDill').createSync();
+      fileSystem
+          .file('HostArtifact.webPlatformDDCSoundKernelDill')
+          .createSync();
       fileSystem.file('HostArtifact.flutterWebLibrariesJson').createSync();
 
       final SdkWebConfigurationProvider provider =
-        SdkWebConfigurationProvider(Artifacts.test(fileSystem: fileSystem));
+          SdkWebConfigurationProvider(Artifacts.test(fileSystem: fileSystem));
       configuration = await provider.configuration;
     });
 
     testWithoutContext('can be validated', () {
-      SdkWebConfigurationProvider.validate(configuration, fileSystem: fileSystem);
+      SdkWebConfigurationProvider.validate(configuration,
+          fileSystem: fileSystem);
     });
 
     testWithoutContext('is correct', () {
       expect(configuration.sdkDirectory, 'HostArtifact.flutterWebSdk');
-      expect(configuration.weakSdkSummaryPath, 'HostArtifact.webPlatformDDCKernelDill');
-      expect(configuration.soundSdkSummaryPath, 'HostArtifact.webPlatformDDCSoundKernelDill');
-      expect(configuration.librariesPath, 'HostArtifact.flutterWebLibrariesJson');
+      expect(configuration.weakSdkSummaryPath,
+          'HostArtifact.webPlatformDDCKernelDill');
+      expect(configuration.soundSdkSummaryPath,
+          'HostArtifact.webPlatformDDCSoundKernelDill');
+      expect(
+          configuration.librariesPath, 'HostArtifact.flutterWebLibrariesJson');
       expect(configuration.compilerWorkerPath, isNull);
     });
   });

@@ -101,7 +101,8 @@ void main() {
   test('throws on invalid baseHref', () {
     expect(() => IndexHtml('<base href>').getBaseHref(), throwsToolExit());
     expect(() => IndexHtml('<base href="">').getBaseHref(), throwsToolExit());
-    expect(() => IndexHtml('<base href="foo/111">').getBaseHref(), throwsToolExit());
+    expect(() => IndexHtml('<base href="foo/111">').getBaseHref(),
+        throwsToolExit());
     expect(
       () => IndexHtml('<base href="foo/111/">').getBaseHref(),
       throwsToolExit(),

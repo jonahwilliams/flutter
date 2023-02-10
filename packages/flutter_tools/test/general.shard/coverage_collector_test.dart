@@ -17,18 +17,19 @@ import '../src/fake_vm_services.dart';
 import '../src/logging_logger.dart';
 
 void main() {
-  testWithoutContext('Coverage collector Can handle coverage SentinelException', () async {
+  testWithoutContext('Coverage collector Can handle coverage SentinelException',
+      () async {
     final FakeVmServiceHost fakeVmServiceHost = FakeVmServiceHost(
       requests: <VmServiceExpectation>[
         FakeVmServiceRequest(
           method: 'getVM',
           jsonResponse: (VM.parse(<String, Object>{})!
-            ..isolates = <IsolateRef>[
-              IsolateRef.parse(<String, Object>{
-                'id': '1',
-              })!,
-            ]
-          ).toJson(),
+                ..isolates = <IsolateRef>[
+                  IsolateRef.parse(<String, Object>{
+                    'id': '1',
+                  })!,
+                ])
+              .toJson(),
         ),
         FakeVmServiceRequest(
           method: 'getVersion',
@@ -52,22 +53,24 @@ void main() {
       serviceOverride: fakeVmServiceHost.vmService,
     );
 
-    expect(result, <String, Object>{'type': 'CodeCoverage', 'coverage': <Object>[]});
+    expect(result,
+        <String, Object>{'type': 'CodeCoverage', 'coverage': <Object>[]});
     expect(fakeVmServiceHost.hasRemainingExpectations, false);
   });
 
-  testWithoutContext('Coverage collector processes coverage and script data', () async {
+  testWithoutContext('Coverage collector processes coverage and script data',
+      () async {
     final FakeVmServiceHost fakeVmServiceHost = FakeVmServiceHost(
       requests: <VmServiceExpectation>[
         FakeVmServiceRequest(
           method: 'getVM',
           jsonResponse: (VM.parse(<String, Object>{})!
-            ..isolates = <IsolateRef>[
-              IsolateRef.parse(<String, Object>{
-                'id': '1',
-              })!,
-            ]
-          ).toJson(),
+                ..isolates = <IsolateRef>[
+                  IsolateRef.parse(<String, Object>{
+                    'id': '1',
+                  })!,
+                ])
+              .toJson(),
         ),
         FakeVmServiceRequest(
           method: 'getVersion',
@@ -141,8 +144,11 @@ void main() {
     expect(fakeVmServiceHost.hasRemainingExpectations, false);
   });
 
-  testWithoutContext('Coverage collector with null libraryNames accepts all libraries', () async {
-    final FakeVmServiceHost fakeVmServiceHost = createFakeVmServiceHostWithFooAndBar();
+  testWithoutContext(
+      'Coverage collector with null libraryNames accepts all libraries',
+      () async {
+    final FakeVmServiceHost fakeVmServiceHost =
+        createFakeVmServiceHostWithFooAndBar();
 
     final Map<String, Object?> result = await collect(
       Uri(),
@@ -186,12 +192,12 @@ void main() {
         FakeVmServiceRequest(
           method: 'getVM',
           jsonResponse: (VM.parse(<String, Object>{})!
-            ..isolates = <IsolateRef>[
-              IsolateRef.parse(<String, Object>{
-                'id': '1',
-              })!,
-            ]
-          ).toJson(),
+                ..isolates = <IsolateRef>[
+                  IsolateRef.parse(<String, Object>{
+                    'id': '1',
+                  })!,
+                ])
+              .toJson(),
         ),
         FakeVmServiceRequest(
           method: 'getVersion',
@@ -255,18 +261,19 @@ void main() {
     expect(fakeVmServiceHost.hasRemainingExpectations, false);
   });
 
-  testWithoutContext('Coverage collector with libraryFilters and null libraryNames', () async {
+  testWithoutContext(
+      'Coverage collector with libraryFilters and null libraryNames', () async {
     final FakeVmServiceHost fakeVmServiceHost = FakeVmServiceHost(
       requests: <VmServiceExpectation>[
         FakeVmServiceRequest(
           method: 'getVM',
           jsonResponse: (VM.parse(<String, Object>{})!
-            ..isolates = <IsolateRef>[
-              IsolateRef.parse(<String, Object>{
-                'id': '1',
-              })!,
-            ]
-          ).toJson(),
+                ..isolates = <IsolateRef>[
+                  IsolateRef.parse(<String, Object>{
+                    'id': '1',
+                  })!,
+                ])
+              .toJson(),
         ),
         FakeVmServiceRequest(
           method: 'getVersion',
@@ -335,12 +342,12 @@ void main() {
         FakeVmServiceRequest(
           method: 'getVM',
           jsonResponse: (VM.parse(<String, Object>{})!
-            ..isolates = <IsolateRef>[
-              IsolateRef.parse(<String, Object>{
-                'id': '1',
-              })!,
-            ]
-          ).toJson(),
+                ..isolates = <IsolateRef>[
+                  IsolateRef.parse(<String, Object>{
+                    'id': '1',
+                  })!,
+                ])
+              .toJson(),
         ),
         FakeVmServiceRequest(
           method: 'getVersion',
@@ -423,39 +430,46 @@ void main() {
   testWithoutContext('Coverage collector caches read files', () async {
     Directory? tempDir;
     try {
-      tempDir = Directory.systemTemp.createTempSync('flutter_coverage_collector_test.');
+      tempDir = Directory.systemTemp
+          .createTempSync('flutter_coverage_collector_test.');
       final File packagesFile = writeFooBarPackagesJson(tempDir);
       final Directory fooDir = Directory('${tempDir.path}/foo/');
       fooDir.createSync();
       final File fooFile = File('${fooDir.path}/foo.dart');
-      fooFile.writeAsStringSync('hit\nnohit but ignored // coverage:ignore-line\nhit\n');
+      fooFile.writeAsStringSync(
+          'hit\nnohit but ignored // coverage:ignore-line\nhit\n');
 
       final String packagesPath = packagesFile.path;
       final CoverageCollector collector = CoverageCollector(
           libraryNames: <String>{'foo', 'bar'},
           verbose: false,
           packagesPath: packagesPath,
-          resolver: await CoverageCollector.getResolver(packagesPath)
-        );
+          resolver: await CoverageCollector.getResolver(packagesPath));
       await collector.collectCoverage(
-          TestTestDevice(),
-          serviceOverride: createFakeVmServiceHostWithFooAndBar(libraryFilters: <String>['package:foo/', 'package:bar/']).vmService,
-        );
+        TestTestDevice(),
+        serviceOverride: createFakeVmServiceHostWithFooAndBar(
+            libraryFilters: <String>['package:foo/', 'package:bar/']).vmService,
+      );
 
       Future<void> getHitMapAndVerify() async {
         final Map<String, HitMap> gottenHitmap = <String, HitMap>{};
-        await collector.finalizeCoverage(formatter: (Map<String, HitMap> hitmap) {
+        await collector.finalizeCoverage(
+            formatter: (Map<String, HitMap> hitmap) {
           gottenHitmap.addAll(hitmap);
           return '';
         });
-        expect(gottenHitmap.keys.toList()..sort(), <String>['package:bar/bar.dart', 'package:foo/foo.dart']);
-        expect(gottenHitmap['package:foo/foo.dart']!.lineHits, <int, int>{1: 1, /* 2: 0, is ignored in file */ 3: 1});
-        expect(gottenHitmap['package:bar/bar.dart']!.lineHits, <int, int>{21: 1, 32: 0, 47: 1, 86: 0});
+        expect(gottenHitmap.keys.toList()..sort(),
+            <String>['package:bar/bar.dart', 'package:foo/foo.dart']);
+        expect(gottenHitmap['package:foo/foo.dart']!.lineHits,
+            <int, int>{1: 1, /* 2: 0, is ignored in file */ 3: 1});
+        expect(gottenHitmap['package:bar/bar.dart']!.lineHits,
+            <int, int>{21: 1, 32: 0, 47: 1, 86: 0});
       }
 
       Future<void> verifyHitmapEmpty() async {
         final Map<String, HitMap> gottenHitmap = <String, HitMap>{};
-        await collector.finalizeCoverage(formatter: (Map<String, HitMap> hitmap) {
+        await collector.finalizeCoverage(
+            formatter: (Map<String, HitMap> hitmap) {
           gottenHitmap.addAll(hitmap);
           return '';
         });
@@ -472,9 +486,10 @@ void main() {
       // This means that the fact that line 2 was ignored has been cached.
       fooFile.deleteSync();
       await collector.collectCoverage(
-          TestTestDevice(),
-          serviceOverride: createFakeVmServiceHostWithFooAndBar(libraryFilters: <String>['package:foo/', 'package:bar/']).vmService,
-        );
+        TestTestDevice(),
+        serviceOverride: createFakeVmServiceHostWithFooAndBar(
+            libraryFilters: <String>['package:foo/', 'package:bar/']).vmService,
+      );
       await getHitMapAndVerify();
     } finally {
       tempDir?.deleteSync(recursive: true);
@@ -484,46 +499,54 @@ void main() {
   testWithoutContext('Coverage collector respects ignore whole file', () async {
     Directory? tempDir;
     try {
-      tempDir = Directory.systemTemp.createTempSync('flutter_coverage_collector_test.');
+      tempDir = Directory.systemTemp
+          .createTempSync('flutter_coverage_collector_test.');
       final File packagesFile = writeFooBarPackagesJson(tempDir);
       final Directory fooDir = Directory('${tempDir.path}/foo/');
       fooDir.createSync();
       final File fooFile = File('${fooDir.path}/foo.dart');
-      fooFile.writeAsStringSync('hit\nnohit but ignored // coverage:ignore-file\nhit\n');
+      fooFile.writeAsStringSync(
+          'hit\nnohit but ignored // coverage:ignore-file\nhit\n');
 
       final String packagesPath = packagesFile.path;
       final CoverageCollector collector = CoverageCollector(
           libraryNames: <String>{'foo', 'bar'},
           verbose: false,
           packagesPath: packagesPath,
-          resolver: await CoverageCollector.getResolver(packagesPath)
-        );
+          resolver: await CoverageCollector.getResolver(packagesPath));
       await collector.collectCoverage(
-          TestTestDevice(),
-          serviceOverride: createFakeVmServiceHostWithFooAndBar(libraryFilters: <String>['package:foo/', 'package:bar/']).vmService,
-        );
+        TestTestDevice(),
+        serviceOverride: createFakeVmServiceHostWithFooAndBar(
+            libraryFilters: <String>['package:foo/', 'package:bar/']).vmService,
+      );
 
       final Map<String, HitMap> gottenHitmap = <String, HitMap>{};
       await collector.finalizeCoverage(formatter: (Map<String, HitMap> hitmap) {
         gottenHitmap.addAll(hitmap);
         return '';
       });
-      expect(gottenHitmap.keys.toList()..sort(), <String>['package:bar/bar.dart']);
-      expect(gottenHitmap['package:bar/bar.dart']!.lineHits, <int, int>{21: 1, 32: 0, 47: 1, 86: 0});
+      expect(
+          gottenHitmap.keys.toList()..sort(), <String>['package:bar/bar.dart']);
+      expect(gottenHitmap['package:bar/bar.dart']!.lineHits,
+          <int, int>{21: 1, 32: 0, 47: 1, 86: 0});
     } finally {
       tempDir?.deleteSync(recursive: true);
     }
   });
 
-  testWithoutContext('Coverage collector records test timings when provided TestTimeRecorder', () async {
+  testWithoutContext(
+      'Coverage collector records test timings when provided TestTimeRecorder',
+      () async {
     Directory? tempDir;
     try {
-      tempDir = Directory.systemTemp.createTempSync('flutter_coverage_collector_test.');
+      tempDir = Directory.systemTemp
+          .createTempSync('flutter_coverage_collector_test.');
       final File packagesFile = writeFooBarPackagesJson(tempDir);
       final Directory fooDir = Directory('${tempDir.path}/foo/');
       fooDir.createSync();
       final File fooFile = File('${fooDir.path}/foo.dart');
-      fooFile.writeAsStringSync('hit\nnohit but ignored // coverage:ignore-line\nhit\n');
+      fooFile.writeAsStringSync(
+          'hit\nnohit but ignored // coverage:ignore-line\nhit\n');
 
       final String packagesPath = packagesFile.path;
       final LoggingLogger logger = LoggingLogger();
@@ -533,20 +556,25 @@ void main() {
           verbose: false,
           packagesPath: packagesPath,
           resolver: await CoverageCollector.getResolver(packagesPath),
-          testTimeRecorder: testTimeRecorder
-        );
+          testTimeRecorder: testTimeRecorder);
       await collector.collectCoverage(
-          TestTestDevice(),
-          serviceOverride: createFakeVmServiceHostWithFooAndBar(libraryFilters: <String>['package:foo/', 'package:bar/']).vmService,
-        );
+        TestTestDevice(),
+        serviceOverride: createFakeVmServiceHostWithFooAndBar(
+            libraryFilters: <String>['package:foo/', 'package:bar/']).vmService,
+      );
 
       // Expect one message for each phase.
-      final List<String> logPhaseMessages = testTimeRecorder.getPrintAsListForTesting().where((String m) => m.startsWith('Runtime for phase ')).toList();
+      final List<String> logPhaseMessages = testTimeRecorder
+          .getPrintAsListForTesting()
+          .where((String m) => m.startsWith('Runtime for phase '))
+          .toList();
       expect(logPhaseMessages, hasLength(TestTimePhases.values.length));
 
       // Several phases actually does something, but here we just expect at
       // least one phase to take a non-zero amount of time.
-      final List<String> logPhaseMessagesNonZero = logPhaseMessages.where((String m) => !m.contains(Duration.zero.toString())).toList();
+      final List<String> logPhaseMessagesNonZero = logPhaseMessages
+          .where((String m) => !m.contains(Duration.zero.toString()))
+          .toList();
       expect(logPhaseMessagesNonZero, isNotEmpty);
     } finally {
       tempDir?.deleteSync(recursive: true);
@@ -573,19 +601,19 @@ File writeFooBarPackagesJson(Directory tempDir) {
 }
 
 FakeVmServiceHost createFakeVmServiceHostWithFooAndBar({
-    List<String>? libraryFilters,
-  }) {
+  List<String>? libraryFilters,
+}) {
   return FakeVmServiceHost(
     requests: <VmServiceExpectation>[
       FakeVmServiceRequest(
         method: 'getVM',
         jsonResponse: (VM.parse(<String, Object>{})!
-          ..isolates = <IsolateRef>[
-            IsolateRef.parse(<String, Object>{
-              'id': '1',
-            })!,
-          ]
-        ).toJson(),
+              ..isolates = <IsolateRef>[
+                IsolateRef.parse(<String, Object>{
+                  'id': '1',
+                })!,
+              ])
+            .toJson(),
       ),
       FakeVmServiceRequest(
         method: 'getVersion',

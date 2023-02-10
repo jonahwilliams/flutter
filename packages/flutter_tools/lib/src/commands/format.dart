@@ -30,7 +30,8 @@ class FormatCommand extends FlutterCommand {
   String get category => FlutterCommandCategory.project;
 
   @override
-  String get invocation => '${runner?.executableName} $name <one or more paths>';
+  String get invocation =>
+      '${runner?.executableName} $name <one or more paths>';
 
   @override
   final bool deprecated = true;
@@ -38,31 +39,27 @@ class FormatCommand extends FlutterCommand {
   @override
   String get deprecationWarning {
     return '${globals.logger.terminal.warningMark} The "format" command is '
-           'deprecated and will be removed in a future version of Flutter. '
-           'Please use the "dart format" sub-command instead, which takes all '
-           'of the same command-line arguments as "flutter format".\n';
+        'deprecated and will be removed in a future version of Flutter. '
+        'Please use the "dart format" sub-command instead, which takes all '
+        'of the same command-line arguments as "flutter format".\n';
   }
 
   @override
   Future<FlutterCommandResult> runCommand() async {
-    final String dartBinary = globals.artifacts!.getArtifactPath(Artifact.engineDartBinary);
+    final String dartBinary =
+        globals.artifacts!.getArtifactPath(Artifact.engineDartBinary);
     final List<String> command = <String>[
       dartBinary,
       'format',
     ];
     final List<String> rest = argResults?.rest ?? <String>[];
     if (rest.isEmpty) {
-      globals.printError(
-        'No files specified to be formatted.'
-      );
+      globals.printError('No files specified to be formatted.');
       command.add('-h');
     } else {
       command.addAll(<String>[
         for (String arg in rest)
-          if (arg == '--dry-run' || arg == '-n')
-            '--output=none'
-          else
-            arg,
+          if (arg == '--dry-run' || arg == '-n') '--output=none' else arg,
       ]);
     }
 

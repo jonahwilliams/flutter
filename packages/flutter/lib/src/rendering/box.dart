@@ -248,6 +248,17 @@ class BoxConstraints extends Constraints {
     );
   }
 
+  /// Converts the [BoxConstraints] to physical pixel coordinates and rounds to
+  /// the nearest integral value.
+  BoxConstraints convertToPhysicalPixels(double dpr) {
+    return BoxConstraints(
+      minWidth: (minWidth * dpr).roundToDouble(),
+      maxWidth: (maxWidth * dpr).roundToDouble(),
+      minHeight: (minHeight * dpr).roundToDouble(),
+      maxHeight: (maxHeight* dpr).roundToDouble(),
+    );
+  }
+
   /// Returns box constraints with the same width constraints but with
   /// unconstrained height.
   BoxConstraints widthConstraints() => BoxConstraints(minWidth: minWidth, maxWidth: maxWidth);

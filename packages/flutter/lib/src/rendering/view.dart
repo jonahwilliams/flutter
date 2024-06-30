@@ -256,7 +256,7 @@ class RenderView extends RenderObject with RenderObjectWithChildMixin<RenderBox>
 
   TransformLayer _updateMatricesAndCreateNewRootLayer() {
     assert(hasConfiguration);
-    _rootTransform = configuration.toMatrix();
+    _rootTransform = kPhysicalPixelLayout ? Matrix4.identity() : configuration.toMatrix();
     final TransformLayer rootLayer = TransformLayer(transform: _rootTransform);
     rootLayer.attach(this);
     assert(_rootTransform != null);

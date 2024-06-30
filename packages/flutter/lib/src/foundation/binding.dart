@@ -26,6 +26,9 @@ export 'dart:ui' show PlatformDispatcher, SingletonFlutterWindow, clampDouble;
 
 export 'basic_types.dart' show AsyncCallback, AsyncValueGetter, AsyncValueSetter;
 
+/// probably put this somewhere else.
+const bool kPhysicalPixelLayout = bool.fromEnvironment('flutter.layout.physical_pixels');
+
 // Examples can assume:
 // mixin BarBinding on BindingBase { }
 

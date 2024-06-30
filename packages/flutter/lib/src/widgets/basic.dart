@@ -15,6 +15,7 @@ import 'binding.dart';
 import 'debug.dart';
 import 'framework.dart';
 import 'localizations.dart';
+import 'media_query.dart';
 import 'visibility.dart';
 import 'widget_span.dart';
 
@@ -2504,12 +2505,19 @@ class ConstrainedBox extends SingleChildRenderObjectWidget {
 
   @override
   RenderConstrainedBox createRenderObject(BuildContext context) {
+    if (kPhysicalPixelLayout) {
+      return RenderConstrainedBox(additionalConstraints: constraints.convertToPhysicalPixels(MediaQuery.devicePixelRatioOf(context)));
+    }
     return RenderConstrainedBox(additionalConstraints: constraints);
   }
 
   @override
   void updateRenderObject(BuildContext context, RenderConstrainedBox renderObject) {
-    renderObject.additionalConstraints = constraints;
+    if (kPhysicalPixelLayout) {
+      renderObject.additionalConstraints = constraints.convertToPhysicalPixels(MediaQuery.devicePixelRatioOf(context));
+    } else {
+      renderObject.additionalConstraints = constraints;
+    }
   }
 
   @override

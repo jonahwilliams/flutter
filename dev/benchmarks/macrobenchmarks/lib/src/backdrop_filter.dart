@@ -38,6 +38,7 @@ class _BackdropFilterPageState extends State<BackdropFilterPage> with TickerProv
         return ClipRect(
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
+            backdropId: 1,
             child: child,
           ),
         );

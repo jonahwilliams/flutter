@@ -565,6 +565,7 @@ class BackdropFilter extends SingleChildRenderObjectWidget {
     required this.filter,
     super.child,
     this.blendMode = BlendMode.srcOver,
+    this.backdropId = -1,
     this.enabled = true,
   });
 
@@ -587,9 +588,11 @@ class BackdropFilter extends SingleChildRenderObjectWidget {
   /// type for performance reasons.
   final bool enabled;
 
+  final int backdropId;
+
   @override
   RenderBackdropFilter createRenderObject(BuildContext context) {
-    return RenderBackdropFilter(filter: filter, blendMode: blendMode, enabled: enabled);
+    return RenderBackdropFilter(filter: filter, blendMode: blendMode, enabled: enabled, backdropId: backdropId);
   }
 
   @override
@@ -597,6 +600,7 @@ class BackdropFilter extends SingleChildRenderObjectWidget {
     renderObject
       ..filter = filter
       ..enabled = enabled
+      ..backdropId = backdropId
       ..blendMode = blendMode;
   }
 }

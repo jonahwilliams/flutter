@@ -1,16 +1,56 @@
-// Copyright 2014 The Flutter Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
+import 'package:flutter/material.dart';
 
-import 'package:flutter/widgets.dart';
+class BlurTestWidget extends StatelessWidget {
+  const BlurTestWidget({super.key});
 
-void main() =>
-  runApp(
-    const Center(
-      child:
-        Text('Hello, world!',
-          key: Key('title'),
-          textDirection: TextDirection.ltr,
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          const SliverAppBar(
+            title: Text('Blur + Gradient Test'),
+          ),
+        ],
+        body: CustomScrollView(
+          physics: const BouncingScrollPhysics(decelerationRate: ScrollDecelerationRate.fast),
+          slivers: List.filled(
+            5,
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: AspectRatio(
+                  aspectRatio: 2,
+                  child: CustomPaint(painter: _BlurTestPainter()),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
+  }
+}
+
+class _BlurTestPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+
+    final shader = const LinearGradient(
+      colors: [Colors.red, Colors.blue],
+    ).createShader(rect);
+
+    var paint = Paint()
+      ..shader = shader
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10.0)
+      ..strokeWidth = 20
+      ..style = PaintingStyle.stroke;
+
+    canvas.drawOval(rect, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _BlurTestPainter o) => true;
+}
+

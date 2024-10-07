@@ -2204,8 +2204,10 @@ class BackdropFilterLayer extends ContainerLayer {
   BackdropFilterLayer({
     ui.ImageFilter? filter,
     BlendMode blendMode = BlendMode.srcOver,
+    int backdropId = -1,
   }) : _filter = filter,
-       _blendMode = blendMode;
+       _blendMode = blendMode,
+      _backdropId = backdropId;
 
   /// The filter to apply to the existing contents of the scene.
   ///
@@ -2237,6 +2239,15 @@ class BackdropFilterLayer extends ContainerLayer {
     }
   }
 
+  int get backdropId => _backdropId;
+  int _backdropId;
+  set backdropId(int value) {
+    if (value != backdropId) {
+      _backdropId = value;
+      markNeedsAddToScene();
+    }
+  }
+
   @override
   void addToScene(ui.SceneBuilder builder) {
     assert(filter != null);
@@ -2244,6 +2255,7 @@ class BackdropFilterLayer extends ContainerLayer {
       filter!,
       blendMode: blendMode,
       oldLayer: _engineLayer as ui.BackdropFilterEngineLayer?,
+      backdropId: _backdropId,
     );
     addChildrenToScene(builder);
     builder.pop();
@@ -2254,6 +2266,7 @@ class BackdropFilterLayer extends ContainerLayer {
     super.debugFillProperties(properties);
     properties.add(DiagnosticsProperty<ui.ImageFilter>('filter', filter));
     properties.add(EnumProperty<BlendMode>('blendMode', blendMode));
+    properties.add(IntProperty('backdropId', _backdropId));
   }
 }
 

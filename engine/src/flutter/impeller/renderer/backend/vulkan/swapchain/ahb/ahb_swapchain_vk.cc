@@ -17,17 +17,19 @@ bool AHBSwapchainVK::IsAvailableOnPlatform() {
          android::HardwareBuffer::IsAvailableOnPlatform();
 }
 
-AHBSwapchainVK::AHBSwapchainVK(const std::shared_ptr<Context>& context,
-                               ANativeWindow* window,
-                               const CreateTransactionCB& cb,
-                               const vk::UniqueSurfaceKHR& surface,
-                               const ISize& size,
-                               bool enable_msaa)
+AHBSwapchainVK::AHBSwapchainVK(
+    const std::shared_ptr<Context>& context,
+    ANativeWindow* window,
+    const std::shared_ptr<android::SurfaceTranactionFactory>&
+        surface_transaction_factory,
+    const vk::UniqueSurfaceKHR& surface,
+    const ISize& size,
+    bool enable_msaa)
     : context_(context),
       surface_control_(
           std::make_shared<android::SurfaceControl>(window, "ImpellerSurface")),
       enable_msaa_(enable_msaa),
-      cb_(cb) {
+      surface_transaction_factory_(surface_transaction_factory) {
   const auto [caps_result, surface_caps] =
       ContextVK::Cast(*context).GetPhysicalDevice().getSurfaceCapabilitiesKHR(
           *surface);
@@ -80,12 +82,12 @@ void AHBSwapchainVK::UpdateSurfaceSize(const ISize& size) {
     return;
   }
   TRACE_EVENT0("impeller", __FUNCTION__);
-  auto impl = AHBSwapchainImplVK::Create(context_,               //
-                                         surface_control_,       //
-                                         cb_,                    //
-                                         size,                   //
-                                         enable_msaa_,           //
-                                         swapchain_image_count_  //
+  auto impl = AHBSwapchainImplVK::Create(context_,                      //
+                                         surface_control_,              //
+                                         surface_transaction_factory_,  //
+                                         size,                          //
+                                         enable_msaa_,                  //
+                                         swapchain_image_count_         //
   );
   if (!impl || !impl->IsValid()) {
     VALIDATION_LOG << "Could not resize swapchain to size: " << size;

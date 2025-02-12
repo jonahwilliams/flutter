@@ -21,10 +21,6 @@
 
 namespace impeller {
 
-#if FML_OS_ANDROID
-using CreateTransactionCB = std::function<android::SurfaceTransaction()>;
-#endif  // FML_OS_ANDROID
-
 //------------------------------------------------------------------------------
 /// @brief      A swapchain that adapts to the underlying surface going out of
 ///             date. If the caller cannot acquire the next drawable, it is due
@@ -43,7 +39,8 @@ class SwapchainVK {
   static std::shared_ptr<SwapchainVK> Create(
       const std::shared_ptr<Context>& context,
       ANativeWindow* window,
-      const CreateTransactionCB& cb,
+      const std::shared_ptr<android::SurfaceTranactionFactory>&
+          surface_transaction_factory,
       bool enable_msaa = true);
 #endif  // FML_OS_ANDROID
 

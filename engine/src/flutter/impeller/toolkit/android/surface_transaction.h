@@ -157,6 +157,23 @@ class SurfaceTransaction {
       transaction_;
 };
 
+class SurfaceTranactionFactory {
+ public:
+  using SurfaceTransactionFactory = std::function<SurfaceTransaction()>;
+
+  explicit SurfaceTranactionFactory(const SurfaceTransactionFactory&);
+
+  ~SurfaceTranactionFactory();
+
+  SurfaceTransaction CreateTransaction();
+
+  void SetUseFactory(bool value);
+
+ private:
+  SurfaceTransactionFactory factory_;
+  bool use_factory_ = false;
+};
+
 }  // namespace impeller::android
 
 #endif  // FLUTTER_IMPELLER_TOOLKIT_ANDROID_SURFACE_TRANSACTION_H_

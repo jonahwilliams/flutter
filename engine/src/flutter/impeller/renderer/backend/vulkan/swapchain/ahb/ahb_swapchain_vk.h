@@ -13,8 +13,6 @@
 
 namespace impeller {
 
-using CreateTransactionCB = std::function<android::SurfaceTransaction()>;
-
 //------------------------------------------------------------------------------
 /// @brief      The implementation of a swapchain that uses hardware buffers
 ///             presented to a given surface control on Android.
@@ -60,15 +58,18 @@ class AHBSwapchainVK final : public SwapchainVK {
   std::shared_ptr<android::SurfaceControl> surface_control_;
   const bool enable_msaa_;
   size_t swapchain_image_count_ = 3u;
-  CreateTransactionCB cb_;
+  std::shared_ptr<android::SurfaceTranactionFactory>
+      surface_transaction_factory_;
   std::shared_ptr<AHBSwapchainImplVK> impl_;
 
-  explicit AHBSwapchainVK(const std::shared_ptr<Context>& context,
-                          ANativeWindow* window,
-                          const CreateTransactionCB& cb,
-                          const vk::UniqueSurfaceKHR& surface,
-                          const ISize& size,
-                          bool enable_msaa);
+  explicit AHBSwapchainVK(
+      const std::shared_ptr<Context>& context,
+      ANativeWindow* window,
+      const std::shared_ptr<android::SurfaceTranactionFactory>&
+          surface_transaction_factory,
+      const vk::UniqueSurfaceKHR& surface,
+      const ISize& size,
+      bool enable_msaa);
 };
 
 }  // namespace impeller

@@ -94,15 +94,16 @@ bool AndroidSurfaceVKImpeller::SetNativeWindow(
     return false;
   }
 
-  impeller::CreateTransactionCB cb = [jni_facade]() {
-    ASurfaceTransaction* tx = jni_facade->createTransaction();
-    return impeller::android::SurfaceTransaction(tx);
-  };
+  auto factory = std::make_shared<impeller::android::SurfaceTranactionFactory>(
+      [jni_facade]() {
+        ASurfaceTransaction* tx = jni_facade->createTransaction();
+        return impeller::android::SurfaceTransaction(tx);
+      });
 
   auto swapchain = impeller::SwapchainVK::Create(
       std::reinterpret_pointer_cast<impeller::Context>(
           surface_context_vk_->GetParent()),
-      window->handle(), cb);
+      window->handle(), factory);
 
   if (surface_context_vk_->SetSwapchain(std::move(swapchain))) {
     native_window_ = std::move(window);

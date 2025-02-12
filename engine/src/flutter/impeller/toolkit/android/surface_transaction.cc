@@ -117,4 +117,21 @@ bool SurfaceTransaction::IsAvailableOnPlatform() {
          GetProcTable().ASurfaceTransaction_create.IsAvailable();
 }
 
+SurfaceTranactionFactory::SurfaceTranactionFactory(
+    const SurfaceTransactionFactory& factory)
+    : factory_(factory) {}
+
+SurfaceTranactionFactory::~SurfaceTranactionFactory() = default;
+
+SurfaceTransaction SurfaceTranactionFactory::CreateTransaction() {
+  if (use_factory_) {
+    return factory_();
+  }
+  return SurfaceTransaction(GetProcTable().ASurfaceTransaction_create());
+}
+
+void SurfaceTranactionFactory::SetUseFactory(bool value) {
+  use_factory_ = value;
+}
+
 }  // namespace impeller::android

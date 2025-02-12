@@ -41930,6 +41930,10 @@ ORIGIN: ../../../flutter/impeller/geometry/rect.cc + ../../../flutter/LICENSE
 ORIGIN: ../../../flutter/impeller/geometry/rect.h + ../../../flutter/LICENSE
 ORIGIN: ../../../flutter/impeller/geometry/round_rect.cc + ../../../flutter/LICENSE
 ORIGIN: ../../../flutter/impeller/geometry/round_rect.h + ../../../flutter/LICENSE
+ORIGIN: ../../../flutter/impeller/geometry/round_superellipse.cc + ../../../flutter/LICENSE
+ORIGIN: ../../../flutter/impeller/geometry/round_superellipse.h + ../../../flutter/LICENSE
+ORIGIN: ../../../flutter/impeller/geometry/round_superellipse_param.cc + ../../../flutter/LICENSE
+ORIGIN: ../../../flutter/impeller/geometry/round_superellipse_param.h + ../../../flutter/LICENSE
 ORIGIN: ../../../flutter/impeller/geometry/rounding_radii.cc + ../../../flutter/LICENSE
 ORIGIN: ../../../flutter/impeller/geometry/rounding_radii.h + ../../../flutter/LICENSE
 ORIGIN: ../../../flutter/impeller/geometry/rstransform.cc + ../../../flutter/LICENSE
@@ -44897,6 +44901,10 @@ FILE: ../../../flutter/impeller/geometry/rect.cc
 FILE: ../../../flutter/impeller/geometry/rect.h
 FILE: ../../../flutter/impeller/geometry/round_rect.cc
 FILE: ../../../flutter/impeller/geometry/round_rect.h
+FILE: ../../../flutter/impeller/geometry/round_superellipse.cc
+FILE: ../../../flutter/impeller/geometry/round_superellipse.h
+FILE: ../../../flutter/impeller/geometry/round_superellipse_param.cc
+FILE: ../../../flutter/impeller/geometry/round_superellipse_param.h
 FILE: ../../../flutter/impeller/geometry/rounding_radii.cc
 FILE: ../../../flutter/impeller/geometry/rounding_radii.h
 FILE: ../../../flutter/impeller/geometry/rstransform.cc

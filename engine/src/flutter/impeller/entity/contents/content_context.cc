@@ -277,27 +277,6 @@ ContentContext::ContentContext(
     return;
   }
 
-  {
-    TextureDescriptor desc;
-    desc.storage_mode = StorageMode::kDevicePrivate;
-    desc.format = PixelFormat::kR8G8B8A8UNormInt;
-    desc.size = ISize{1, 1};
-    empty_texture_ = GetContext()->GetResourceAllocator()->CreateTexture(desc);
-    auto data = Color::BlackTransparent().ToR8G8B8A8();
-    auto cmd_buffer = GetContext()->CreateCommandBuffer();
-    auto blit_pass = cmd_buffer->CreateBlitPass();
-    auto& host_buffer = GetTransientsBuffer();
-    auto buffer_view = host_buffer.Emplace(data);
-    blit_pass->AddCopy(buffer_view, empty_texture_);
-
-    if (!blit_pass->EncodeCommands() || !GetContext()
-                                             ->GetCommandQueue()
-                                             ->Submit({std::move(cmd_buffer)})
-                                             .ok()) {
-      VALIDATION_LOG << "Failed to create empty texture.";
-    }
-  }
-
   auto options = ContentContextOptions{
       .sample_count = SampleCount::kCount4,
       .color_attachment_pixel_format =
@@ -532,10 +511,6 @@ ContentContext::~ContentContext() = default;
 
 bool ContentContext::IsValid() const {
   return is_valid_;
-}
-
-std::shared_ptr<Texture> ContentContext::GetEmptyTexture() const {
-  return empty_texture_;
 }
 
 fml::StatusOr<RenderTarget> ContentContext::MakeSubpass(

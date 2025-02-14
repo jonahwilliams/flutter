@@ -110,8 +110,6 @@ bool VerticesSimpleBlendContents::Render(const ContentContext& renderer,
     } else {
       texture = texture_;
     }
-  } else {
-    texture = renderer.GetEmptyTexture();
   }
   if (!texture) {
     VALIDATION_LOG << "Missing texture for VerticesSimpleBlendContents";
@@ -131,8 +129,10 @@ bool VerticesSimpleBlendContents::Render(const ContentContext& renderer,
           dst_sampler_descriptor);
 
   GeometryResult geometry_result = geometry_->GetPositionUVColorBuffer(
-      lazy_texture_coverage_.has_value() ? lazy_texture_coverage_.value()
-                                         : Rect::MakeSize(texture->GetSize()),
+      lazy_texture_coverage_.has_value()
+          ? lazy_texture_coverage_.value()
+          : Rect::MakeSize(texture == nullptr ? ISize{0, 0}
+                                              : texture->GetSize()),
       inverse_matrix_, renderer, entity, pass);
   if (geometry_result.vertex_buffer.vertex_count == 0) {
     return true;
@@ -156,7 +156,9 @@ bool VerticesSimpleBlendContents::Render(const ContentContext& renderer,
     pass.SetPipeline(
         renderer.GetPorterDuffPipeline(inverted_blend_mode, options));
 
-    FS::BindTextureSamplerDst(pass, texture, dst_sampler);
+    if (blend_mode != BlendMode::kDestination) {
+      FS::BindTextureSamplerDst(pass, texture, dst_sampler);
+    }
 
     VS::FrameInfo frame_info;
     FS::FragInfo frag_info;

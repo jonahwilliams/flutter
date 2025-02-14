@@ -111,10 +111,6 @@ bool VerticesSimpleBlendContents::Render(const ContentContext& renderer,
       texture = texture_;
     }
   }
-  if (!texture) {
-    VALIDATION_LOG << "Missing texture for VerticesSimpleBlendContents";
-    return false;
-  }
 
   auto dst_sampler_descriptor = descriptor_;
   dst_sampler_descriptor.width_address_mode =
@@ -156,14 +152,13 @@ bool VerticesSimpleBlendContents::Render(const ContentContext& renderer,
     pass.SetPipeline(
         renderer.GetPorterDuffPipeline(inverted_blend_mode, options));
 
-    if (blend_mode != BlendMode::kDestination) {
-      FS::BindTextureSamplerDst(pass, texture, dst_sampler);
-    }
-
     VS::FrameInfo frame_info;
     FS::FragInfo frag_info;
 
-    frame_info.texture_sampler_y_coord_scale = texture->GetYCoordScale();
+    if (blend_mode != BlendMode::kDestination) {
+      frame_info.texture_sampler_y_coord_scale = texture->GetYCoordScale();
+      FS::BindTextureSamplerDst(pass, texture, dst_sampler);
+    }
     frame_info.mvp = geometry_result.transform;
 
     frag_info.output_alpha = alpha_;

@@ -122,38 +122,6 @@ bool AllocatorMTL::IsValid() const {
   return is_valid_;
 }
 
-static MTLResourceOptions ToMTLResourceOptions(StorageMode type,
-                                               bool supports_memoryless_targets,
-                                               bool supports_uma) {
-  switch (type) {
-    case StorageMode::kHostVisible:
-#if FML_OS_IOS
-      return MTLResourceStorageModeShared;
-#else
-      if (supports_uma) {
-        return MTLResourceStorageModeShared;
-      } else {
-        return MTLResourceStorageModeManaged;
-      }
-#endif
-    case StorageMode::kDevicePrivate:
-      return MTLResourceStorageModePrivate;
-    case StorageMode::kDeviceTransient:
-      if (supports_memoryless_targets) {
-        // Device may support but the OS has not been updated.
-        if (@available(macOS 11.0, *)) {
-          return MTLResourceStorageModeMemoryless;
-        } else {
-          return MTLResourceStorageModePrivate;
-        }
-      } else {
-        return MTLResourceStorageModePrivate;
-      }
-      FML_UNREACHABLE();
-  }
-  FML_UNREACHABLE();
-}
-
 static MTLStorageMode ToMTLStorageMode(StorageMode mode,
                                        bool supports_memoryless_targets,
                                        bool supports_uma) {
@@ -186,11 +154,26 @@ static MTLStorageMode ToMTLStorageMode(StorageMode mode,
   FML_UNREACHABLE();
 }
 
+static MTLStorageMode ToMTLStorageModeBuffer(StorageMode mode,
+                                             bool supports_memoryless_targets,
+                                             bool supports_uma) {
+  switch (mode) {
+    case StorageMode::kHostVisible:
+      return MTLStorageModeShared;
+    case StorageMode::kDevicePrivate:
+      return MTLStorageModePrivate;
+    case StorageMode::kDeviceTransient:
+      VALIDATION_LOG << "Cannot create device transient buffers";
+      return MTLStorageModePrivate;
+  }
+  FML_UNREACHABLE();
+}
+
 std::shared_ptr<DeviceBuffer> AllocatorMTL::OnCreateBuffer(
     const DeviceBufferDescriptor& desc) {
-  const auto resource_options = ToMTLResourceOptions(
+  const auto resource_options = ToMTLStorageModeBuffer(
       desc.storage_mode, supports_memoryless_targets_, supports_uma_);
-  const auto storage_mode = ToMTLStorageMode(
+  const auto storage_mode = ToMTLStorageModeBuffer(
       desc.storage_mode, supports_memoryless_targets_, supports_uma_);
 
   auto buffer = [device_ newBufferWithLength:desc.size

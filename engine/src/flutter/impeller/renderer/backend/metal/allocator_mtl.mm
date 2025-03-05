@@ -173,18 +173,17 @@ std::shared_ptr<DeviceBuffer> AllocatorMTL::OnCreateBuffer(
     const DeviceBufferDescriptor& desc) {
   const auto resource_options = ToMTLStorageModeBuffer(
       desc.storage_mode, supports_memoryless_targets_, supports_uma_);
-  const auto storage_mode = ToMTLStorageModeBuffer(
-      desc.storage_mode, supports_memoryless_targets_, supports_uma_);
 
   auto buffer = [device_ newBufferWithLength:desc.size
                                      options:resource_options];
   if (!buffer) {
     return nullptr;
   }
-  return std::shared_ptr<DeviceBufferMTL>(new DeviceBufferMTL(desc,         //
-                                                              buffer,       //
-                                                              storage_mode  //
-                                                              ));
+  return std::shared_ptr<DeviceBufferMTL>(new DeviceBufferMTL(
+      desc,             //
+      buffer,           //
+      resource_options  //
+      ));
 }
 
 std::shared_ptr<Texture> AllocatorMTL::OnCreateTexture(

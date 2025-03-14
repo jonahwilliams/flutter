@@ -5,9 +5,14 @@
 #include "impeller/renderer/backend/vulkan/texture_vk.h"
 
 #include "impeller/core/texture_descriptor.h"
+#include "impeller/renderer/backend/vulkan/barrier_vk.h"
 #include "impeller/renderer/backend/vulkan/command_buffer_vk.h"
+#include "impeller/renderer/backend/vulkan/context_vk.h"
 #include "impeller/renderer/backend/vulkan/formats_vk.h"
 #include "impeller/renderer/backend/vulkan/sampler_vk.h"
+#include "vulkan/vulkan_enums.hpp"
+#include "vulkan/vulkan_handles.hpp"
+#include "vulkan/vulkan_structs.hpp"
 
 namespace impeller {
 
@@ -62,7 +67,8 @@ bool TextureVK::OnSetContents(const uint8_t* contents,
 
   // Out of bounds access.
   if (length != desc.GetByteSizeOfBaseMipLevel()) {
-    VALIDATION_LOG << "Illegal to set contents for invalid size.";
+    VALIDATION_LOG << "Illegal to set contents for invalid size: " << length
+                   << " " << desc.GetByteSizeOfBaseMipLevel();
     return false;
   }
 
@@ -70,6 +76,73 @@ bool TextureVK::OnSetContents(const uint8_t* contents,
   if (!context) {
     VALIDATION_LOG << "Context died before setting contents on texture.";
     return false;
+  }
+  if (context->GetCapabilities()->SupportsUploadTextureFromHostBuffer()) {
+    {
+      auto cmd_buffer = context->CreateCommandBuffer();
+
+      if (!cmd_buffer) {
+        return false;
+      }
+      BarrierVK barrier;
+      barrier.cmd_buffer =
+          CommandBufferVK::Cast(*cmd_buffer).GetCommandBuffer();
+      barrier.src_access = vk::AccessFlagBits::eNone;
+      barrier.src_stage = vk::PipelineStageFlagBits::eTopOfPipe;
+      barrier.dst_access = vk::AccessFlagBits::eHostWrite;
+      barrier.dst_stage = vk::PipelineStageFlagBits::eHost;
+      barrier.new_layout = vk::ImageLayout::eGeneral;
+
+      SetLayout(barrier);
+      context->GetCommandQueue()->Submit({cmd_buffer}).ok();
+    }
+
+    vk::CopyMemoryToImageInfoEXT info;
+    info.setDstImage(GetImage());
+    info.setDstImageLayout(vk::ImageLayout::eGeneral);
+
+    vk::ImageSubresourceLayers res =
+        vk::ImageSubresourceLayers(vk::ImageAspectFlagBits::eColor, 0, 0, 1);
+
+    vk::MemoryToImageCopyEXT region;
+    region.setPHostPointer(contents);
+    region.setMemoryImageHeight(0);
+    region.setMemoryRowLength(0);
+    region.setImageSubresource(res);
+    region.setImageOffset({0, 0, 0});
+    region.setImageExtent({static_cast<uint32_t>(desc.size.width),
+                           static_cast<uint32_t>(desc.size.height), 1});
+
+    info.setPRegions(&region);
+    info.setRegionCount(1);
+
+    auto result =
+        ContextVK::Cast(*context).GetDevice().copyMemoryToImageEXT(info);
+
+    {
+      auto cmd_buffer = context->CreateCommandBuffer();
+
+      if (!cmd_buffer) {
+        return false;
+      }
+      BarrierVK barrier;
+      barrier.cmd_buffer =
+          CommandBufferVK::Cast(*cmd_buffer).GetCommandBuffer();
+      barrier.cmd_buffer =
+          CommandBufferVK::Cast(*cmd_buffer).GetCommandBuffer();
+      barrier.src_access = vk::AccessFlagBits::eHostWrite;
+      barrier.src_stage = vk::PipelineStageFlagBits::eHost;
+      barrier.dst_access =
+          vk::AccessFlagBits::eShaderRead | vk::AccessFlagBits::eTransferWrite;
+      barrier.dst_stage = vk::PipelineStageFlagBits::eFragmentShader |
+                          vk::PipelineStageFlagBits::eTransfer;
+      barrier.new_layout = vk::ImageLayout::eShaderReadOnlyOptimal;
+      SetLayout(barrier);
+
+      context->GetCommandQueue()->Submit({cmd_buffer}).ok();
+    }
+
+    return result == vk::Result::eSuccess;
   }
 
   auto staging_buffer =

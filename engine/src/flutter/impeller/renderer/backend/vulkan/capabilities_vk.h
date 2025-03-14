@@ -151,6 +151,15 @@ enum class OptionalDeviceExtensionVK : uint32_t {
   ///
   kEXTImageCompressionControl,
 
+  // https://registry.khronos.org/vulkan/specs/latest/man/html/VK_EXT_host_image_copy.html
+  kEXTHostImageCopy,
+
+  // Dependency of host image copy.
+  kKHRCopyCommands2,
+
+  // Dependency of host image copy.
+  kKHRFormatFeatureflags2,
+
   kLast,
 };
 
@@ -211,7 +220,8 @@ class CapabilitiesVK final : public Capabilities,
       vk::StructureChain<vk::PhysicalDeviceFeatures2,
                          vk::PhysicalDeviceSamplerYcbcrConversionFeaturesKHR,
                          vk::PhysicalDevice16BitStorageFeatures,
-                         vk::PhysicalDeviceImageCompressionControlFeaturesEXT>;
+                         vk::PhysicalDeviceImageCompressionControlFeaturesEXT,
+                         vk::PhysicalDeviceHostImageCopyFeaturesEXT>;
 
   std::optional<PhysicalDeviceFeatures> GetEnabledDeviceFeatures(
       const vk::PhysicalDevice& physical_device) const;
@@ -262,6 +272,10 @@ class CapabilitiesVK final : public Capabilities,
 
   // |Capabilities|
   bool SupportsExtendedRangeFormats() const override;
+
+  bool SupportsUploadTextureFromHostBuffer() const override {
+    return HasExtension(OptionalDeviceExtensionVK::kEXTHostImageCopy);
+  }
 
   // |Capabilities|
   PixelFormat GetDefaultColorFormat() const override;

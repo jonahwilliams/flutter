@@ -19,7 +19,9 @@ DebugReportVK::DebugReportVK(const CapabilitiesVK& caps,
   vk::DebugUtilsMessengerCreateInfoEXT messenger_info;
   messenger_info.messageSeverity =
       vk::DebugUtilsMessageSeverityFlagBitsEXT::eWarning |
-      vk::DebugUtilsMessageSeverityFlagBitsEXT::eError;
+      vk::DebugUtilsMessageSeverityFlagBitsEXT::eError |
+      vk::DebugUtilsMessageSeverityFlagBitsEXT::eInfo |
+      vk::DebugUtilsMessageSeverityFlagBitsEXT::eVerbose;
   messenger_info.messageType =
       vk::DebugUtilsMessageTypeFlagBitsEXT::eGeneral |
       vk::DebugUtilsMessageTypeFlagBitsEXT::ePerformance |
@@ -107,9 +109,9 @@ DebugReportVK::Result DebugReportVK::OnDebugCallback(
   // `VkSurfaceCapabilitiesKHR::supportedUsageFlags` on any platform other than
   // Android. This is necessary for all the framebuffer fetch related tests. We
   // can get away with suppressing this on macOS but this must be fixed.
-  if (data->messageIdNumber == 0x2c36905d) {
-    return Result::kContinue;
-  }
+  // if (data->messageIdNumber == 0x2c36905d) {
+  //   return Result::kContinue;
+  // }
   // This is a performance warning when a fragment stage does not consume all
   // varyings from the vertex stage. We ignore this as we want to use a single
   // vertex stage for the runtime effect shader without trying to determine if
@@ -118,20 +120,20 @@ DebugReportVK::Result DebugReportVK::OnDebugCallback(
     return Result::kContinue;
   }
   // TODO(149111): Fix VUID-VkShaderModuleCreateInfo-pCode-08737.
-  if (data->pMessageIdName != nullptr &&
-      strcmp(data->pMessageIdName,
-             "VUID-VkShaderModuleCreateInfo-pCode-08737") == 0) {
-    return Result::kContinue;
-  }
-  // TODO(149111): Fix
-  // VUID-VkPipelineShaderStageCreateInfo-pSpecializationInfo-06849.
-  if (data->pMessageIdName != nullptr &&
-      strcmp(
-          data->pMessageIdName,
-          "VUID-VkPipelineShaderStageCreateInfo-pSpecializationInfo-06849") ==
-          0) {
-    return Result::kContinue;
-  }
+  // if (data->pMessageIdName != nullptr &&
+  //     strcmp(data->pMessageIdName,
+  //            "VUID-VkShaderModuleCreateInfo-pCode-08737") == 0) {
+  //   return Result::kContinue;
+  // }
+  // // TODO(149111): Fix
+  // // VUID-VkPipelineShaderStageCreateInfo-pSpecializationInfo-06849.
+  // if (data->pMessageIdName != nullptr &&
+  //     strcmp(
+  //         data->pMessageIdName,
+  //         "VUID-VkPipelineShaderStageCreateInfo-pSpecializationInfo-06849")
+  //         == 0) {
+  //   return Result::kContinue;
+  // }
 
   // This warning happens when running tests that use SwiftShader.
   // Some SPIR-V shaders request the UniformAndStorageBuffer16BitAccess

@@ -229,6 +229,7 @@ void ContextVK::Setup(Settings settings) {
 
   std::vector<vk::ValidationFeatureEnableEXT> enabled_validations = {
       vk::ValidationFeatureEnableEXT::eSynchronizationValidation,
+      vk::ValidationFeatureEnableEXT::eBestPractices,
   };
 
   auto validation = instance_chain.get<vk::ValidationFeaturesEXT>();

@@ -11,6 +11,7 @@
 #include "impeller/core/formats.h"
 #include "impeller/renderer/backend/vulkan/vk.h"
 #include "impeller/renderer/backend/vulkan/workarounds_vk.h"
+#include "vulkan/vulkan_core.h"
 
 namespace impeller {
 
@@ -222,6 +223,12 @@ static const char* GetExtensionName(OptionalDeviceExtensionVK ext) {
       return "VK_KHR_portability_subset";
     case OptionalDeviceExtensionVK::kEXTImageCompressionControl:
       return VK_EXT_IMAGE_COMPRESSION_CONTROL_EXTENSION_NAME;
+    case OptionalDeviceExtensionVK::kEXTHostImageCopy:
+      return VK_EXT_HOST_IMAGE_COPY_EXTENSION_NAME;
+    case OptionalDeviceExtensionVK::kKHRCopyCommands2:
+      return VK_KHR_COPY_COMMANDS_2_EXTENSION_NAME;
+    case OptionalDeviceExtensionVK::kKHRFormatFeatureflags2:
+      return VK_KHR_FORMAT_FEATURE_FLAGS_2_EXTENSION_NAME;
     case OptionalDeviceExtensionVK::kLast:
       return "Unknown";
   }
@@ -471,6 +478,22 @@ CapabilitiesVK::GetEnabledDeviceFeatures(
         .unlink<vk::PhysicalDeviceImageCompressionControlFeaturesEXT>();
   }
 
+  if (IsExtensionInList(enabled_extensions.value(),
+                        OptionalDeviceExtensionVK::kEXTHostImageCopy)) {
+    auto& required =
+        required_chain.get<vk::PhysicalDeviceHostImageCopyFeaturesEXT>();
+    const auto& supported =
+        supported_chain.get<vk::PhysicalDeviceHostImageCopyFeaturesEXT>();
+
+    if (supported.hostImageCopy) {
+      required.hostImageCopy = supported.hostImageCopy;
+    } else {
+      required_chain.unlink<vk::PhysicalDeviceHostImageCopyFeaturesEXT>();
+    }
+  } else {
+    required_chain.unlink<vk::PhysicalDeviceHostImageCopyFeaturesEXT>();
+  }
+
   // Vulkan 1.1
   {
     auto& required =
@@ -639,6 +662,8 @@ bool CapabilitiesVK::SetPhysicalDevice(
       HasExtension(OptionalAndroidDeviceExtensionVK::kKHRExternalSemaphoreFd)) {
     supports_external_fence_and_semaphore_ = true;
   }
+  FML_LOG(ERROR) << "HasExtension: kEXTHostImageCopy"
+                 << HasExtension(OptionalDeviceExtensionVK::kEXTHostImageCopy);
 
   return true;
 }

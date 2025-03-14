@@ -175,10 +175,14 @@ DecompressResult ImageDecoderImpeller::DecompressTexture(
 
   auto bitmap = std::make_shared<SkBitmap>();
   bitmap->setInfo(image_info);
-  auto bitmap_allocator = std::make_shared<ImpellerAllocator>(allocator);
+  std::shared_ptr<ImpellerAllocator> bitmap_allocator;
+  if (!capabilities->SupportsUploadTextureFromHostBuffer()) {
+    bitmap_allocator = std::make_shared<ImpellerAllocator>(allocator);
+  }
 
   if (descriptor->is_compressed()) {
-    if (!bitmap->tryAllocPixels(bitmap_allocator.get())) {
+    if (!bitmap->tryAllocPixels(bitmap_allocator ? bitmap_allocator.get()
+                                                 : nullptr)) {
       std::string decode_error(
           "Could not allocate intermediate for image decompression.");
       FML_DLOG(ERROR) << decode_error;
@@ -197,7 +201,8 @@ DecompressResult ImageDecoderImpeller::DecompressTexture(
         base_image_info, descriptor->row_bytes(), descriptor->data());
     temp_bitmap->setPixelRef(pixel_ref, 0, 0);
 
-    if (!bitmap->tryAllocPixels(bitmap_allocator.get())) {
+    if (!bitmap->tryAllocPixels(bitmap_allocator ? bitmap_allocator.get()
+                                                 : nullptr)) {
       std::string decode_error(
           "Could not allocate intermediate for pixel conversion.");
       FML_DLOG(ERROR) << decode_error;
@@ -208,73 +213,77 @@ DecompressResult ImageDecoderImpeller::DecompressTexture(
   }
 
   // If the image is unpremultiplied, fix it.
-  if (alpha_type == SkAlphaType::kUnpremul_SkAlphaType) {
-    // Single copy of ImpellerAllocator crashes.
-    auto premul_allocator = std::make_shared<ImpellerAllocator>(allocator);
-    auto premul_bitmap = std::make_shared<SkBitmap>();
-    premul_bitmap->setInfo(bitmap->info().makeAlphaType(kPremul_SkAlphaType));
-    if (!premul_bitmap->tryAllocPixels(premul_allocator.get())) {
-      std::string decode_error(
-          "Could not allocate intermediate for premultiplication conversion.");
-      FML_DLOG(ERROR) << decode_error;
-      return DecompressResult{.decode_error = decode_error};
-    }
-    // readPixels() handles converting pixels to premultiplied form.
-    bitmap->readPixels(premul_bitmap->pixmap());
-    premul_bitmap->setImmutable();
-    bitmap_allocator = premul_allocator;
-    bitmap = premul_bitmap;
-  }
+  // if (alpha_type == SkAlphaType::kUnpremul_SkAlphaType) {
+  //   // Single copy of ImpellerAllocator crashes.
+  //   auto premul_allocator = std::make_shared<ImpellerAllocator>(allocator);
+  //   auto premul_bitmap = std::make_shared<SkBitmap>();
+  //   premul_bitmap->setInfo(bitmap->info().makeAlphaType(kPremul_SkAlphaType));
+  //   if (!premul_bitmap->tryAllocPixels(premul_allocator.get())) {
+  //     std::string decode_error(
+  //         "Could not allocate intermediate for premultiplication
+  //         conversion.");
+  //     FML_DLOG(ERROR) << decode_error;
+  //     return DecompressResult{.decode_error = decode_error};
+  //   }
+  //   // readPixels() handles converting pixels to premultiplied form.
+  //   bitmap->readPixels(premul_bitmap->pixmap());
+  //   premul_bitmap->setImmutable();
+  //   bitmap_allocator = premul_allocator;
+  //   bitmap = premul_bitmap;
+  // }
 
-  std::shared_ptr<impeller::DeviceBuffer> buffer =
-      bitmap_allocator->GetDeviceBuffer();
-  if (!buffer) {
-    return DecompressResult{.decode_error = "Unable to get device buffer"};
+  std::shared_ptr<impeller::DeviceBuffer> buffer;
+  if (bitmap_allocator) {
+    buffer = bitmap_allocator->GetDeviceBuffer();
+    if (!buffer) {
+      return DecompressResult{.decode_error = "Unable to get device buffer"};
+    }
+    buffer->Flush();
   }
-  buffer->Flush();
 
   std::optional<SkImageInfo> resize_info =
       bitmap->dimensions() == target_size
           ? std::nullopt
           : std::optional<SkImageInfo>(image_info.makeDimensions(target_size));
 
-  if (source_size.width() > max_texture_size.width ||
-      source_size.height() > max_texture_size.height ||
-      !capabilities->SupportsTextureToTextureBlits()) {
-    //----------------------------------------------------------------------------
-    /// 2. If the decoded image isn't the requested target size and the src size
-    ///    exceeds the device max texture size, perform a slow CPU resize.
-    ///
-    TRACE_EVENT0("impeller", "SlowCPUDecodeScale");
-    const auto scaled_image_info = image_info.makeDimensions(target_size);
+  // if (source_size.width() > max_texture_size.width ||
+  //     source_size.height() > max_texture_size.height ||
+  //     !capabilities->SupportsTextureToTextureBlits()) {
+  //   //----------------------------------------------------------------------------
+  //   /// 2. If the decoded image isn't the requested target size and the src
+  //   size
+  //   ///    exceeds the device max texture size, perform a slow CPU resize.
+  //   ///
+  //   TRACE_EVENT0("impeller", "SlowCPUDecodeScale");
+  //   const auto scaled_image_info = image_info.makeDimensions(target_size);
 
-    auto scaled_bitmap = std::make_shared<SkBitmap>();
-    auto scaled_allocator = std::make_shared<ImpellerAllocator>(allocator);
-    scaled_bitmap->setInfo(scaled_image_info);
-    if (!scaled_bitmap->tryAllocPixels(scaled_allocator.get())) {
-      std::string decode_error(
-          "Could not allocate scaled bitmap for image decompression.");
-      FML_DLOG(ERROR) << decode_error;
-      return DecompressResult{.decode_error = decode_error};
-    }
-    if (!bitmap->pixmap().scalePixels(
-            scaled_bitmap->pixmap(),
-            SkSamplingOptions(SkFilterMode::kLinear, SkMipmapMode::kNone))) {
-      FML_LOG(ERROR) << "Could not scale decoded bitmap data.";
-    }
-    scaled_bitmap->setImmutable();
+  //   auto scaled_bitmap = std::make_shared<SkBitmap>();
+  //   auto scaled_allocator = std::make_shared<ImpellerAllocator>(allocator);
+  //   scaled_bitmap->setInfo(scaled_image_info);
+  //   if (!scaled_bitmap->tryAllocPixels(scaled_allocator.get())) {
+  //     std::string decode_error(
+  //         "Could not allocate scaled bitmap for image decompression.");
+  //     FML_DLOG(ERROR) << decode_error;
+  //     return DecompressResult{.decode_error = decode_error};
+  //   }
+  //   if (!bitmap->pixmap().scalePixels(
+  //           scaled_bitmap->pixmap(),
+  //           SkSamplingOptions(SkFilterMode::kLinear, SkMipmapMode::kNone))) {
+  //     FML_LOG(ERROR) << "Could not scale decoded bitmap data.";
+  //   }
+  //   scaled_bitmap->setImmutable();
 
-    std::shared_ptr<impeller::DeviceBuffer> buffer =
-        scaled_allocator->GetDeviceBuffer();
-    if (!buffer) {
-      return DecompressResult{.decode_error = "Unable to get device buffer"};
-    }
-    buffer->Flush();
+  //   std::shared_ptr<impeller::DeviceBuffer> buffer =
+  //       scaled_allocator->GetDeviceBuffer();
+  //   if (!buffer) {
+  //     return DecompressResult{.decode_error = "Unable to get device buffer"};
+  //   }
+  //   buffer->Flush();
 
-    return DecompressResult{.device_buffer = std::move(buffer),
-                            .sk_bitmap = scaled_bitmap,
-                            .image_info = scaled_bitmap->info()};
-  }
+  //   return DecompressResult{.device_buffer = std::move(buffer),
+  //                           .sk_bitmap = scaled_bitmap,
+  //                           .image_info = scaled_bitmap->info()};
+  // }
 
   return DecompressResult{.device_buffer = std::move(buffer),
                           .sk_bitmap = bitmap,
@@ -398,6 +407,125 @@ ImageDecoderImpeller::UnsafeUploadTextureToPrivate(
       std::string());
 }
 
+std::pair<sk_sp<DlImage>, std::string>
+ImageDecoderImpeller::UnsafeUploadTextureToPrivateFromHost(
+    const std::shared_ptr<impeller::Context>& context,
+    const std::shared_ptr<SkBitmap>& bitmap,
+    const SkImageInfo& image_info,
+    const std::optional<SkImageInfo>& resize_info) {
+  const auto pixel_format =
+      impeller::skia_conversions::ToPixelFormat(image_info.colorType());
+  if (!pixel_format) {
+    std::string decode_error(impeller::SPrintF(
+        "Unsupported pixel format (SkColorType=%d)", image_info.colorType()));
+    FML_DLOG(ERROR) << decode_error;
+    return std::make_pair(nullptr, decode_error);
+  }
+
+  impeller::TextureDescriptor texture_descriptor;
+  texture_descriptor.storage_mode = impeller::StorageMode::kDevicePrivate;
+  texture_descriptor.format = pixel_format.value();
+  texture_descriptor.size = {image_info.width(), image_info.height()};
+  texture_descriptor.mip_count = texture_descriptor.size.MipCount();
+  texture_descriptor.compression_type = impeller::CompressionType::kLossy;
+  if (context->GetBackendType() == impeller::Context::BackendType::kMetal &&
+      resize_info.has_value()) {
+    // The MPS used to resize images on iOS does not require mip generation.
+    // Remove mip count if we are resizing the image on the GPU.
+    texture_descriptor.mip_count = 1;
+  }
+
+  auto dest_texture =
+      context->GetResourceAllocator()->CreateTexture(texture_descriptor);
+  if (!dest_texture) {
+    std::string decode_error("Could not create Impeller texture.");
+    FML_DLOG(ERROR) << decode_error;
+    return std::make_pair(nullptr, decode_error);
+  }
+
+  dest_texture->SetLabel(
+      impeller::SPrintF("ui.Image(%p)", dest_texture.get()).c_str());
+
+  if (!dest_texture->SetContents(
+          reinterpret_cast<const uint8_t*>(bitmap->getAddr(0, 0)),
+          (texture_descriptor.GetByteSizeOfBaseMipLevel()), 0, false)) {
+    return std::make_pair(nullptr, "aaaasds");
+  }
+
+  auto command_buffer = context->CreateCommandBuffer();
+  if (!command_buffer) {
+    std::string decode_error(
+        "Could not create command buffer for mipmap generation.");
+    FML_DLOG(ERROR) << decode_error;
+    return std::make_pair(nullptr, decode_error);
+  }
+  command_buffer->SetLabel("Mipmap Command Buffer");
+
+  auto blit_pass = command_buffer->CreateBlitPass();
+  if (!blit_pass) {
+    std::string decode_error(
+        "Could not create blit pass for mipmap generation.");
+    FML_DLOG(ERROR) << decode_error;
+    return std::make_pair(nullptr, decode_error);
+  }
+  blit_pass->SetLabel("Mipmap Blit Pass");
+  if (texture_descriptor.mip_count > 1) {
+    blit_pass->GenerateMipmap(dest_texture);
+  }
+
+  std::shared_ptr<impeller::Texture> result_texture = dest_texture;
+  if (resize_info.has_value()) {
+    impeller::TextureDescriptor resize_desc;
+    resize_desc.storage_mode = impeller::StorageMode::kDevicePrivate;
+    resize_desc.format = pixel_format.value();
+    resize_desc.size = {resize_info->width(), resize_info->height()};
+    resize_desc.mip_count = resize_desc.size.MipCount();
+    resize_desc.compression_type = impeller::CompressionType::kLossy;
+    resize_desc.usage = impeller::TextureUsage::kShaderRead;
+    if (context->GetBackendType() == impeller::Context::BackendType::kMetal) {
+      // Resizing requires a MPS on Metal platforms.
+      resize_desc.usage |= impeller::TextureUsage::kShaderWrite;
+      resize_desc.compression_type = impeller::CompressionType::kLossless;
+    }
+    auto resize_texture =
+        context->GetResourceAllocator()->CreateTexture(resize_desc);
+    if (!resize_texture) {
+      std::string decode_error("Could not create resized Impeller texture.");
+      FML_DLOG(ERROR) << decode_error;
+      return std::make_pair(nullptr, decode_error);
+    }
+
+    blit_pass->ResizeTexture(/*source=*/dest_texture,
+                             /*destination=*/resize_texture);
+    if (resize_desc.mip_count > 1) {
+      blit_pass->GenerateMipmap(resize_texture);
+    }
+
+    result_texture = std::move(resize_texture);
+  }
+  blit_pass->EncodeCommands();
+
+  if (!context->GetCommandQueue()->Submit({command_buffer}).ok()) {
+    std::string decode_error("Failed to submit image decoding command buffer.");
+    FML_DLOG(ERROR) << decode_error;
+    return std::make_pair(nullptr, decode_error);
+  }
+
+  // Flush the pending command buffer to ensure that its output becomes visible
+  // to the raster thread.
+  if (context->AddTrackingFence(result_texture)) {
+    command_buffer->WaitUntilScheduled();
+  } else {
+    command_buffer->WaitUntilCompleted();
+  }
+
+  context->DisposeThreadLocalCachedResources();
+
+  return std::make_pair(
+      impeller::DlImageImpeller::Make(std::move(result_texture)),
+      std::string());
+}
+
 void ImageDecoderImpeller::UploadTextureToPrivate(
     ImageResult result,
     const std::shared_ptr<impeller::Context>& context,
@@ -411,20 +539,25 @@ void ImageDecoderImpeller::UploadTextureToPrivate(
     result(nullptr, "No Impeller context is available");
     return;
   }
-  if (!buffer) {
-    result(nullptr, "No Impeller device buffer is available");
-    return;
-  }
 
   gpu_disabled_switch->Execute(
       fml::SyncSwitch::Handlers()
-          .SetIfFalse([&result, context, buffer, image_info, resize_info] {
-            sk_sp<DlImage> image;
-            std::string decode_error;
-            std::tie(image, decode_error) = std::tie(image, decode_error) =
-                UnsafeUploadTextureToPrivate(context, buffer, image_info,
-                                             resize_info);
-            result(image, decode_error);
+          .SetIfFalse([&] {
+            if (buffer) {
+              sk_sp<DlImage> image;
+              std::string decode_error;
+              std::tie(image, decode_error) = std::tie(image, decode_error) =
+                  UnsafeUploadTextureToPrivate(context, buffer, image_info,
+                                               resize_info);
+              result(image, decode_error);
+            } else {
+              sk_sp<DlImage> image;
+              std::string decode_error;
+              std::tie(image, decode_error) = std::tie(image, decode_error) =
+                  UnsafeUploadTextureToPrivateFromHost(context, bitmap,
+                                                       image_info, resize_info);
+              result(image, decode_error);
+            }
           })
           .SetIfTrue([&result, context, buffer, image_info, resize_info] {
             auto result_ptr = std::make_shared<ImageResult>(std::move(result));
@@ -548,7 +681,7 @@ void ImageDecoderImpeller::Decode(fml::RefPtr<ImageDescriptor> descriptor,
             /*supports_wide_gamut=*/wide_gamut_enabled &&
                 context->GetCapabilities()->SupportsExtendedRangeFormats(),
             context->GetCapabilities(), context->GetResourceAllocator());
-        if (!bitmap_result.device_buffer) {
+        if (!bitmap_result.sk_bitmap) {
           result(nullptr, bitmap_result.decode_error);
           return;
         }

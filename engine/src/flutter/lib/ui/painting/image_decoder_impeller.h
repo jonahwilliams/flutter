@@ -114,6 +114,13 @@ class ImageDecoderImpeller final : public ImageDecoder {
       const SkImageInfo& image_info,
       const std::optional<SkImageInfo>& resize_info);
 
+  static std::pair<sk_sp<DlImage>, std::string>
+  UnsafeUploadTextureToPrivateFromHost(
+      const std::shared_ptr<impeller::Context>& context,
+      const std::shared_ptr<SkBitmap>& bitmap,
+      const SkImageInfo& image_info,
+      const std::optional<SkImageInfo>& resize_info);
+
   FML_DISALLOW_COPY_AND_ASSIGN(ImageDecoderImpeller);
 };
 

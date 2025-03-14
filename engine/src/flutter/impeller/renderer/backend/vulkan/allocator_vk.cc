@@ -211,6 +211,8 @@ vk::ImageUsageFlags AllocatorVK::ToVKImageUsageFlags(
   switch (mode) {
     case StorageMode::kHostVisible:
     case StorageMode::kDevicePrivate:
+      // TODO
+      vk_usage |= vk::ImageUsageFlagBits::eHostTransfer;
       break;
     case StorageMode::kDeviceTransient:
       if (supports_memoryless_textures) {

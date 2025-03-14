@@ -123,6 +123,8 @@ class Capabilities {
   /// Vulkan and GLES.
   virtual bool SupportsExtendedRangeFormats() const = 0;
 
+  virtual bool SupportsUploadTextureFromHostBuffer() const { return false; }
+
  protected:
   Capabilities();
 

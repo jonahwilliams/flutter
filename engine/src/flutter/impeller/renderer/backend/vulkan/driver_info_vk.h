@@ -214,6 +214,16 @@ class DriverInfoVK {
   const std::string& GetDriverName() const;
 
   //----------------------------------------------------------------------------
+  /// @brief      Return the driver version.
+  ///
+  ///             Only ARM driver versions are parsed. All other version return
+  ///             0.0.0.
+  ///
+  /// @return     The driver version.
+  ///
+  const Version& GetDriverVersion() const;
+
+  //----------------------------------------------------------------------------
   /// @brief      Dumps the current driver info to the log.
   ///
   void DumpToLog() const;
@@ -254,6 +264,7 @@ class DriverInfoVK {
  private:
   bool is_valid_ = false;
   Version api_version_;
+  Version driver_version_ = Version(0, 0, 0);
   VendorVK vendor_ = VendorVK::kUnknown;
   DeviceTypeVK type_ = DeviceTypeVK::kUnknown;
   // If the VendorVK is  VendorVK::kQualcomm, this will be populated with the

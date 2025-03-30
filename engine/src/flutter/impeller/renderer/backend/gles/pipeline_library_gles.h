@@ -98,13 +98,16 @@ class PipelineLibraryGLES final
   bool IsValid() const override;
 
   // |PipelineLibrary|
-  PipelineFuture<PipelineDescriptor> GetPipeline(PipelineDescriptor descriptor,
-                                                 bool async) override;
+  PipelineFuture<PipelineDescriptor> GetPipeline(
+      PipelineDescriptor descriptor,
+      bool async,
+      std::optional<PipelineDescriptor> base_descriptor) override;
 
   // |PipelineLibrary|
   PipelineFuture<ComputePipelineDescriptor> GetPipeline(
       ComputePipelineDescriptor descriptor,
-      bool async) override;
+      bool async,
+      std::optional<ComputePipelineDescriptor> base_descriptor) override;
 
   // |PipelineLibrary|
   bool HasPipeline(const PipelineDescriptor& descriptor) override;

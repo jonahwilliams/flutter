@@ -71,8 +71,7 @@ PipelineFuture<T> Pipeline<T>::CreateVariant(
                       "already collected.";
     return {desc_, RealizedFuture<std::shared_ptr<Pipeline<T>>>(nullptr)};
   }
-
-  return library->GetPipeline(std::move(copied_desc), async);
+  return library->GetPipeline(std::move(copied_desc), async, desc_);
 }
 
 template class Pipeline<PipelineDescriptor>;

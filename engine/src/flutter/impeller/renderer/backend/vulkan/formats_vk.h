@@ -118,7 +118,6 @@ ToVKPipelineColorBlendAttachmentState(const ColorAttachmentDescriptor& desc) {
   res.setSrcColorBlendFactor(ToVKBlendFactor(desc.src_color_blend_factor));
   res.setColorBlendOp(ToVKBlendOp(desc.color_blend_op));
   res.setDstColorBlendFactor(ToVKBlendFactor(desc.dst_color_blend_factor));
-
   res.setSrcAlphaBlendFactor(ToVKBlendFactor(desc.src_alpha_blend_factor));
   res.setAlphaBlendOp(ToVKBlendOp(desc.alpha_blend_op));
   res.setDstAlphaBlendFactor(ToVKBlendFactor(desc.dst_alpha_blend_factor));

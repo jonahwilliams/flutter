@@ -23,6 +23,7 @@
 #include "impeller/renderer/backend/vulkan/sampler_vk.h"
 #include "impeller/renderer/backend/vulkan/shared_object_vk.h"
 #include "impeller/renderer/backend/vulkan/texture_vk.h"
+#include "impeller/renderer/pipeline_descriptor.h"
 
 namespace impeller {
 
@@ -245,6 +246,9 @@ RenderPassVK::RenderPassVK(const std::shared_ptr<const Context>& context,
   command_buffer_vk_.setStencilReference(
       vk::StencilFaceFlagBits::eVkStencilFrontAndBack, 0u);
 
+  extended_dynamic_state_1_ =
+      CapabilitiesVK::Cast(*vk_context.GetCapabilities())
+          .SupportsExtendedDynamicState();
   is_valid_ = true;
 }
 
@@ -320,6 +324,75 @@ void RenderPassVK::SetPipeline(PipelineRef pipeline) {
   pipeline_ = pipeline;
   if (!pipeline_) {
     return;
+  }
+  if (extended_dynamic_state_1_) {
+    const PipelineDescriptor& desc = pipeline_->GetDescriptor();
+    command_buffer_vk_.setPrimitiveTopologyEXT(
+        ToVKPrimitiveTopology(desc.GetPrimitiveType()));
+    const std::optional<StencilAttachmentDescriptor>& front_stencil =
+        desc.GetFrontStencilAttachmentDescriptor();
+    const std::optional<StencilAttachmentDescriptor>& back_stencil =
+        desc.GetBackStencilAttachmentDescriptor();
+    command_buffer_vk_.setStencilTestEnableEXT(front_stencil.has_value() ||
+                                               back_stencil.has_value());
+    if (front_stencil.has_value() && back_stencil.has_value() &&
+        front_stencil.value() == back_stencil.value()) {
+      command_buffer_vk_.setStencilOpEXT(
+          vk::StencilFaceFlagBits::eFrontAndBack,
+          ToVKStencilOp(front_stencil->stencil_failure),
+          ToVKStencilOp(front_stencil->depth_stencil_pass),
+          ToVKStencilOp(front_stencil->depth_failure),
+          ToVKCompareOp(front_stencil->stencil_compare));
+    } else {
+      if (front_stencil.has_value()) {
+        command_buffer_vk_.setStencilOpEXT(
+            vk::StencilFaceFlagBits::eFront,
+            ToVKStencilOp(front_stencil->stencil_failure),
+            ToVKStencilOp(front_stencil->depth_stencil_pass),
+            ToVKStencilOp(front_stencil->depth_failure),
+            ToVKCompareOp(front_stencil->stencil_compare));
+      }
+      if (back_stencil.has_value()) {
+        command_buffer_vk_.setStencilOpEXT(
+            vk::StencilFaceFlagBits::eBack,
+            ToVKStencilOp(back_stencil->stencil_failure),
+            ToVKStencilOp(back_stencil->depth_stencil_pass),
+            ToVKStencilOp(back_stencil->depth_failure),
+            ToVKCompareOp(back_stencil->stencil_compare));
+      }
+    }
+    const std::optional<DepthAttachmentDescriptor>& depth =
+        desc.GetDepthStencilAttachmentDescriptor();
+    command_buffer_vk_.setDepthTestEnableEXT(depth.has_value());
+    if (depth.has_value()) {
+      command_buffer_vk_.setDepthWriteEnableEXT(depth->depth_write_enabled);
+      command_buffer_vk_.setDepthCompareOpEXT(
+          ToVKCompareOp(depth->depth_compare));
+    }
+
+    if (extended_dynamic_state_3_) {
+      const auto& color0 = desc.GetColorAttachmentDescriptor(0);
+      vk::Bool32 blending_enabled[1] = {color0->blending_enabled};
+      vk::ColorBlendEquationEXT equations[1];
+      vk::ColorComponentFlags flags[1];
+
+      equations[0].setColorBlendOp(ToVKBlendOp(color0->color_blend_op));
+      equations[0].setAlphaBlendOp(ToVKBlendOp(color0->alpha_blend_op));
+      equations[0].setSrcColorBlendFactor(
+          ToVKBlendFactor(color0->src_color_blend_factor));
+      equations[0].setDstColorBlendFactor(
+          ToVKBlendFactor(color0->dst_alpha_blend_factor));
+      equations[0].setSrcAlphaBlendFactor(
+          ToVKBlendFactor(color0->src_alpha_blend_factor));
+      equations[0].setDstAlphaBlendFactor(
+          ToVKBlendFactor(color0->dst_alpha_blend_factor));
+
+      flags[0] = ToVKColorComponentFlags(color0->write_mask);
+
+      command_buffer_vk_.setColorBlendEnableEXT(0, blending_enabled);
+      command_buffer_vk_.setColorBlendEquationEXT(0, equations);
+      command_buffer_vk_.setColorWriteMaskEXT(0, flags);
+    }
   }
 
   pipeline_uses_input_attachments_ =

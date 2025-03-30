@@ -34,6 +34,14 @@ struct WorkaroundsVK {
   ///      * https://github.com/flutter/flutter/issues/159876
   ///      * https://github.com/flutter/flutter/issues/160587
   bool broken_mipmap_generation = false;
+
+  /// Arm drivers had several dynamic state bugs.
+  ///
+  /// http://issuetracker.google.com/285124778
+  /// http://issuetracker.google.com/285196249
+  /// http://issuetracker.google.com/286224923
+  /// http://issuetracker.google.com/287318431
+  bool dynamic_state_broken = false;
 };
 
 WorkaroundsVK GetWorkaroundsFromDriverInfo(DriverInfoVK& driver_info);

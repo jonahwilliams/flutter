@@ -13,6 +13,16 @@
 
 namespace impeller {
 
+Version ParseARMDriverVersion(uint32_t driverVersion) {
+  // ARM driver versions are built with the following macro:
+  // ((((uint32_t)(major)) << 22) | (((uint32_t)(minor)) << 12) |
+  // ((uint32_t)(patch)))
+  constexpr uint32_t kMinorVersionMask = 0x3FF;
+  constexpr uint32_t kPatchMask = 0xFFF;
+  return Version(driverVersion >> 22, (driverVersion >> 12) & kMinorVersionMask,
+                 driverVersion & kPatchMask);
+}
+
 const std::unordered_map<std::string_view, AdrenoGPU> kAdrenoVersions = {
     // X
     // Note: I don't know if these strings actually match as there don't seem to
@@ -263,6 +273,7 @@ DriverInfoVK::DriverInfoVK(const vk::PhysicalDevice& device) {
       break;
     case VendorVK::kARM:
       mali_gpu_ = GetMaliVersion(driver_name_);
+      driver_version_ = ParseARMDriverVersion(props.driverVersion);
       break;
     default:
       break;
@@ -270,6 +281,10 @@ DriverInfoVK::DriverInfoVK(const vk::PhysicalDevice& device) {
 }
 
 DriverInfoVK::~DriverInfoVK() = default;
+
+const Version& DriverInfoVK::GetDriverVersion() const {
+  return driver_version_;
+}
 
 const Version& DriverInfoVK::GetAPIVersion() const {
   return api_version_;
@@ -356,9 +371,9 @@ bool DriverInfoVK::IsKnownBadDriver() const {
   // https://github.com/flutter/flutter/issues/160866
   // https://github.com/flutter/flutter/issues/160804
   // https://github.com/flutter/flutter/issues/160406
-  if (vendor_ == VendorVK::kImgTec) {
-    return true;
-  }
+  // if (vendor_ == VendorVK::kImgTec) {
+  //   return true;
+  // }
   return false;
 }
 

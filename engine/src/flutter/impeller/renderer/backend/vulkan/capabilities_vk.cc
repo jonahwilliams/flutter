@@ -11,6 +11,7 @@
 #include "impeller/core/formats.h"
 #include "impeller/renderer/backend/vulkan/vk.h"
 #include "impeller/renderer/backend/vulkan/workarounds_vk.h"
+#include "vulkan/vulkan_core.h"
 
 namespace impeller {
 
@@ -222,6 +223,10 @@ static const char* GetExtensionName(OptionalDeviceExtensionVK ext) {
       return "VK_KHR_portability_subset";
     case OptionalDeviceExtensionVK::kEXTImageCompressionControl:
       return VK_EXT_IMAGE_COMPRESSION_CONTROL_EXTENSION_NAME;
+    case OptionalDeviceExtensionVK::kKHRExtendedDynamicState1:
+      return VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME;
+    case OptionalDeviceExtensionVK::kKHRExtendedDynamicState3:
+      return VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME;
     case OptionalDeviceExtensionVK::kLast:
       return "Unknown";
   }
@@ -470,6 +475,49 @@ CapabilitiesVK::GetEnabledDeviceFeatures(
     required_chain
         .unlink<vk::PhysicalDeviceImageCompressionControlFeaturesEXT>();
   }
+  // VK_KHR_extended_dynamic_state
+  if (IsExtensionInList(enabled_extensions.value(),
+                        OptionalDeviceExtensionVK::kKHRExtendedDynamicState1)) {
+    auto& required =
+        required_chain.get<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
+    const auto& supported =
+        supported_chain
+            .get<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
+    if (supported.extendedDynamicState) {
+      required.extendedDynamicState = supported.extendedDynamicState;
+    } else {
+      required_chain
+          .unlink<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
+    }
+  } else {
+    required_chain.unlink<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
+  }
+
+  if (IsExtensionInList(enabled_extensions.value(),
+                        OptionalDeviceExtensionVK::kKHRExtendedDynamicState3)) {
+    auto& required =
+        required_chain
+            .get<vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT>();
+    const auto& supported =
+        supported_chain
+            .get<vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT>();
+    FML_LOG(ERROR) << "supported: "
+                   << supported.extendedDynamicState3ColorBlendEnable << " , "
+                   << supported.extendedDynamicState3ColorBlendEquation << ", "
+                   << supported.extendedDynamicState3ColorWriteMask;
+    if (supported.extendedDynamicState3ColorBlendEnable &&
+        supported.extendedDynamicState3ColorBlendEquation &&
+        supported.extendedDynamicState3ColorWriteMask) {
+      required.extendedDynamicState3ColorBlendEnable = true;
+      required.extendedDynamicState3ColorBlendEquation = true;
+      required.extendedDynamicState3ColorWriteMask = true;
+    } else {
+      required_chain
+          .unlink<vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT>();
+    }
+  } else {
+    required_chain.unlink<vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT>();
+  }
 
   // Vulkan 1.1
   {
@@ -621,6 +669,14 @@ bool CapabilitiesVK::SetPhysicalDevice(
       enabled_features
           .get<vk::PhysicalDeviceImageCompressionControlFeaturesEXT>()
           .imageCompressionControl;
+
+  supports_extended_dynamic_state_ =
+      enabled_features
+          .isLinked<vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT>();
+
+  supports_extended_dynamic_state_3_ =
+      enabled_features
+          .isLinked<vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT>();
 
   max_render_pass_attachment_size_ =
       ISize{device_properties_.limits.maxFramebufferWidth,
@@ -806,10 +862,22 @@ ISize CapabilitiesVK::GetMaximumRenderPassAttachmentSize() const {
 void CapabilitiesVK::ApplyWorkarounds(const WorkaroundsVK& workarounds) {
   has_primitive_restart_ = !workarounds.slow_primitive_restart_performance;
   has_framebuffer_fetch_ = !workarounds.input_attachment_self_dependency_broken;
+  supports_extended_dynamic_state_ =
+      supports_extended_dynamic_state_ && !workarounds.dynamic_state_broken;
+  supports_extended_dynamic_state_3_ =
+      supports_extended_dynamic_state_3_ && !workarounds.dynamic_state_broken;
 }
 
 bool CapabilitiesVK::SupportsExternalSemaphoreExtensions() const {
   return supports_external_fence_and_semaphore_;
+}
+
+bool CapabilitiesVK::SupportsExtendedDynamicState() const {
+  return supports_extended_dynamic_state_;
+}
+
+bool CapabilitiesVK::SupportsExtendedDynamicState3() const {
+  return supports_extended_dynamic_state_3_;
 }
 
 bool CapabilitiesVK::SupportsExtendedRangeFormats() const {

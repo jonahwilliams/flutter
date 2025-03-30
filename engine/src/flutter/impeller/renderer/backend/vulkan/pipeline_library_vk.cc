@@ -10,6 +10,7 @@
 #include "flutter/fml/trace_event.h"
 #include "impeller/base/promise.h"
 #include "impeller/base/validation.h"
+#include "impeller/core/formats.h"
 #include "impeller/renderer/backend/vulkan/context_vk.h"
 #include "impeller/renderer/backend/vulkan/formats_vk.h"
 #include "impeller/renderer/backend/vulkan/pipeline_vk.h"
@@ -152,9 +153,33 @@ std::unique_ptr<ComputePipelineVK> PipelineLibraryVK::CreateComputePipeline(
 // |PipelineLibrary|
 PipelineFuture<PipelineDescriptor> PipelineLibraryVK::GetPipeline(
     PipelineDescriptor descriptor,
-    bool async) {
+    bool async,
+    std::optional<PipelineDescriptor> base_descriptor) {
+  // Convert dynamic state fields into default state.
+  PipelineDescriptor descriptor_copy = descriptor;
+  if (pso_cache_->GetCapabilities()->SupportsExtendedDynamicState() &&
+      base_descriptor.has_value()) {
+    descriptor.SetPrimitiveType(base_descriptor->GetPrimitiveType());
+    descriptor.SetDepthStencilAttachmentDescriptor(
+        base_descriptor->GetDepthStencilAttachmentDescriptor());
+    descriptor.SetStencilAttachmentDescriptors(
+        base_descriptor->GetFrontStencilAttachmentDescriptor(),
+        base_descriptor->GetBackStencilAttachmentDescriptor());
+    if (pso_cache_->GetCapabilities()->SupportsExtendedDynamicState3()) {
+      descriptor.SetColorAttachmentDescriptor(
+          0, *descriptor.GetColorAttachmentDescriptor(0));
+    }
+  }
+  FML_LOG(ERROR)
+      << "state 1: "
+      << pso_cache_->GetCapabilities()->SupportsExtendedDynamicState();
+  FML_LOG(ERROR)
+      << "state 3: "
+      << pso_cache_->GetCapabilities()->SupportsExtendedDynamicState3();
+
   Lock lock(pipelines_mutex_);
   if (auto found = pipelines_.find(descriptor); found != pipelines_.end()) {
+    FML_LOG(ERROR) << "HIT";
     return found->second;
   }
 
@@ -174,7 +199,7 @@ PipelineFuture<PipelineDescriptor> PipelineLibraryVK::GetPipeline(
   auto weak_this = weak_from_this();
 
   PipelineKey next_key = pipeline_key_++;
-  auto generation_task = [descriptor, weak_this, promise, next_key]() {
+  auto generation_task = [descriptor_copy, weak_this, promise, next_key]() {
     auto thiz = weak_this.lock();
     if (!thiz) {
       promise->set_value(nullptr);
@@ -184,7 +209,7 @@ PipelineFuture<PipelineDescriptor> PipelineLibraryVK::GetPipeline(
     }
 
     promise->set_value(PipelineVK::Create(
-        descriptor,                                            //
+        descriptor_copy,                                       //
         PipelineLibraryVK::Cast(*thiz).device_holder_.lock(),  //
         weak_this,                                             //
         next_key                                               //
@@ -203,7 +228,8 @@ PipelineFuture<PipelineDescriptor> PipelineLibraryVK::GetPipeline(
 // |PipelineLibrary|
 PipelineFuture<ComputePipelineDescriptor> PipelineLibraryVK::GetPipeline(
     ComputePipelineDescriptor descriptor,
-    bool async) {
+    bool async,
+    std::optional<ComputePipelineDescriptor> base_descriptor) {
   Lock lock(pipelines_mutex_);
   if (auto found = compute_pipelines_.find(descriptor);
       found != compute_pipelines_.end()) {

@@ -29,6 +29,8 @@ class RenderPassVK final : public RenderPass {
   std::shared_ptr<CommandBufferVK> command_buffer_;
   std::string debug_label_;
   SharedHandleVK<vk::RenderPass> render_pass_;
+  bool extended_dynamic_state_1_ = false;
+  bool extended_dynamic_state_3_ = false;
   bool is_valid_ = false;
 
   vk::CommandBuffer command_buffer_vk_;

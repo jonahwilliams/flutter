@@ -26,6 +26,9 @@ WorkaroundsVK GetWorkaroundsFromDriverInfo(DriverInfoVK& driver_info) {
       workarounds.batch_submit_command_buffer_timeout = false;
     }
   } else if (mali_gpu.has_value()) {
+    if (!driver_info.GetDriverVersion().IsAtLeast(Version(44, 1, 0))) {
+      workarounds.dynamic_state_broken = true;
+    }
     workarounds.batch_submit_command_buffer_timeout = false;
   }
   return workarounds;

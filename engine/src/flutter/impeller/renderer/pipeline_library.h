@@ -32,21 +32,26 @@ class PipelineLibrary : public std::enable_shared_from_this<PipelineLibrary> {
 
   PipelineFuture<PipelineDescriptor> GetPipeline(
       std::optional<PipelineDescriptor> descriptor,
-      bool async = true);
+      bool async = true,
+      std::optional<PipelineDescriptor> base_descriptor = std::nullopt);
 
   PipelineFuture<ComputePipelineDescriptor> GetPipeline(
       std::optional<ComputePipelineDescriptor> descriptor,
-      bool async = true);
+      bool async = true,
+      std::optional<ComputePipelineDescriptor> base_descriptor = std::nullopt);
 
   virtual bool IsValid() const = 0;
 
   virtual PipelineFuture<PipelineDescriptor> GetPipeline(
       PipelineDescriptor descriptor,
-      bool async = true) = 0;
+      bool async = true,
+      std::optional<PipelineDescriptor> base_descriptor = std::nullopt) = 0;
 
   virtual PipelineFuture<ComputePipelineDescriptor> GetPipeline(
       ComputePipelineDescriptor descriptor,
-      bool async = true) = 0;
+      bool async = true,
+      std::optional<ComputePipelineDescriptor> base_descriptor =
+          std::nullopt) = 0;
 
   virtual bool HasPipeline(const PipelineDescriptor& descriptor) = 0;
 

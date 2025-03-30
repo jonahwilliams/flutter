@@ -151,6 +151,23 @@ enum class OptionalDeviceExtensionVK : uint32_t {
   ///
   kEXTImageCompressionControl,
 
+  //----------------------------------------------------------------------------
+  /// For reducing pipeline variants.
+  ///
+  /// Note: There are two additional dynamic state  extensions, but their
+  /// availibility is smaller and only the 3rd provides more useful
+  /// capabilities.
+  ///
+  /// https://registry.khronos.org/vulkan/specs/latest/man/html/VK_EXT_extended_dynamic_state.html
+  kKHRExtendedDynamicState1,
+
+  //----------------------------------------------------------------------------
+  /// For reducing pipeline variants.
+  ///
+  ///
+  /// https://registry.khronos.org/vulkan/specs/latest/man/html/VK_EXT_extended_dynamic_state3.html
+  kKHRExtendedDynamicState3,
+
   kLast,
 };
 
@@ -211,7 +228,9 @@ class CapabilitiesVK final : public Capabilities,
       vk::StructureChain<vk::PhysicalDeviceFeatures2,
                          vk::PhysicalDeviceSamplerYcbcrConversionFeaturesKHR,
                          vk::PhysicalDevice16BitStorageFeatures,
-                         vk::PhysicalDeviceImageCompressionControlFeaturesEXT>;
+                         vk::PhysicalDeviceImageCompressionControlFeaturesEXT,
+                         vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT,
+                         vk::PhysicalDeviceExtendedDynamicState3FeaturesEXT>;
 
   std::optional<PhysicalDeviceFeatures> GetEnabledDeviceFeatures(
       const vk::PhysicalDevice& physical_device) const;
@@ -288,6 +307,24 @@ class CapabilitiesVK final : public Capabilities,
   /// are available.
   bool SupportsExternalSemaphoreExtensions() const;
 
+  /// @brief Whether the following extended dynamic states are supported:
+  ///
+  /// * VK_DYNAMIC_STATE_CULL_MODE
+  /// * VK_DYNAMIC_STATE_FRONT_FACE
+  /// * VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY
+  /// * VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT
+  /// * VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT
+  /// * VK_DYNAMIC_STATE_VERTEX_INPUT_BINDING_STRIDE
+  /// * VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE
+  /// * VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE
+  /// * VK_DYNAMIC_STATE_DEPTH_COMPARE_OP
+  /// * VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE
+  /// * VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE
+  /// * VK_DYNAMIC_STATE_STENCIL_OP
+  bool SupportsExtendedDynamicState() const;
+
+  bool SupportsExtendedDynamicState3() const;
+
   //----------------------------------------------------------------------------
   /// @brief      Get the fixed compression rate supported by the context for
   ///             the given format and usage.
@@ -327,6 +364,8 @@ class CapabilitiesVK final : public Capabilities,
   bool has_primitive_restart_ = true;
   bool has_framebuffer_fetch_ = true;
   bool supports_external_fence_and_semaphore_ = false;
+  bool supports_extended_dynamic_state_ = false;
+  bool supports_extended_dynamic_state_3_ = false;
   bool is_valid_ = false;
 
   // The embedder.h API is responsible for providing the instance and device

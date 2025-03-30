@@ -255,7 +255,8 @@ std::shared_ptr<PipelineGLES> PipelineLibraryGLES::CreatePipeline(
 // |PipelineLibrary|
 PipelineFuture<PipelineDescriptor> PipelineLibraryGLES::GetPipeline(
     PipelineDescriptor descriptor,
-    bool async) {
+    bool async,
+    std::optional<PipelineDescriptor> base_descriptor) {
   if (auto found = pipelines_.find(descriptor); found != pipelines_.end()) {
     return found->second;
   }
@@ -300,7 +301,8 @@ PipelineFuture<PipelineDescriptor> PipelineLibraryGLES::GetPipeline(
 // |PipelineLibrary|
 PipelineFuture<ComputePipelineDescriptor> PipelineLibraryGLES::GetPipeline(
     ComputePipelineDescriptor descriptor,
-    bool async) {
+    bool async,
+    std::optional<ComputePipelineDescriptor> base_descriptor) {
   auto promise = std::make_shared<
       std::promise<std::shared_ptr<Pipeline<ComputePipelineDescriptor>>>>();
   promise->set_value(nullptr);

@@ -16,8 +16,44 @@
 #include "impeller/renderer/backend/vulkan/sampler_vk.h"
 #include "impeller/renderer/backend/vulkan/shader_function_vk.h"
 #include "impeller/renderer/backend/vulkan/vertex_descriptor_vk.h"
+#include "vulkan/vulkan_enums.hpp"
 
 namespace impeller {
+
+static constexpr vk::DynamicState kBasicDynamicState[3] = {
+    vk::DynamicState::eViewport,
+    vk::DynamicState::eScissor,
+    vk::DynamicState::eStencilReference,
+};
+
+static constexpr vk::DynamicState kExtendedDynamicState1[10] = {
+    vk::DynamicState::eViewport,                  //
+    vk::DynamicState::eScissor,                   //
+    vk::DynamicState::eStencilReference,          //
+    vk::DynamicState::eDepthBoundsTestEnableEXT,  //
+    vk::DynamicState::eDepthCompareOpEXT,         //
+    vk::DynamicState::eDepthTestEnableEXT,        //
+    vk::DynamicState::eDepthWriteEnableEXT,       //
+    vk::DynamicState::ePrimitiveTopologyEXT,      //
+    vk::DynamicState::eStencilOpEXT,              //
+    vk::DynamicState::eStencilTestEnableEXT,      //
+};
+
+static constexpr vk::DynamicState kExtendedDynamicState1and3[13] = {
+    vk::DynamicState::eViewport,                  //
+    vk::DynamicState::eScissor,                   //
+    vk::DynamicState::eStencilReference,          //
+    vk::DynamicState::eDepthBoundsTestEnableEXT,  //
+    vk::DynamicState::eDepthCompareOpEXT,         //
+    vk::DynamicState::eDepthTestEnableEXT,        //
+    vk::DynamicState::eDepthWriteEnableEXT,       //
+    vk::DynamicState::ePrimitiveTopologyEXT,      //
+    vk::DynamicState::eStencilOpEXT,              //
+    vk::DynamicState::eStencilTestEnableEXT,      //
+    vk::DynamicState::eColorBlendEnableEXT,       //
+    vk::DynamicState::eColorBlendEquationEXT,     //
+    vk::DynamicState::eColorWriteMaskEXT,         //
+};
 
 static vk::PipelineCreationFeedbackEXT EmptyFeedback() {
   vk::PipelineCreationFeedbackEXT feedback;
@@ -257,7 +293,12 @@ fml::StatusOr<vk::UniquePipeline> MakePipeline(
 
   const auto* caps = pso_cache->GetCapabilities();
 
-  const auto supports_pipeline_creation_feedback = caps->HasExtension(
+  const bool supports_extended_dynamic_state =
+      pso_cache->GetCapabilities()->SupportsExtendedDynamicState();
+  const bool supports_extended_dynamic_state_3 =
+      pso_cache->GetCapabilities()->SupportsExtendedDynamicState() &&
+      supports_extended_dynamic_state;
+  const bool supports_pipeline_creation_feedback = caps->HasExtension(
       OptionalDeviceExtensionVK::kEXTPipelineCreationFeedback);
   if (!supports_pipeline_creation_feedback) {
     chain.unlink<vk::PipelineCreationFeedbackCreateInfoEXT>();
@@ -270,12 +311,13 @@ fml::StatusOr<vk::UniquePipeline> MakePipeline(
   /// Dynamic States
   ///
   vk::PipelineDynamicStateCreateInfo dynamic_create_state_info;
-  std::vector<vk::DynamicState> dynamic_states = {
-      vk::DynamicState::eViewport,
-      vk::DynamicState::eScissor,
-      vk::DynamicState::eStencilReference,
-  };
-  dynamic_create_state_info.setDynamicStates(dynamic_states);
+  if (supports_extended_dynamic_state_3) {
+    dynamic_create_state_info.setDynamicStates(kBasicDynamicState);
+  } else if (supports_extended_dynamic_state) {
+    dynamic_create_state_info.setDynamicStates(kExtendedDynamicState1and3);
+  } else {
+    dynamic_create_state_info.setDynamicStates(kExtendedDynamicState1);
+  }
   pipeline_info.setPDynamicState(&dynamic_create_state_info);
 
   //----------------------------------------------------------------------------
@@ -421,10 +463,11 @@ fml::StatusOr<vk::UniquePipeline> MakePipeline(
   //----------------------------------------------------------------------------
   /// Create the depth stencil state.
   ///
-  auto depth_stencil_state = ToVKPipelineDepthStencilStateCreateInfo(
-      desc.GetDepthStencilAttachmentDescriptor(),
-      desc.GetFrontStencilAttachmentDescriptor(),
-      desc.GetBackStencilAttachmentDescriptor());
+  vk::PipelineDepthStencilStateCreateInfo depth_stencil_state =
+      ToVKPipelineDepthStencilStateCreateInfo(
+          desc.GetDepthStencilAttachmentDescriptor(),
+          desc.GetFrontStencilAttachmentDescriptor(),
+          desc.GetBackStencilAttachmentDescriptor());
   pipeline_info.setPDepthStencilState(&depth_stencil_state);
 
   //----------------------------------------------------------------------------

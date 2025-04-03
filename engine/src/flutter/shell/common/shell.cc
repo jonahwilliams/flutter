@@ -65,6 +65,7 @@ std::unique_ptr<Engine> CreateEngine(
     const fml::RefPtr<SkiaUnrefQueue>& unref_queue,
     const fml::TaskRunnerAffineWeakPtr<SnapshotDelegate>& snapshot_delegate,
     const std::shared_ptr<fml::SyncSwitch>& gpu_disabled_switch,
+    const std::shared_ptr<CodecManager>& codec_manager,
     impeller::RuntimeStageBackend runtime_stage_backend) {
   return std::make_unique<Engine>(delegate,             //
                                   dispatcher_maker,     //
@@ -78,6 +79,7 @@ std::unique_ptr<Engine> CreateEngine(
                                   unref_queue,          //
                                   snapshot_delegate,    //
                                   gpu_disabled_switch,  //
+                                  codec_manager,        //
                                   runtime_stage_backend);
 }
 
@@ -307,10 +309,14 @@ std::unique_ptr<Shell> Shell::CreateShellOnPlatformThread(
 
   // Create the engine on the UI thread.
   std::promise<std::unique_ptr<Engine>> engine_promise;
+  std::promise<std::shared_ptr<CodecManager>> codec_promise;
   auto engine_future = engine_promise.get_future();
+  auto codec_future = codec_promise.get_future();
+
   fml::TaskRunner::RunNowOrPostTask(
       shell->GetTaskRunners().GetUITaskRunner(),
       fml::MakeCopyable([&engine_promise,                                 //
+                         &codec_promise,                                  //
                          shell = shell.get(),                             //
                          &dispatcher_maker,                               //
                          &platform_data,                                  //
@@ -325,10 +331,20 @@ std::unique_ptr<Shell> Shell::CreateShellOnPlatformThread(
         TRACE_EVENT0("flutter", "ShellSetupUISubsystem");
         const auto& task_runners = shell->GetTaskRunners();
 
-        // The animator is owned by the UI thread but it gets its vsync pulses
-        // from the platform.
+        // The animator is owned by the UI thread but it gets its vsync
+        // pulses from the platform.
         auto animator = std::make_unique<Animator>(*shell, task_runners,
                                                    std::move(vsync_waiter));
+        auto io_manager = weak_io_manager_future.get();
+
+        auto codec_manager = std::make_shared<CodecManager>(
+            /*task_runners=*/task_runners,
+            /*impeller_context=*/io_manager->GetImpellerContext(),
+            /*gpu_is_disabled_sync_switch=*/
+            io_manager->GetIsGpuDisabledSyncSwitch(),
+            /*skia_unref_queue=*/io_manager->GetSkiaUnrefQueue(),
+            /*resource_context=*/io_manager->GetResourceContext());
+        codec_promise.set_value(codec_manager);
 
         engine_promise.set_value(on_create_engine(
             *shell,                               //
@@ -339,10 +355,11 @@ std::unique_ptr<Shell> Shell::CreateShellOnPlatformThread(
             platform_data,                        //
             shell->GetSettings(),                 //
             std::move(animator),                  //
-            weak_io_manager_future.get(),         //
+            io_manager,                           //
             unref_queue_future.get(),             //
             snapshot_delegate_future.get(),       //
             shell->is_gpu_disabled_sync_switch_,  //
+            codec_manager,                        //
             runtime_stage_backend                 //
             ));
       }));
@@ -350,7 +367,8 @@ std::unique_ptr<Shell> Shell::CreateShellOnPlatformThread(
   if (!shell->Setup(std::move(platform_view),  //
                     engine_future.get(),       //
                     rasterizer_future.get(),   //
-                    io_manager_future.get())   //
+                    io_manager_future.get(),
+                    codec_future.get())  //
   ) {
     return nullptr;
   }
@@ -556,6 +574,9 @@ Shell::~Shell() {
 
   io_latch.Wait();
 
+  // This must shut down after the I/O task runner has been shut down.
+  codec_manager_->Shutdown();
+
   // The platform view must go last because it may be holding onto platform side
   // counterparts to resources owned by subsystems running on other threads. For
   // example, the NSOpenGLContext on the Mac.
@@ -596,6 +617,7 @@ std::unique_ptr<Shell> Shell::Spawn(
           const fml::RefPtr<SkiaUnrefQueue>& unref_queue,
           fml::TaskRunnerAffineWeakPtr<SnapshotDelegate> snapshot_delegate,
           const std::shared_ptr<fml::SyncSwitch>& is_gpu_disabled_sync_switch,
+          const std::shared_ptr<CodecManager>& codec_manager,
           impeller::RuntimeStageBackend runtime_stage_backend) {
         return engine->Spawn(
             /*delegate=*/delegate,
@@ -727,15 +749,18 @@ bool Shell::IsSetup() const {
 bool Shell::Setup(std::unique_ptr<PlatformView> platform_view,
                   std::unique_ptr<Engine> engine,
                   std::unique_ptr<Rasterizer> rasterizer,
-                  const std::shared_ptr<ShellIOManager>& io_manager) {
+                  const std::shared_ptr<ShellIOManager>& io_manager,
+                  const std::shared_ptr<CodecManager>& codec_manager) {
   if (is_set_up_) {
     return false;
   }
 
-  if (!platform_view || !engine || !rasterizer || !io_manager) {
+  if (!platform_view || !engine || !rasterizer || !io_manager ||
+      !codec_manager) {
     return false;
   }
 
+  codec_manager_ = codec_manager;
   platform_view_ = std::move(platform_view);
   platform_message_handler_ = platform_view_->GetPlatformMessageHandler();
   route_messages_through_platform_thread_.store(true);
@@ -748,7 +773,6 @@ bool Shell::Setup(std::unique_ptr<PlatformView> platform_view,
   engine_ = std::move(engine);
   rasterizer_ = std::move(rasterizer);
   io_manager_ = io_manager;
-
   // Set the external view embedder for the rasterizer.
   auto view_embedder = platform_view_->CreateExternalViewEmbedder();
   rasterizer_->SetExternalViewEmbedder(view_embedder);

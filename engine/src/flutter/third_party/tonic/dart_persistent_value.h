@@ -38,7 +38,9 @@ class DartPersistentValue {
   std::weak_ptr<DartState> dart_state_;
   Dart_PersistentHandle value_;
 
-  TONIC_DISALLOW_COPY_AND_ASSIGN(DartPersistentValue);
+  void operator=(const DartPersistentValue&) = delete;
+
+  DartPersistentValue(const DartPersistentValue&) = delete;
 };
 
 }  // namespace tonic

@@ -69,6 +69,7 @@ std::unique_ptr<RuntimeController> RuntimeController::Spawn(
                                        advisory_script_entrypoint,
                                        context_.deterministic_rendering_enabled,
                                        context_.concurrent_task_runner,
+                                       context_.codec_manager,
                                        context_.enable_impeller,
                                        context_.runtime_stage_backend};
   auto result =

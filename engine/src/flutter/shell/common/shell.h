@@ -25,6 +25,7 @@
 #include "flutter/fml/synchronization/waitable_event.h"
 #include "flutter/fml/thread.h"
 #include "flutter/fml/time/time_point.h"
+#include "flutter/lib/ui/painting/codec_manager.h"
 #include "flutter/lib/ui/painting/image_generator_registry.h"
 #include "flutter/lib/ui/semantics/custom_accessibility_action.h"
 #include "flutter/lib/ui/semantics/semantics_node.h"
@@ -117,7 +118,7 @@ class Shell final : public PlatformView::Delegate,
  public:
   template <class T>
   using CreateCallback = std::function<std::unique_ptr<T>(Shell&)>;
-  typedef std::function<std::unique_ptr<Engine>(
+  using EngineCreateCallback = std::function<std::unique_ptr<Engine>(
       Engine::Delegate& delegate,
       const PointerDataDispatcherMaker& dispatcher_maker,
       DartVM& vm,
@@ -130,8 +131,8 @@ class Shell final : public PlatformView::Delegate,
       fml::RefPtr<SkiaUnrefQueue> unref_queue,
       fml::TaskRunnerAffineWeakPtr<SnapshotDelegate> snapshot_delegate,
       const std::shared_ptr<fml::SyncSwitch>& gpu_disabled_switch,
-      impeller::RuntimeStageBackend runtime_stage_type)>
-      EngineCreateCallback;
+      const std::shared_ptr<CodecManager>& codec_manager,
+      impeller::RuntimeStageBackend runtime_stage_type)>;
 
   //----------------------------------------------------------------------------
   /// @brief      Creates a shell instance using the provided settings. The
@@ -468,6 +469,7 @@ class Shell final : public PlatformView::Delegate,
   std::shared_ptr<ShellIOManager> io_manager_;   // on IO task runner
   std::shared_ptr<fml::SyncSwitch> is_gpu_disabled_sync_switch_;
   std::shared_ptr<PlatformMessageHandler> platform_message_handler_;
+  std::shared_ptr<CodecManager> codec_manager_;
   std::atomic<bool> route_messages_through_platform_thread_ = false;
 
   fml::WeakPtr<Engine> weak_engine_;  // to be shared across threads
@@ -566,7 +568,8 @@ class Shell final : public PlatformView::Delegate,
   bool Setup(std::unique_ptr<PlatformView> platform_view,
              std::unique_ptr<Engine> engine,
              std::unique_ptr<Rasterizer> rasterizer,
-             const std::shared_ptr<ShellIOManager>& io_manager);
+             const std::shared_ptr<ShellIOManager>& io_manager,
+             const std::shared_ptr<CodecManager>& codec_manager);
 
   void ReportTimings();
 

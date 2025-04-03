@@ -8,6 +8,7 @@
 
 #include "display_list/image/dl_image.h"
 #include "flutter/fml/make_copyable.h"
+#include "flutter/lib/ui/painting/codec_manager.h"
 #include "flutter/lib/ui/painting/display_list_image_gpu.h"
 #include "flutter/lib/ui/painting/image.h"
 #if IMPELLER_SUPPORTS_RENDERING
@@ -30,11 +31,11 @@ MultiFrameCodec::~MultiFrameCodec() = default;
 
 MultiFrameCodec::State::State(std::shared_ptr<ImageGenerator> generator)
     : generator_(std::move(generator)),
-      frameCount_(generator_->GetFrameCount()),
-      repetitionCount_(generator_->GetPlayCount() ==
-                               ImageGenerator::kInfinitePlayCount
-                           ? -1
-                           : generator_->GetPlayCount() - 1),
+      frame_count_(generator_->GetFrameCount()),
+      repetition_count_(generator_->GetPlayCount() ==
+                                ImageGenerator::kInfinitePlayCount
+                            ? -1
+                            : generator_->GetPlayCount() - 1),
       is_impeller_enabled_(UIDartState::Current()->IsImpellerEnabled()) {}
 
 static void InvokeNextFrameCallback(
@@ -57,7 +58,7 @@ static void InvokeNextFrameCallback(
 
 std::pair<sk_sp<DlImage>, std::string>
 MultiFrameCodec::State::GetNextFrameImage(
-    const fml::WeakPtr<GrDirectContext>& resourceContext,
+    const fml::WeakPtr<GrDirectContext>& resource_context,
     const std::shared_ptr<const fml::SyncSwitch>& gpu_disable_sync_switch,
     const std::shared_ptr<impeller::Context>& impeller_context,
     const fml::RefPtr<flutter::SkiaUnrefQueue>& unref_queue) {
@@ -77,26 +78,27 @@ MultiFrameCodec::State::GetNextFrameImage(
   }
 
   ImageGenerator::FrameInfo frameInfo =
-      generator_->GetFrameInfo(nextFrameIndex_);
+      generator_->GetFrameInfo(next_frame_index_);
 
-  const int requiredFrameIndex =
+  const int required_frame_index =
       frameInfo.required_frame.value_or(SkCodec::kNoFrame);
 
-  if (requiredFrameIndex != SkCodec::kNoFrame) {
+  if (required_frame_index != SkCodec::kNoFrame) {
     // We are here when the frame said |disposal_method| is
     // `DisposalMethod::kKeep` or `DisposalMethod::kRestorePrevious` and
     // |requiredFrameIndex| is set to ex-frame or ex-ex-frame.
-    if (!lastRequiredFrame_.has_value()) {
+    if (!last_required_frame_.has_value()) {
       FML_DLOG(INFO)
-          << "Frame " << nextFrameIndex_ << " depends on frame "
-          << requiredFrameIndex
+          << "Frame " << next_frame_index_ << " depends on frame "
+          << required_frame_index
           << " and no required frames are cached. Using blank slate instead.";
     } else {
       // Copy the previous frame's output buffer into the current frame as the
       // starting point.
-      bitmap.writePixels(lastRequiredFrame_->pixmap());
-      if (restoreBGColorRect_.has_value()) {
-        bitmap.erase(SK_ColorTRANSPARENT, restoreBGColorRect_.value());
+      bitmap.writePixels(last_required_frame_->pixmap());
+      if (restore_background_color_rect_.has_value()) {
+        bitmap.erase(SK_ColorTRANSPARENT,
+                     restore_background_color_rect_.value());
       }
     }
   }
@@ -104,9 +106,9 @@ MultiFrameCodec::State::GetNextFrameImage(
   // Write the new frame to the output buffer. The bitmap pixels as supplied
   // are already set in accordance with the previous frame's disposal policy.
   if (!generator_->GetPixels(info, bitmap.getPixels(), bitmap.rowBytes(),
-                             nextFrameIndex_, requiredFrameIndex)) {
+                             next_frame_index_, required_frame_index)) {
     std::ostringstream ostr;
-    ostr << "Could not getPixels for frame " << nextFrameIndex_;
+    ostr << "Could not getPixels for frame " << next_frame_index_;
     std::string decode_error = ostr.str();
     FML_LOG(ERROR) << decode_error;
     return std::make_pair(nullptr, decode_error);
@@ -117,7 +119,7 @@ MultiFrameCodec::State::GetNextFrameImage(
   const bool restore_previous_frame =
       frameInfo.disposal_method ==
       SkCodecAnimation::DisposalMethod::kRestorePrevious;
-  const bool previous_frame_available = lastRequiredFrame_.has_value();
+  const bool previous_frame_available = last_required_frame_.has_value();
 
   // Store the current frame in `lastRequiredFrame_` if the frame's disposal
   // method indicates we should do so.
@@ -133,15 +135,15 @@ MultiFrameCodec::State::GetNextFrameImage(
       (previous_frame_available && !restore_previous_frame)) {
     // Replace the stored frame. The `lastRequiredFrame_` will get used as the
     // starting backdrop for the next frame.
-    lastRequiredFrame_ = bitmap;
-    lastRequiredFrameIndex_ = nextFrameIndex_;
+    last_required_frame_ = bitmap;
+    last_required_frame_index_ = next_frame_index_;
   }
 
   if (frameInfo.disposal_method ==
       SkCodecAnimation::DisposalMethod::kRestoreBGColor) {
-    restoreBGColorRect_ = frameInfo.disposal_rect;
+    restore_background_color_rect_ = frameInfo.disposal_rect;
   } else {
-    restoreBGColorRect_.reset();
+    restore_background_color_rect_.reset();
   }
 
 #if IMPELLER_SUPPORTS_RENDERING
@@ -155,10 +157,9 @@ MultiFrameCodec::State::GetNextFrameImage(
     sk_sp<DlImage> dl_image;
     std::string error_message;
     auto mapping = std::make_unique<fml::NonOwnedMapping>(
-        reinterpret_cast<const uint8_t*>(bitmap.getAddr(0, 0)),  // data
-        bitmap.dimensions().area() * info.bytesPerPixel(),       // size
-        [bitmap](auto, auto) mutable { bitmap.reset(); }         // proc
-    );
+        /*data=*/reinterpret_cast<const uint8_t*>(bitmap.getAddr(0, 0)),
+        /*size=*/bitmap.dimensions().area() * info.bytesPerPixel(),
+        /*release_proc=*/[bitmap](auto, auto) mutable { bitmap.reset(); });
     std::shared_ptr<impeller::DeviceBuffer> device_buffer =
         impeller_context->GetResourceAllocator()->CreateBufferWithCopy(
             *mapping);
@@ -167,13 +168,17 @@ MultiFrameCodec::State::GetNextFrameImage(
     }
 
     ImageDecoderImpeller::UploadTextureToPrivate(
+        /*result=*/
         [&](sk_sp<DlImage> image, std::string message) {
           dl_image = std::move(image);
           error_message = std::move(message);
         },
-        impeller_context, device_buffer, info,
-        std::make_shared<SkBitmap>(bitmap), std::nullopt,
-        gpu_disable_sync_switch);
+        /*context=*/impeller_context,
+        /*buffer=*/device_buffer,
+        /*image_info=*/info,
+        /*bitmap=*/std::make_shared<SkBitmap>(bitmap),
+        /*resize_info=*/std::nullopt,
+        /*gpu_disabled_switch=*/gpu_disable_sync_switch);
     return std::make_pair(dl_image, error_message);
 #endif
   }
@@ -189,12 +194,12 @@ MultiFrameCodec::State::GetNextFrameImage(
             // in the background on iOS.
             skImage = SkImages::RasterFromBitmap(bitmap);
           })
-          .SetIfFalse([&skImage, &resourceContext, &bitmap] {
-            if (resourceContext) {
+          .SetIfFalse([&skImage, &resource_context, &bitmap] {
+            if (resource_context) {
               SkPixmap pixmap(bitmap.info(), bitmap.pixelRef()->pixels(),
                               bitmap.pixelRef()->rowBytes());
               skImage = SkImages::CrossContextTextureFromPixmap(
-                  resourceContext.get(), pixmap, true);
+                  resource_context.get(), pixmap, true);
             } else {
               // Defer decoding until time of draw later on the raster thread.
               // Can happen when GL operations are currently forbidden such as
@@ -211,47 +216,34 @@ MultiFrameCodec::State::GetNextFrameImage(
 }
 
 void MultiFrameCodec::State::GetNextFrameAndInvokeCallback(
+    CodecManager& codec_manager,
     std::unique_ptr<tonic::DartPersistentValue> callback,
-    const fml::RefPtr<fml::TaskRunner>& ui_task_runner,
-    const fml::WeakPtr<GrDirectContext>& resourceContext,
+    const fml::WeakPtr<GrDirectContext>& resource_context,
     const fml::RefPtr<flutter::SkiaUnrefQueue>& unref_queue,
     const std::shared_ptr<const fml::SyncSwitch>& gpu_disable_sync_switch,
     size_t trace_id,
     const std::shared_ptr<impeller::Context>& impeller_context) {
-#if FML_OS_IOS_SIMULATOR
-  // Noop backend.
-  if (!resourceContext && !impeller_context) {
-    ui_task_runner->PostTask(
-        fml::MakeCopyable([callback = std::move(callback)]() {
-          // must be destroyed on UI thread.
-        }));
-    return;
-  }
-#endif  // FML_OS_IOS_SIMULATOR
-
   fml::RefPtr<CanvasImage> image = nullptr;
   int duration = 0;
-  sk_sp<DlImage> dlImage;
+  sk_sp<DlImage> dl_image;
   std::string decode_error;
-  std::tie(dlImage, decode_error) = GetNextFrameImage(
-      resourceContext, gpu_disable_sync_switch, impeller_context, unref_queue);
-  if (dlImage) {
+  std::tie(dl_image, decode_error) = GetNextFrameImage(
+      resource_context, gpu_disable_sync_switch, impeller_context, unref_queue);
+  if (dl_image) {
     image = CanvasImage::Create();
-    image->set_image(dlImage);
+    image->set_image(dl_image);
     ImageGenerator::FrameInfo frameInfo =
-        generator_->GetFrameInfo(nextFrameIndex_);
+        generator_->GetFrameInfo(next_frame_index_);
     duration = frameInfo.duration;
   }
-  nextFrameIndex_ = (nextFrameIndex_ + 1) % frameCount_;
+  next_frame_index_ = (next_frame_index_ + 1) % frame_count_;
 
-  // The static leak checker gets confused by the use of fml::MakeCopyable.
-  // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
-  ui_task_runner->PostTask(fml::MakeCopyable(
-      [callback = std::move(callback), image = std::move(image),
-       decode_error = std::move(decode_error), duration, trace_id]() mutable {
-        InvokeNextFrameCallback(image, duration, decode_error,
-                                std::move(callback), trace_id);
-      }));
+  codec_manager.EnqueueComplete(std::move(callback),      //
+                                std::move(image),         //
+                                std::move(decode_error),  //
+                                duration,                 //
+                                trace_id                  //
+  );
 }
 
 Dart_Handle MultiFrameCodec::getNextFrame(Dart_Handle callback_handle) {
@@ -262,11 +254,10 @@ Dart_Handle MultiFrameCodec::getNextFrame(Dart_Handle callback_handle) {
     return tonic::ToDart("Callback must be a function");
   }
 
-  auto* dart_state = UIDartState::Current();
-
+  UIDartState* dart_state = UIDartState::Current();
   const auto& task_runners = dart_state->GetTaskRunners();
 
-  if (state_->frameCount_ == 0) {
+  if (state_->frame_count_ == 0) {
     std::string decode_error("Could not provide any frame.");
     FML_LOG(ERROR) << decode_error;
     task_runners.GetUITaskRunner()->PostTask(fml::MakeCopyable(
@@ -279,24 +270,33 @@ Dart_Handle MultiFrameCodec::getNextFrame(Dart_Handle callback_handle) {
     return Dart_Null();
   }
 
-  task_runners.GetIOTaskRunner()->PostTask(fml::MakeCopyable(
-      [callback = std::make_unique<tonic::DartPersistentValue>(
-           tonic::DartState::Current(), callback_handle),
-       weak_state = std::weak_ptr<MultiFrameCodec::State>(state_), trace_id,
-       ui_task_runner = task_runners.GetUITaskRunner(),
-       io_manager = dart_state->GetIOManager()]() mutable {
-        auto state = weak_state.lock();
-        if (!state) {
-          ui_task_runner->PostTask(fml::MakeCopyable(
-              [callback = std::move(callback)]() { callback->Clear(); }));
-          return;
-        }
-        state->GetNextFrameAndInvokeCallback(
-            std::move(callback), ui_task_runner,
-            io_manager->GetResourceContext(), io_manager->GetSkiaUnrefQueue(),
-            io_manager->GetIsGpuDisabledSyncSwitch(), trace_id,
-            io_manager->GetImpellerContext());
-      }));
+  dart_state->GetCodecManager().EnqueueDecode(
+      std::make_unique<tonic::DartPersistentValue>(tonic::DartState::Current(),
+                                                   callback_handle),
+      state_, trace_counter);
+
+  // task_runners.GetIOTaskRunner()->PostTask(fml::MakeCopyable(
+  //     [callback = std::make_unique<tonic::DartPersistentValue>(
+  //          tonic::DartState::Current(), callback_handle),
+  //      weak_state = std::weak_ptr<MultiFrameCodec::State>(state_), trace_id,
+  //      ui_task_runner = task_runners.GetUITaskRunner(),
+  //      io_manager = dart_state->GetIOManager()]() mutable {
+  //       std::shared_ptr<State> state = weak_state.lock();
+  //       if (!state) {
+  //         ui_task_runner->PostTask(fml::MakeCopyable(
+  //             [callback = std::move(callback)]() { callback->Clear(); }));
+  //         return;
+  //       }
+  //       state->GetNextFrameAndInvokeCallback(
+  //           /*callback=*/std::move(callback),
+  //           /*ui_task_runner=*/ui_task_runner,
+  //           /*resource_context=*/io_manager->GetResourceContext(),
+  //           /*unref_queue=*/io_manager->GetSkiaUnrefQueue(),
+  //           /*gpu_disable_sync_switch=*/
+  //           io_manager->GetIsGpuDisabledSyncSwitch(),
+  //           /*trace_id=*/trace_id,
+  //           /*impeller_context=*/io_manager->GetImpellerContext());
+  //     }));
 
   return Dart_Null();
   // The static leak checker gets confused by the control flow, unique
@@ -305,11 +305,11 @@ Dart_Handle MultiFrameCodec::getNextFrame(Dart_Handle callback_handle) {
 }
 
 int MultiFrameCodec::frameCount() const {
-  return state_->frameCount_;
+  return state_->frame_count_;
 }
 
 int MultiFrameCodec::repetitionCount() const {
-  return state_->repetitionCount_;
+  return state_->repetition_count_;
 }
 
 }  // namespace flutter

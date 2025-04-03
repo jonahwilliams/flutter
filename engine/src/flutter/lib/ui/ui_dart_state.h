@@ -31,6 +31,7 @@ class FontSelector;
 class ImageGeneratorRegistry;
 class PlatformConfiguration;
 class PlatformMessage;
+class CodecManager;
 
 class UIDartState : public tonic::DartState {
  public:
@@ -54,6 +55,7 @@ class UIDartState : public tonic::DartState {
             std::string advisory_script_entrypoint,
             bool deterministic_rendering_enabled,
             std::shared_ptr<fml::ConcurrentTaskRunner> concurrent_task_runner,
+            std::shared_ptr<CodecManager> codec_manager_,
             bool enable_impeller,
             impeller::RuntimeStageBackend runtime_stage_backend);
 
@@ -97,6 +99,8 @@ class UIDartState : public tonic::DartState {
     /// The task runner whose tasks may be executed concurrently on a pool
     /// of shared worker threads.
     std::shared_ptr<fml::ConcurrentTaskRunner> concurrent_task_runner;
+
+    std::shared_ptr<CodecManager> codec_manager;
 
     /// Whether Impeller is enabled or not.
     bool enable_impeller = false;
@@ -147,6 +151,8 @@ class UIDartState : public tonic::DartState {
   std::shared_ptr<IsolateNameServer> GetIsolateNameServer() const;
 
   tonic::DartErrorHandleType GetLastError();
+
+  CodecManager& GetCodecManager();
 
   // Logs `print` messages from the application via an embedder-specified
   // logging mechanism.

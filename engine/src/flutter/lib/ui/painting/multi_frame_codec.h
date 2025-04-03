@@ -28,7 +28,6 @@ class MultiFrameCodec : public Codec {
   // |Codec|
   Dart_Handle getNextFrame(Dart_Handle args) override;
 
- private:
   // Captures the state shared between the IO and UI task runners.
   //
   // The state is initialized on the UI task runner when the Dart object is
@@ -42,39 +41,40 @@ class MultiFrameCodec : public Codec {
     explicit State(std::shared_ptr<ImageGenerator> generator);
 
     const std::shared_ptr<ImageGenerator> generator_;
-    const int frameCount_;
-    const int repetitionCount_;
+    const int frame_count_;
+    const int repetition_count_;
     bool is_impeller_enabled_ = false;
 
     // The non-const members and functions below here are only read or written
     // to on the IO thread. They are not safe to access or write on the UI
     // thread.
-    int nextFrameIndex_ = 0;
+    int next_frame_index_ = 0;
     // The last decoded frame that's required to decode any subsequent frames.
-    std::optional<SkBitmap> lastRequiredFrame_;
+    std::optional<SkBitmap> last_required_frame_;
     // The index of the last decoded required frame.
-    int lastRequiredFrameIndex_ = -1;
+    int last_required_frame_index_ = -1;
 
     // The rectangle that should be cleared if the previous frame's disposal
     // method was kRestoreBGColor.
-    std::optional<SkIRect> restoreBGColorRect_;
+    std::optional<SkIRect> restore_background_color_rect_;
 
     std::pair<sk_sp<DlImage>, std::string> GetNextFrameImage(
-        const fml::WeakPtr<GrDirectContext>& resourceContext,
+        const fml::WeakPtr<GrDirectContext>& resource_context,
         const std::shared_ptr<const fml::SyncSwitch>& gpu_disable_sync_switch,
         const std::shared_ptr<impeller::Context>& impeller_context,
         const fml::RefPtr<flutter::SkiaUnrefQueue>& unref_queue);
 
     void GetNextFrameAndInvokeCallback(
+        CodecManager& codec_manager,
         std::unique_ptr<tonic::DartPersistentValue> callback,
-        const fml::RefPtr<fml::TaskRunner>& ui_task_runner,
-        const fml::WeakPtr<GrDirectContext>& resourceContext,
+        const fml::WeakPtr<GrDirectContext>& resource_context,
         const fml::RefPtr<flutter::SkiaUnrefQueue>& unref_queue,
         const std::shared_ptr<const fml::SyncSwitch>& gpu_disable_sync_switch,
         size_t trace_id,
         const std::shared_ptr<impeller::Context>& impeller_context);
   };
 
+ private:
   // Shared across the UI and IO task runners.
   std::shared_ptr<State> state_;
 

@@ -13,6 +13,7 @@
 #include "flutter/assets/native_assets.h"
 #include "flutter/common/settings.h"
 #include "flutter/fml/trace_event.h"
+#include "flutter/lib/ui/painting/codec_manager.h"
 #include "flutter/lib/ui/text/font_collection.h"
 #include "flutter/shell/common/animator.h"
 #include "rapidjson/document.h"
@@ -70,6 +71,7 @@ Engine::Engine(Delegate& delegate,
                const fml::RefPtr<SkiaUnrefQueue>& unref_queue,
                fml::TaskRunnerAffineWeakPtr<SnapshotDelegate> snapshot_delegate,
                const std::shared_ptr<fml::SyncSwitch>& gpu_disabled_switch,
+               const std::shared_ptr<CodecManager>& codec_manager,
                impeller::RuntimeStageBackend runtime_stage_type)
     : Engine(delegate,
              dispatcher_maker,
@@ -102,8 +104,9 @@ Engine::Engine(Delegate& delegate,
           settings_
               .skia_deterministic_rendering_on_cpu,  // deterministic rendering
           vm.GetConcurrentWorkerTaskRunner(),        // concurrent task runner
-          settings_.enable_impeller,                 // enable impeller
-          runtime_stage_type,                        // runtime stage type
+          codec_manager,
+          settings_.enable_impeller,  // enable impeller
+          runtime_stage_type,         // runtime stage type
       });
 }
 

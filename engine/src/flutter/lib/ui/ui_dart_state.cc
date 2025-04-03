@@ -7,6 +7,7 @@
 #include <utility>
 
 #include "flutter/fml/message_loop.h"
+#include "flutter/lib/ui/painting/codec_manager.h"
 #include "flutter/lib/ui/window/platform_configuration.h"
 #include "flutter/lib/ui/window/platform_message.h"
 #include "third_party/tonic/converter/dart_converter.h"
@@ -30,6 +31,7 @@ UIDartState::Context::Context(
     std::string advisory_script_entrypoint,
     bool deterministic_rendering_enabled,
     std::shared_ptr<fml::ConcurrentTaskRunner> concurrent_task_runner,
+    std::shared_ptr<CodecManager> codec_manager,
     bool enable_impeller,
     impeller::RuntimeStageBackend runtime_stage_backend)
     : task_runners(task_runners),
@@ -42,6 +44,7 @@ UIDartState::Context::Context(
       advisory_script_entrypoint(std::move(advisory_script_entrypoint)),
       deterministic_rendering_enabled(deterministic_rendering_enabled),
       concurrent_task_runner(std::move(concurrent_task_runner)),
+      codec_manager(std::move(codec_manager)),
       enable_impeller(enable_impeller),
       runtime_stage_backend(runtime_stage_backend) {}
 
@@ -239,6 +242,13 @@ Dart_Isolate UIDartState::CreatePlatformIsolate(Dart_Handle entry_point,
                                                 char** error) {
   FML_UNREACHABLE();
   return nullptr;
+}
+
+CodecManager& UIDartState::GetCodecManager() {
+  if (!context_.codec_manager) {
+    FML_LOG(ERROR) << "DANGER NO CODEC MANAGER";
+  }
+  return *context_.codec_manager;
 }
 
 }  // namespace flutter

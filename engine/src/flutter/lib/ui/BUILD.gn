@@ -48,6 +48,8 @@ source_set("ui") {
     "painting/canvas.h",
     "painting/codec.cc",
     "painting/codec.h",
+    "painting/codec_manager.cc",
+    "painting/codec_manager.h",
     "painting/color_filter.cc",
     "painting/color_filter.h",
     "painting/display_list_deferred_image_gpu_skia.cc",

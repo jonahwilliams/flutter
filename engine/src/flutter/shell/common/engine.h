@@ -406,6 +406,7 @@ class Engine final : public RuntimeDelegate, PointerDataDispatcher::Delegate {
          const fml::RefPtr<SkiaUnrefQueue>& unref_queue,
          fml::TaskRunnerAffineWeakPtr<SnapshotDelegate> snapshot_delegate,
          const std::shared_ptr<fml::SyncSwitch>& gpu_disabled_switch,
+         const std::shared_ptr<CodecManager>& codec_manager,
          impeller::RuntimeStageBackend runtime_stage_type =
              impeller::RuntimeStageBackend::kSkSL);
 

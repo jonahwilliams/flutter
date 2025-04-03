@@ -131,6 +131,7 @@ ContextVK::ContextVK(const Flags& flags)
     : Context(flags), hash_(CalculateHash(this)) {}
 
 ContextVK::~ContextVK() {
+  FML_LOG(ERROR) << "~ContextVK";
   if (device_holder_ && device_holder_->device) {
     [[maybe_unused]] auto result = device_holder_->device->waitIdle();
   }

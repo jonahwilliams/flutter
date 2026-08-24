@@ -87,6 +87,9 @@ class GPUProgramResolverMTL final : public GPUProgramResolver {
     /// visible.
     id<MTLRenderPipelineState> clip_resolve[2] = {};
     id<MTLRenderPipelineState> clip_reset = nil;
+    /// One axis of a separable Gaussian over a sampled texture,
+    /// src-over into the target like any other content.
+    id<MTLRenderPipelineState> blur = nil;
   };
 
   /// The ramp pipeline, which is not per target format: it only ever

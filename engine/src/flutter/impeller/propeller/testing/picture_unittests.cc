@@ -658,7 +658,7 @@ TEST(PrPictureTest, LayerContentIsCulledByTheInheritedClip) {
                    Rect::MakeLTRB(0, 0, 10, 10));
 }
 
-TEST(PrPictureTest, FilteredLayerKeepsTheInheritedClip) {
+TEST(PrPictureTest, AFilteredLayerStillCullsToItsDeclaredBounds) {
   PrPictureBuilder builder;
   flutter::DlPaint paint = Fill(flutter::DlColor::kRed());
   paint.setImageFilter(
@@ -666,9 +666,32 @@ TEST(PrPictureTest, FilteredLayerKeepsTheInheritedClip) {
 
   builder.SaveLayer(Rect::MakeLTRB(0, 0, 50, 50), &paint);
 
-  // A blur reads pixels the layer bounds do not show, so the bounds must
-  // not tighten the cull rect.
-  EXPECT_TRUE(builder.GetDestinationClipCoverage().IsMaximum());
+  // The bounds say where the content is, and a filter reads content --
+  // so they bound a filtered layer as much as any other. What the filter
+  // needs from outside the visible rect is a different question, asked
+  // of the inherited clip rather than of these.
+  EXPECT_EQ(builder.GetDestinationClipCoverage(), Rect::MakeLTRB(0, 0, 50, 50));
+}
+
+TEST(PrPictureTest, AFilteredLayerReadsPastTheClipItInherited) {
+  PrPictureBuilder builder;
+  builder.ClipRect(Rect::MakeLTRB(0, 0, 100, 100),
+                   flutter::DlClipOp::kIntersect,
+                   /*is_aa=*/true);
+  flutter::DlPaint paint = Fill(flutter::DlColor::kRed());
+  paint.setImageFilter(
+      flutter::DlImageFilter::MakeBlur(5, 5, flutter::DlTileMode::kDecal));
+
+  // Declared wider than the clip, so what the layer records is bounded by
+  // the clip rather than by these -- and the filter pulls that boundary
+  // back out, since content just past it still blurs into view.
+  builder.SaveLayer(Rect::MakeLTRB(-200, -200, 200, 200), &paint);
+
+  const Rect cull = builder.GetDestinationClipCoverage();
+  EXPECT_LT(cull.GetLeft(), 0);
+  EXPECT_LT(cull.GetTop(), 0);
+  EXPECT_GT(cull.GetRight(), 100);
+  EXPECT_GT(cull.GetBottom(), 100);
 }
 
 // -----------------------------------------------------------------------

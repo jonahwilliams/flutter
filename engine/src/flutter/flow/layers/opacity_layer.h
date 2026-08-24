@@ -46,6 +46,10 @@ class OpacityLayer : public CacheableContainerLayer {
 
   DlScalar opacity() const { return DlColor::toOpacity(alpha_); }
 
+  const OpacityLayer* as_opacity_layer() const override { return this; }
+
+  const DlPoint& offset() const { return offset_; }
+
  private:
   uint8_t alpha_;
   DlPoint offset_;

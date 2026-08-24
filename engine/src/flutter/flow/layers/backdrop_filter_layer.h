@@ -11,6 +11,15 @@ namespace flutter {
 
 class BackdropFilterLayer : public ContainerLayer {
  public:
+  // |Layer|
+  const BackdropFilterLayer* as_backdrop_filter_layer() const override {
+    return this;
+  }
+
+  const DlImageFilter* backdrop_filter() const { return filter_.get(); }
+  DlBlendMode backdrop_blend_mode() const { return blend_mode_; }
+  std::optional<int64_t> backdrop_id() const { return backdrop_id_; }
+
   BackdropFilterLayer(const std::shared_ptr<DlImageFilter>& filter,
                       DlBlendMode blend_mode,
                       std::optional<int64_t> backdrop_id = std::nullopt);

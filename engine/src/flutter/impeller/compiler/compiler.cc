@@ -140,6 +140,32 @@ static CompilerBackend CreateMSLCompiler(
       sl_options.msl_version >=
           spirv_cross::CompilerMSL::Options::make_msl_version(2, 4, 0);
   sl_options.use_framebuffer_fetch_subpasses = true;
+  if (sl_options.msl_version >=
+      spirv_cross::CompilerMSL::Options::make_msl_version(3, 0, 0)) {
+    // Unsized descriptor arrays (bindless) require tier-2 argument
+    // buffers, which Metal 3 guarantees, and their descriptor set must
+    // live in the device address space.
+    sl_options.argument_buffers = true;
+    sl_options.argument_buffers_tier =
+        spirv_cross::CompilerMSL::Options::ArgumentBuffersTier::Tier2;
+    sl_options.runtime_array_rich_descriptor = true;
+    const auto resources = sl_compiler->get_shader_resources();
+    auto mark_runtime_sized =
+        [&](const spirv_cross::SmallVector<spirv_cross::Resource>& list) {
+          for (const auto& resource : list) {
+            const auto& type = sl_compiler->get_type(resource.type_id);
+            if (!type.array.empty() && type.array[0] == 0) {
+              sl_compiler->set_argument_buffer_device_address_space(
+                  sl_compiler->get_decoration(resource.id,
+                                              spv::DecorationDescriptorSet),
+                  true);
+            }
+          }
+        };
+    mark_runtime_sized(resources.separate_images);
+    mark_runtime_sized(resources.sampled_images);
+    mark_runtime_sized(resources.storage_buffers);
+  }
   sl_compiler->set_msl_options(sl_options);
 
   // Sort the float and sampler uniforms according to their declared/decorated
@@ -415,6 +441,7 @@ Compiler::Compiler(const std::shared_ptr<const fml::Mapping>& source_mapping,
   }
 
   SPIRVCompilerOptions spirv_options;
+  spirv_options.keep_declared_bindings = source_options.keep_declared_bindings;
 
   // Make sure reflection is as effective as possible. The generated shaders
   // will be processed later by backend specific compilers.

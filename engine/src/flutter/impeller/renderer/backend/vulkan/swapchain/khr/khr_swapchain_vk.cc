@@ -45,6 +45,16 @@ void KHRSwapchainVK::AddFinalCommandBuffer(
   impl_->AddFinalCommandBuffer(std::move(cmd_buffer));
 }
 
+vk::Semaphore KHRSwapchainVK::TakeFrameRenderSemaphore() {
+  return impl_ ? impl_->TakeFrameRenderSemaphore() : nullptr;
+}
+
+void KHRSwapchainVK::SetFrameRenderDone(vk::Semaphore semaphore) {
+  if (impl_) {
+    impl_->SetFrameRenderDone(semaphore);
+  }
+}
+
 std::unique_ptr<Surface> KHRSwapchainVK::AcquireNextDrawable() {
   return AcquireNextDrawable(0u);
 }

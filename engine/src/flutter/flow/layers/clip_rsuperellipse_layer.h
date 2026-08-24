@@ -11,6 +11,11 @@ namespace flutter {
 
 class ClipRSuperellipseLayer : public ClipShapeLayer<DlRoundSuperellipse> {
  public:
+  // |Layer|
+  const char* propeller_unsupported_effect() const override {
+    return "ClipRSuperellipseLayer";
+  }
+
   ClipRSuperellipseLayer(const DlRoundSuperellipse& clip_rsuperellipse,
                          Clip clip_behavior);
 

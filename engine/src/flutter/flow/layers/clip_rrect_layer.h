@@ -13,6 +13,9 @@ class ClipRRectLayer : public ClipShapeLayer<DlRoundRect> {
  public:
   ClipRRectLayer(const DlRoundRect& clip_rrect, Clip clip_behavior);
 
+  const ClipRRectLayer* as_clip_rrect_layer() const override { return this; }
+  const DlRoundRect& clip_rrect() const { return clip_shape(); }
+
  protected:
   const DlRect clip_shape_bounds() const override;
 

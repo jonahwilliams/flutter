@@ -114,6 +114,12 @@ template("embedder_source_set") {
       "//flutter/third_party/tonic",
     ]
 
+    # Propeller prototype: the external view embedder renders layer trees
+    # through Propeller on Apple platforms.
+    if (is_mac || is_ios) {
+      deps += [ "//flutter/impeller/propeller" ]
+    }
+
     if (embedder_enable_gl) {
       sources += [
         "embedder_external_texture_gl.cc",

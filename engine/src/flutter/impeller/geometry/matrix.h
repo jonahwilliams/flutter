@@ -427,6 +427,11 @@ struct Matrix {
     return m[3] != 0 || m[7] != 0 || m[11] != 0 || m[15] != 1;
   }
 
+  constexpr Vector2 GetTranslation() const {
+    // TODO: do I need to multiply by scale?
+    return {m[12], m[13]};
+  }
+
   constexpr bool HasTranslation() const { return m[12] != 0 || m[13] != 0; }
 
   constexpr bool IsAligned2D(Scalar tolerance = 0) const {

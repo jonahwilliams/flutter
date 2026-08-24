@@ -86,6 +86,11 @@ class SurfaceContextVK : public Context,
 
   std::unique_ptr<Surface> AcquireNextSurface();
 
+  /// Propeller prototype: see SwapchainVK::TakeFrameRenderSemaphore.
+  vk::Semaphore TakeFrameRenderSemaphore() const;
+
+  void SetFrameRenderDone(vk::Semaphore semaphore) const;
+
   /// @brief Performs frame incrementing processes like AcquireNextSurface but
   ///        without the surface.
   ///

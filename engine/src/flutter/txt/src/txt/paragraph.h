@@ -136,7 +136,7 @@ class Paragraph {
 
   // Paints the laid out text onto the supplied DisplayListBuilder at
   // (x, y) offset from the origin. Only valid after Layout() is called.
-  virtual bool Paint(flutter::DisplayListBuilder* builder,
+  virtual bool Paint(flutter::DlCanvas* builder,
                      double x,
                      double y) = 0;
 

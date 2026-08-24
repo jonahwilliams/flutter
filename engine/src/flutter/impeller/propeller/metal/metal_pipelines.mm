@@ -269,6 +269,20 @@ GPUProgramResolverMTL::PipelineSet* GPUProgramResolverMTL::GetPipelines(
     }
   }
 
+  {
+    id<MTLFunction> blur_function =
+        [shader_library_ newFunctionWithName:@"FragmentMainBlur"];
+    FML_DCHECK(blur_function != nil);
+    blur_function.label = @"FragmentMainBlur";
+    AttachmentMode modes[kPrAttachmentCount] = {};
+    modes[0] = kSrcOver;
+    set.blur = make_pipeline(vertex_functions_[kColorTechnique], blur_function,
+                             modes, @"Propeller blur");
+    if (set.blur == nil) {
+      return nullptr;
+    }
+  }
+
   return &pipelines_.emplace(format, set).first->second;
 }
 
@@ -308,6 +322,8 @@ const GPUProgram* GPUProgramResolverMTL::Resolve(ProgramType type) {
       return Wrap(set.clip_resolve[1]);
     case ProgramType::kClipReset:
       return Wrap(set.clip_reset);
+    case ProgramType::kBlur:
+      return Wrap(set.blur);
     case ProgramType::kInvalid:
     case ProgramType::kGradientRamp:
     case ProgramType::kProgramLength:

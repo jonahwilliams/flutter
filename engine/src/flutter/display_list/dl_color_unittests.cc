@@ -361,5 +361,57 @@ TEST(DisplayListColor, ClampAlpha) {
             DlColor::ARGB(0.0, 0.0, 0.0, 0.0));
 }
 
+TEST(DisplayListColor, PremultipliedRGBA) {
+  // Red in the low byte, alpha in the high one, which is the reverse of
+  // argb().
+  EXPECT_EQ(DlColor::kRed().premultipliedRGBA(), 0xFF0000FFu);
+  EXPECT_EQ(DlColor::kGreen().premultipliedRGBA(), 0xFF00FF00u);
+  EXPECT_EQ(DlColor::kBlue().premultipliedRGBA(), 0xFFFF0000u);
+  EXPECT_EQ(DlColor::kWhite().premultipliedRGBA(), 0xFFFFFFFFu);
+  EXPECT_EQ(DlColor::kTransparent().premultipliedRGBA(), 0x00000000u);
+
+  // Premultiplied: the alpha scales the components with it.
+  const uint32_t half_red = DlColor::kRed().withAlphaF(0.5).premultipliedRGBA();
+  EXPECT_EQ(half_red >> 24, 128u);
+  EXPECT_EQ(half_red & 0xFFu, 128u);
+  EXPECT_EQ((half_red >> 8) & 0xFFFFu, 0u);
+}
+
+TEST(DisplayListColor, PremultipliedRGBAConvertsToSRGBFirst) {
+  const DlColor wide =
+      DlColor::kRed().withColorSpace(DlColorSpace::kExtendedSRGB);
+
+  // The components mean nothing until they are in the space the packed
+  // form is read as.
+  EXPECT_EQ(wide.premultipliedRGBA(),
+            wide.withColorSpace(DlColorSpace::kSRGB).premultipliedRGBA());
+}
+
+TEST(DisplayListColor, UnpremultipliedRGBA) {
+  // The same byte order as premultipliedRGBA.
+  EXPECT_EQ(DlColor::kRed().unpremultipliedRGBA(), 0xFF0000FFu);
+  EXPECT_EQ(DlColor::kGreen().unpremultipliedRGBA(), 0xFF00FF00u);
+  EXPECT_EQ(DlColor::kBlue().unpremultipliedRGBA(), 0xFFFF0000u);
+  EXPECT_EQ(DlColor::kWhite().unpremultipliedRGBA(), 0xFFFFFFFFu);
+
+  // The alpha rides alone: the components keep their full value, which
+  // is the difference from premultipliedRGBA.
+  const uint32_t half_red = DlColor::kRed().withAlphaF(0.5).unpremultipliedRGBA();
+  EXPECT_EQ(half_red >> 24, 128u);
+  EXPECT_EQ(half_red & 0xFFu, 255u);
+  EXPECT_EQ((half_red >> 8) & 0xFFFFu, 0u);
+
+  // A transparent colour still carries the colour it was.
+  EXPECT_EQ(DlColor::kRed().withAlphaF(0).unpremultipliedRGBA(), 0x000000FFu);
+}
+
+TEST(DisplayListColor, UnpremultipliedRGBAConvertsToSRGBFirst) {
+  const DlColor wide =
+      DlColor::kRed().withColorSpace(DlColorSpace::kExtendedSRGB);
+
+  EXPECT_EQ(wide.unpremultipliedRGBA(),
+            wide.withColorSpace(DlColorSpace::kSRGB).unpremultipliedRGBA());
+}
+
 }  // namespace testing
 }  // namespace flutter

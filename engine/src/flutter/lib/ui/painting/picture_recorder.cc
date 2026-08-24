@@ -25,10 +25,14 @@ PictureRecorder::PictureRecorder() {}
 
 PictureRecorder::~PictureRecorder() {}
 
-sk_sp<DisplayListBuilder> PictureRecorder::BeginRecording(DlRect bounds) {
-  display_list_builder_ =
-      sk_make_sp<DisplayListBuilder>(bounds, /*prepare_rtree=*/true);
-  return display_list_builder_;
+std::shared_ptr<impeller::PrPictureBuilder> PictureRecorder::BeginRecording(
+    DlRect bounds) {
+  // The propeller recorder: pictures come out already in the scheduler's
+  // form, and nothing converts later. Recording runs on the UI thread,
+  // which is why gradients stay unresolved until flatten.
+  builder_ = std::make_shared<impeller::PrPictureBuilder>(1.0f);
+  builder_->SetSurfaceBounds(bounds);
+  return builder_;
 }
 
 void PictureRecorder::endRecording(Dart_Handle dart_picture) {
@@ -36,11 +40,10 @@ void PictureRecorder::endRecording(Dart_Handle dart_picture) {
     return;
   }
 
-  auto display_list = display_list_builder_->Build();
-  display_list_builder_ = nullptr;
+  std::shared_ptr<impeller::PrPicture> picture = builder_->Build();
+  builder_ = nullptr;
 
-  FML_DCHECK(display_list->has_rtree());
-  Picture::CreateAndAssociateWithDartWrapper(dart_picture, display_list);
+  Picture::CreateAndAssociateWithDartWrapper(dart_picture, std::move(picture));
 
   canvas_->Invalidate();
   canvas_ = nullptr;

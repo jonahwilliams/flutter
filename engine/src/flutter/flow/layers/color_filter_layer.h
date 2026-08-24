@@ -13,6 +13,13 @@ namespace flutter {
 
 class ColorFilterLayer : public CacheableContainerLayer {
  public:
+  // |Layer|
+  const ColorFilterLayer* as_color_filter_layer() const override {
+    return this;
+  }
+
+  const DlColorFilter* color_filter() const { return filter_.get(); }
+
   explicit ColorFilterLayer(std::shared_ptr<const DlColorFilter> filter);
 
   void Diff(DiffContext* context, const Layer* old_layer) override;

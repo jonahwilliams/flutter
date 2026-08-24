@@ -242,12 +242,14 @@ void SceneBuilder::addPicture(double dx,
     return;
   }
 
-  // Explicitly check for display_list, since the picture object might have
-  // been disposed but not collected yet, but the display list is null.
-  if (picture->display_list()) {
+  // Explicitly check the payload, since the picture object might have
+  // been disposed but not collected yet.
+  const std::shared_ptr<impeller::PrPicture>& engine_picture =
+      picture->picture();
+  if (engine_picture && engine_picture->GetBoundsUnion().has_value()) {
     auto layer = std::make_unique<flutter::DisplayListLayer>(
-        DlPoint(SafeNarrow(dx), SafeNarrow(dy)), picture->display_list(),
-        !!(hints & 1), !!(hints & 2));
+        DlPoint(SafeNarrow(dx), SafeNarrow(dy)), engine_picture,
+        *engine_picture->GetBoundsUnion());
     AddLayer(std::move(layer));
   }
 }

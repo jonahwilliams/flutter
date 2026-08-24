@@ -194,6 +194,31 @@ struct PrAtlas {
   flutter::DlImageSampling sampling = flutter::DlImageSampling::kLinear;
 };
 
+/// What `filter` reaches outside `coverage` when a layer is composited
+/// under `ctm`. Both rects are in the space that transform maps into.
+///
+/// A filter reads pixels the layer never drew, so what has to be held
+/// for it is wider than what its content covers. Returns `coverage`
+/// unchanged when there is no filter, or when the filter cannot say what
+/// it reaches: a guess is worse than the truth about the content, since
+/// sizing anything to it crops the filter rather than holding it.
+Rect ExpandForFilter(const Rect& coverage,
+                     const flutter::DlImageFilter* filter,
+                     const Matrix& ctm);
+
+/// What `filter` has to read to fill `coverage` when a layer is
+/// composited under `ctm`. The mirror of ExpandForFilter: that one asks
+/// how far the output reaches, this one how far back the input must go
+/// to supply it.
+///
+/// A layer's content is recorded against the visible rect, and a filter
+/// pulls pixels from outside it into view, so content culled against the
+/// visible rect alone would take with it the very pixels the filter was
+/// going to draw.
+Rect ExpandForFilterInput(const Rect& coverage,
+                          const flutter::DlImageFilter* filter,
+                          const Matrix& ctm);
+
 class PrPicture {
  public:
   PrPicture();
@@ -526,7 +551,16 @@ class PrPictureBuilder final : public flutter::DlCanvas {
 
   /// Record a clip: the shape, which accumulates its winding, and the
   /// resolve that turns it into coverage.
-  void AppendClip(Draw shape, Draw::DrawType resolve, Rect clip);
+  void AppendClip(Draw shape,
+                  Draw::DrawType resolve,
+                  Rect clip,
+                  Rect interior = Rect());
+
+  /// Record any clip that has not been recorded yet, unless `coverage`
+  /// fits inside every one of them. What fits inside a clip is not
+  /// masked by it, so a clip is only worth drawing once something
+  /// reaches past it.
+  void MaterializePendingClips(const Rect& coverage);
 
   /// Rebuild the clip coverage without the clips pushed since `depth`.
   void PopClips(size_t depth);
@@ -544,6 +578,14 @@ class PrPictureBuilder final : public flutter::DlCanvas {
     Draw shape;
     Draw resolve;
     Rect coverage;
+    /// A rect wholly inside the clip shape, in root space, or empty when
+    /// nothing can be said about it. A draw that fits in here is not cut
+    /// by this clip.
+    Rect interior;
+    /// Whether the shape and its resolve have been recorded. A clip
+    /// nothing overflows never is: it would mask nothing, and cost an
+    /// accumulate and a resolve to say so.
+    bool live = false;
   };
   /// The clips in effect for the picture being recorded, innermost
   /// last. A restore rebuilds the coverage out of these rather than

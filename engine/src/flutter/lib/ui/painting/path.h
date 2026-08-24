@@ -121,6 +121,7 @@ class CanvasPath : public RefCountedDartWrappable<CanvasPath> {
  private:
   CanvasPath();
 
+  int fill_type_ = 0;
   SkPathBuilder sk_path_;
   mutable std::optional<const DlPath> dl_path_;
 

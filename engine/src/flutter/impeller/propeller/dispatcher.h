@@ -28,17 +28,34 @@ struct GPUDraw {
   IRect32 scissor;
 };
 
+/// One axis of a separable filter. Mirrors ImageFilterData in the
+/// shaders, so it is uploaded as it stands.
+struct FilterUniform {
+  /// Per-tap offset along the axis, in the source texture's uv.
+  Point step;
+  Scalar sigma = 0;
+  int32_t radius = 0;
+};
+
 struct RenderPlan {
   /// Encode-time: has any clip in this pass masked anything yet? The
   /// attachment starts fully visible, so until one has, a reset paints
   /// 1 over 1 and is dropped.
   bool clip_resolved = false;
   std::vector<GPUTexture*> textures;
+  /// Set when this plan is one step of a separable filter rather than a
+  /// pass over its own content.
+  std::optional<FilterUniform> filter;
   Matrix transform;
   /// Where the pass starts in root space.
   Point origin;
+  /// The texture's size, in pixels.
   uint32_t width;
   uint32_t height;
+  /// How much root space those pixels span. Normally the same numbers:
+  /// a pass holds its coverage a pixel to a unit. A blur step holds it
+  /// at less than that, and this is what still says where things go.
+  Point extent;
   float clear_color[4] = {0, 0, 0, 0};
   std::vector<GPUDraw> draws;
   std::vector<BufferBinds> buffers;
@@ -73,13 +90,27 @@ class TextureCache {
 
   /// A unique identifier for an offscreen texture.
   struct OffscreenKey {
-    static constexpr size_t kMaxPictures = 4;
-
-    uint64_t ids[kMaxPictures] = {0, 0, 0, 0};
+    /// Every picture the texture was drawn from, in the order they were
+    /// drawn. An id is already a stable name for what a picture holds,
+    /// so they are kept as they are and compared one for one -- the same
+    /// way `placements` is, and for the same reason: a pass is decided
+    /// by all of its contents, however many that is, and a key that can
+    /// only name a few of them cannot say so.
+    std::vector<uint64_t> ids;
     uint32_t width = 0;
     uint32_t height = 0;
+    /// Which derivative of those contents this texture holds. Zero is
+    /// the contents themselves; a filter step is one further along than
+    /// whatever it filters, so the steps of one filter and the content
+    /// they share are told apart without disturbing their identity.
+    uint32_t variant = 0;
+    /// What a filter step gathered with. Everything else about a step
+    /// follows from the size above, but the strength does not: a scene
+    /// can carry a filter no picture declared, and then nothing else
+    /// here moves when it is turned up.
+    Scalar sigma = 0;
 
-    bool IsCacheable() const { return ids[0] != 0; }
+    bool IsCacheable() const { return !ids.empty(); }
     bool operator==(const OffscreenKey& other) const;
   };
 
@@ -178,7 +209,6 @@ class SceneFlattener {
     /// Which slot of the parent's texture table holds what this pass
     /// resolved into.
     uint32_t texture_slot = 0;
-
     Scalar opacity = 1.0f;
     std::shared_ptr<flutter::DlImageFilter> image_filter;
     std::shared_ptr<const flutter::DlColorFilter> color_filter;
@@ -186,6 +216,16 @@ class SceneFlattener {
     /// transform on the quad that samples it and nothing more.
     Matrix composite_transform;
     bool composite_nearest = false;
+
+    /// When set, this pass draws none of its own content: it samples
+    /// what the named pass resolved into and writes one step of a
+    /// separable filter over it.
+    uint32_t filter_source = kNoPass;
+    FilterUniform filter_step;
+    /// What fraction of a pixel per root unit this pass is held at. One
+    /// for anything drawing its own content; less for a blur step, which
+    /// gathers a wide kernel more cheaply the smaller it is.
+    Scalar resolution_scale = 1.0f;
 
     std::vector<Item> items;
     /// Coveragae in root space.
@@ -230,6 +270,24 @@ class SceneFlattener {
   /// coverage.
   uint32_t Open(const PrSceneNode& group, const std::optional<Rect>& clip);
 
+  /// Chain the steps a separable blur needs onto `source`, and give back
+  /// the pass a parent should composite -- the last step, since that is
+  /// what holds the finished image.
+  uint32_t AppendBlurChain(uint32_t source,
+                           const flutter::DlImageFilter* filter,
+                           const Matrix& transform);
+
+  /// Resolve what `node` shows through itself: a pass holding everything
+  /// already gathered into this one, filtered. `behind` is what has been
+  /// gathered so far, which is what will have been drawn into the target
+  /// by the time the node draws.
+  ///
+  /// kNoPass when there is nothing behind it, or nothing of what is
+  /// behind it left visible.
+  uint32_t OpenBackdrop(const std::vector<Item>& behind,
+                        const PrSceneNode& node,
+                        const std::optional<Rect>& clip);
+
   /// Collect what draws into the pass being opened, in paint order.
   /// The same, for what a node holds rather than the node itself: a
   /// group applies its own clip before its children are gathered.
@@ -254,6 +312,10 @@ class SceneFlattener {
   /// What the cache should hold a pass of `items` covering `coverage`
   /// against. A key with no ids is a pass that cannot be cached.
   void KeyPass(Pass& pass);
+
+  /// What a filter step should be held against: whatever keyed the pass
+  /// it filters, plus which step of which filter this is.
+  void KeyFilterStep(Pass& pass);
 
   /// Write a picture's geometry into `arena` and record what drawing it
   /// takes into `plan`.

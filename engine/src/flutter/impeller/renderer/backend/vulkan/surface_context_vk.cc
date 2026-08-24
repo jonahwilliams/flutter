@@ -88,6 +88,16 @@ bool SurfaceContextVK::SetSwapchain(std::shared_ptr<SwapchainVK> swapchain) {
   return true;
 }
 
+vk::Semaphore SurfaceContextVK::TakeFrameRenderSemaphore() const {
+  return swapchain_ ? swapchain_->TakeFrameRenderSemaphore() : nullptr;
+}
+
+void SurfaceContextVK::SetFrameRenderDone(vk::Semaphore semaphore) const {
+  if (swapchain_) {
+    swapchain_->SetFrameRenderDone(semaphore);
+  }
+}
+
 std::unique_ptr<Surface> SurfaceContextVK::AcquireNextSurface() {
   TRACE_EVENT0("impeller", __FUNCTION__);
   auto surface = swapchain_ ? swapchain_->AcquireNextDrawable() : nullptr;

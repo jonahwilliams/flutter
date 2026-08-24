@@ -51,6 +51,10 @@ struct SPIRVCompilerOptions {
 
   bool relaxed_vulkan_rules = false;
 
+  /// Leave explicit layout(binding) values alone instead of shifting
+  /// fragment bindings up by the impeller runtime's base offset.
+  bool keep_declared_bindings = false;
+
   shaderc::CompileOptions BuildShadercOptions() const;
 };
 

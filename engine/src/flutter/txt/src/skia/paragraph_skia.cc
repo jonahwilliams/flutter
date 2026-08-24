@@ -49,7 +49,7 @@ class DisplayListParagraphPainter : public skt::ParagraphPainter {
   ///             See https://github.com/flutter/flutter/issues/126673. It
   ///             probably makes sense to eventually make this a compile-time
   ///             decision (i.e. with `#ifdef`) instead of a runtime option.
-  DisplayListParagraphPainter(DisplayListBuilder* builder,
+  DisplayListParagraphPainter(DlCanvas* builder,
                               const std::vector<DlPaint>& dl_paints,
                               bool impeller_enabled)
       : builder_(builder),
@@ -196,7 +196,7 @@ class DisplayListParagraphPainter : public skt::ParagraphPainter {
     return paint;
   }
 
-  DisplayListBuilder* builder_;
+  DlCanvas* builder_;
   const std::vector<DlPaint>& dl_paints_;
   const bool impeller_enabled_;
 };
@@ -294,7 +294,7 @@ void ParagraphSkia::Layout(double width) {
   paragraph_->layout(width);
 }
 
-bool ParagraphSkia::Paint(DisplayListBuilder* builder, double x, double y) {
+bool ParagraphSkia::Paint(DlCanvas* builder, double x, double y) {
   DisplayListParagraphPainter painter(builder, dl_paints_, impeller_enabled_);
   paragraph_->paint(&painter, x, y);
   return true;

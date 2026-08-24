@@ -8,6 +8,7 @@
 #include <iterator>
 #include <limits>
 
+#include "flutter/display_list/effects/image_filters/dl_blur_image_filter.h"
 #include "flutter/display_list/effects/image_filters/dl_matrix_image_filter.h"
 #include "impeller/propeller/renderer/gpu_context.h"
 
@@ -127,7 +128,11 @@ bool CoversPass(const PrPicture& picture,
 IRect32 DeviceScissor(const Rect& root, const RenderPlan& plan) {
   const IRect32 extent = IRect32::MakeWH(static_cast<int32_t>(plan.width),
                                          static_cast<int32_t>(plan.height));
-  return IRect32::Round(root.Shift(-plan.origin)).IntersectionOrEmpty(extent);
+  const Scalar to_pixels = plan.extent.x > 0
+                               ? static_cast<Scalar>(plan.width) / plan.extent.x
+                               : 1.0f;
+  return IRect32::Round(root.Shift(-plan.origin).Scale(to_pixels))
+      .IntersectionOrEmpty(extent);
 }
 
 /// What an item is bounded by: the pass, narrowed by the clip the scene
@@ -153,6 +158,7 @@ bool WritesTarget(ProgramType program) {
     case ProgramType::kWindingResolveNonZero:
     case ProgramType::kWindingResolveEvenOdd:
     case ProgramType::kGradientRamp:
+    case ProgramType::kBlur:
     case ProgramType::kProgramLength:
       break;
   }
@@ -192,14 +198,36 @@ std::optional<Rect> Narrow(const std::optional<Rect>& clip,
 void EmitComposite(RenderPlan& plan,
                    BufferArena& arena,
                    const SceneFlattener::Pass& pass,
-                   uint32_t slot) {
+                   uint32_t slot,
+                   ProgramType program,
+                   Scalar opacity,
+                   const std::optional<Rect>& cut_to) {
+  // Trim filter overspill by adjusting UV instead of inserting clip rect.s
+  const Rect coverage = pass.coverage;
+  Rect quad = coverage;
+  Point uv_min(0, 0);
+  Point uv_max(1, 1);
+  if (cut_to.has_value()) {
+    quad = coverage.IntersectionOrEmpty(*cut_to);
+    if (quad.IsEmpty()) {
+      return;
+    }
+    const Size span = coverage.GetSize();
+    if (span.width <= 0 || span.height <= 0) {
+      return;
+    }
+    const Point origin = coverage.GetLeftTop();
+    uv_min = Point((quad.GetLeft() - origin.x) / span.width,
+                   (quad.GetTop() - origin.y) / span.height);
+    uv_max = Point((quad.GetRight() - origin.x) / span.width,
+                   (quad.GetBottom() - origin.y) / span.height);
+  }
+
   BufferArena::Result result = arena.ReserveAllocation(4, 6);
   if (!result.IsValid()) {
     return;
   }
 
-  // The quad is what the pass covers; a filter that moves it is the
-  // transform the quad is drawn under.
   *result.transform_out = pass.composite_transform;
   *result.paint_out = PrPaint{
       .texture_index = static_cast<int32_t>(slot),
@@ -207,15 +235,20 @@ void EmitComposite(RenderPlan& plan,
       .flags = pass.composite_nearest ? kPaintFlagSampleNearest : 0u,
   };
 
-  const Rect& coverage = pass.coverage;
-  result.position_out[0] = coverage.GetLeftTop();
-  result.position_out[1] = coverage.GetLeftBottom();
-  result.position_out[2] = coverage.GetRightTop();
-  result.position_out[3] = coverage.GetRightBottom();
+  result.position_out[0] = quad.GetLeftTop();
+  result.position_out[1] = quad.GetLeftBottom();
+  result.position_out[2] = quad.GetRightTop();
+  result.position_out[3] = quad.GetRightBottom();
 
-  constexpr Point kFullTexture[4] = {{0, 0}, {0, 1}, {1, 0}, {1, 1}};
+  // The same corners, as a fraction of what the texture spans.
+  const Point kFullTexture[4] = {
+      Point(uv_min.x, uv_min.y),
+      Point(uv_min.x, uv_max.y),
+      Point(uv_max.x, uv_min.y),
+      Point(uv_max.x, uv_max.y),
+  };
   const uint32_t color =
-      flutter::DlColor::kWhite().withAlphaF(pass.opacity).premultipliedRGBA();
+      flutter::DlColor::kWhite().withAlphaF(opacity).premultipliedRGBA();
   const uint32_t paint = PackPaint(result.paint_start);
   for (int corner = 0; corner < 4; corner++) {
     result.attributes_out[corner] = Attributes{
@@ -237,14 +270,13 @@ void EmitComposite(RenderPlan& plan,
   const auto binds = static_cast<uint32_t>(plan.buffers.size() - 1);
   if (!plan.draws.empty()) {
     GPUDraw& previous = plan.draws.back();
-    if (previous.program == ProgramType::kColor &&
-        previous.buffer_binds == binds) {
+    if (previous.program == program && previous.buffer_binds == binds) {
       previous.count += 6;
       return;
     }
   }
   plan.draws.push_back(GPUDraw{
-      .program = ProgramType::kColor,
+      .program = program,
       .start = result.index_start,
       .count = 6,
       .buffer_binds = binds,
@@ -258,12 +290,8 @@ void EmitComposite(RenderPlan& plan,
 TextureCache::TextureCache(GPUContext* context) : context_(context) {}
 
 bool TextureCache::OffscreenKey::operator==(const OffscreenKey& other) const {
-  for (size_t i = 0; i < kMaxPictures; i++) {
-    if (ids[i] != other.ids[i]) {
-      return false;
-    }
-  }
-  return width == other.width && height == other.height;
+  return ids == other.ids && width == other.width && height == other.height &&
+         variant == other.variant && sigma == other.sigma;
 }
 
 bool TextureCache::Placement::operator==(const Placement& other) const {
@@ -449,14 +477,27 @@ void SceneFlattener::EncodePasses(BufferArena& arena,
     }
 
     plan.origin = pass.coverage.GetOrigin();
-    plan.width = static_cast<uint32_t>(std::ceil(pass.coverage.GetWidth()));
-    plan.height = static_cast<uint32_t>(std::ceil(pass.coverage.GetHeight()));
+    plan.extent = Point(pass.coverage.GetWidth(), pass.coverage.GetHeight());
+    plan.width = static_cast<uint32_t>(
+        std::max(1.0f, std::ceil(plan.extent.x * pass.resolution_scale)));
+    plan.height = static_cast<uint32_t>(
+        std::max(1.0f, std::ceil(plan.extent.y * pass.resolution_scale)));
     plan.textures.resize(kReservedTextureSlots, nullptr);
+
+    if (pass.filter_source != kNoPass) {
+      Pass& previous = passes_[pass.filter_source];
+      plan.filter = pass.filter_step;
+      const auto slot = static_cast<uint32_t>(plan.textures.size());
+      previous.texture_slot = slot;
+      plan.textures.push_back(previous.texture);
+      EmitComposite(plan, arena, pass, slot, ProgramType::kBlur, 1.0f,
+                    std::nullopt);
+      continue;
+    }
 
     // Shrink the clip rect by parent scene clips via intersection.
     const Rect extent = Rect::MakeXYWH(plan.origin.x, plan.origin.y,
-                                       static_cast<Scalar>(plan.width),
-                                       static_cast<Scalar>(plan.height));
+                                       plan.extent.x, plan.extent.y);
     Rect current_bound = extent;
 
     for (const Item& item : pass.items) {
@@ -482,13 +523,17 @@ void SceneFlattener::EncodePasses(BufferArena& arena,
         continue;
       }
       Pass& child = passes_[item.pass];
-      child.texture_slot = static_cast<uint32_t>(plan.textures.size());
+      const auto slot = static_cast<uint32_t>(plan.textures.size());
+      child.texture_slot = slot;
       plan.textures.push_back(child.texture);
-      EmitComposite(plan, arena, child, child.texture_slot);
+      EmitComposite(plan, arena, child, slot, ProgramType::kColor,
+                    child.opacity,
+                    child.filter_source != kNoPass ? std::optional<Rect>(bound)
+                                                   : std::nullopt);
     }
 
-    // Nothing after them reads what they set, and what they write does
-    // not outlive the pass.
+    // Trailing clips can be dropped as they will have no impact on the final
+    // picture.
     while (!plan.draws.empty() && !WritesTarget(plan.draws.back().program)) {
       plan.draws.pop_back();
     }
@@ -571,17 +616,23 @@ void SceneFlattener::Gather(const PrSceneNode& node,
     if (!bounds.has_value()) {
       return;
     }
-    Rect coverage = bounds->TransformBounds(node.transform);
+    const Rect reach = bounds->TransformBounds(node.transform);
+    Rect coverage = reach;
     if (clip.has_value()) {
       coverage = coverage.IntersectionOrEmpty(*clip);
     }
     if (coverage.IsEmpty()) {
       return;
     }
+    // A clip that does not reach into what the item covers is not a clip
+    // on it. Carrying it anyway costs a scissor either side of the item,
+    // because the one before and the one after ask for something else --
+    // and a row whose clip is its own bounds is the ordinary case, not a
+    // corner of one.
     Item item{
         .picture = node.picture,
         .transform = node.transform,
-        .clip = clip,
+        .clip = clip.has_value() && clip->Contains(reach) ? std::nullopt : clip,
         .coverage = coverage,
     };
     OpenLayers(*node.picture, node.transform, clip, item.layer_passes);
@@ -596,6 +647,23 @@ void SceneFlattener::GatherChildren(const PrSceneNode& node,
                                     const std::optional<Rect>& clip,
                                     std::vector<Item>& items) {
   for (const PrSceneNode& child : node.children) {
+    // What the child shows through itself goes down first, under its own
+    // content: everything gathered so far is what the target will hold
+    // by the time it draws.
+    if (child.backdrop_filter != nullptr) {
+      const uint32_t behind = OpenBackdrop(items, child, clip);
+      if (behind != kNoPass) {
+        const std::optional<Rect> inner = Narrow(clip, child.clip);
+        const Rect covers = passes_[behind].coverage;
+        const bool cuts = inner.has_value() && !inner->Contains(covers);
+        items.push_back(Item{
+            .pass = behind,
+            .clip = cuts ? inner : std::nullopt,
+            .coverage =
+                inner.has_value() ? covers.IntersectionOrEmpty(*inner) : covers,
+        });
+      }
+    }
     if (!child.NeedsComposite()) {
       Gather(child, clip, items);
       continue;
@@ -604,27 +672,85 @@ void SceneFlattener::GatherChildren(const PrSceneNode& node,
     if (pass == kNoPass) {
       continue;
     }
+    // The child's own clip narrowed into what it inherited, which is what
+    // Gather does for a leaf and what Open does for the pass itself. A
+    // node carries its clip rather than sitting under one, so taking only
+    // what was inherited leaves the composite unclipped beside siblings
+    // that are not.
+    //
+    // A pass used to hold only what was already visible, so that cost
+    // nothing. A filter widens what it holds past that, and then it is
+    // the difference between clipping the overspill and throwing the
+    // scissor wide to let it out -- once per filtered node, with the
+    // scissor going back for the next sibling.
+    const std::optional<Rect> inner = Narrow(clip, child.clip);
     // Where the pass lands, which a filter may move; what it holds is
     // its own coverage.
+    const Rect covers = passes_[pass].coverage.TransformBounds(
+        passes_[pass].composite_transform);
+    // Dropped when it cannot reach into that, the same as for a leaf. A
+    // filter widens what a pass holds, so this is the one place a clip
+    // often does still cut -- and where it does not, keeping it would put
+    // the composite out of step with the siblings around it.
+    const bool cuts = inner.has_value() && !inner->Contains(covers);
     items.push_back(Item{
         .pass = pass,
-        .coverage = passes_[pass].coverage.TransformBounds(
-            passes_[pass].composite_transform),
+        .clip = cuts ? inner : std::nullopt,
+        .coverage =
+            inner.has_value() ? covers.IntersectionOrEmpty(*inner) : covers,
     });
   }
 }
 
-void SceneFlattener::KeyPass(Pass& pass) {
-  pass.key.width = static_cast<uint32_t>(std::ceil(pass.coverage.GetWidth()));
-  pass.key.height = static_cast<uint32_t>(std::ceil(pass.coverage.GetHeight()));
-  if (pass.items.size() > TextureCache::OffscreenKey::kMaxPictures) {
-    return;  // More pictures than the key has room to name.
-  }
+void SceneFlattener::KeyFilterStep(Pass& pass) {
+  const Pass& source = passes_[pass.filter_source];
 
+  // The same contents, one step further along. A picture's id is already
+  // a stable name for what it holds, so the step takes those names as
+  // they are rather than folding them into something smaller: a source
+  // that cannot be cached has no id to take, and the step inherits that
+  // too.
+  const uint32_t width = pass.key.width;
+  const uint32_t height = pass.key.height;
+  pass.key = source.key;
+  pass.key.width = width;
+  pass.key.height = height;
+  pass.key.variant = source.key.variant + 1;
+  pass.key.sigma = pass.filter_step.sigma;
+
+  // Where the source sat is where this sits: a transform that moved it
+  // out from under its cached texture moved this one too.
+  pass.placements = source.placements;
+}
+
+void SceneFlattener::KeyPass(Pass& pass) {
+  // Said again from scratch each time. A pass is keyed when it opens and
+  // again when a filter chain settles what size it is held at, and the
+  // contents are named by appending -- so anything left over from the
+  // first telling would be counted twice.
+  pass.key.ids.clear();
+  pass.placements.clear();
+
+  // What the cache allocates, so it is the size the pass is held at
+  // rather than the size of the coverage it spans. A pass gathered at a
+  // reduced resolution renders into an offscreen that size: give it one
+  // the size of its coverage and the render pass has a target of one
+  // size and transient attachments of another.
+  pass.key.width = static_cast<uint32_t>(std::max(
+      1.0f, std::ceil(pass.coverage.GetWidth() * pass.resolution_scale)));
+  pass.key.height = static_cast<uint32_t>(std::max(
+      1.0f, std::ceil(pass.coverage.GetHeight() * pass.resolution_scale)));
+
+  if (pass.filter_source != kNoPass) {
+    KeyFilterStep(pass);
+    return;
+  }
   const Point origin = pass.coverage.GetOrigin();
-  for (size_t i = 0; i < pass.items.size(); i++) {
-    const Item& item = pass.items[i];
+  pass.key.ids.reserve(pass.items.size());
+  for (const Item& item : pass.items) {
     if (item.IsComposite()) {
+      // TODO: name a composited child by the key of the pass it
+      // resolved into, which would be exact the same way these are.
       // What another pass resolved into is not something this one can
       // be keyed by: it is that pass's business whether it changed.
       pass.key = TextureCache::OffscreenKey{.width = pass.key.width,
@@ -632,7 +758,7 @@ void SceneFlattener::KeyPass(Pass& pass) {
       pass.placements.clear();
       return;
     }
-    pass.key.ids[i] = item.picture->GetId();
+    pass.key.ids.push_back(item.picture->GetId());
     const Matrix& transform = item.transform;
     pass.placements.push_back(TextureCache::Placement{
         .basis = {transform.m[0], transform.m[1], transform.m[4],
@@ -640,6 +766,177 @@ void SceneFlattener::KeyPass(Pass& pass) {
         .offset = Point(transform.m[12], transform.m[13]) - origin,
     });
   }
+}
+
+namespace {
+
+/// How many taps either side of centre a sigma needs. Three sigma is
+/// where the Gaussian has nothing left to add, and the cap keeps the
+/// loop bounded for a blur wider than a pass can afford to sample one
+/// texel at a time.
+/// As far down as a blur may be held, per axis -- so a quarter of the
+/// pixels at the floor. A sixteenth of an axis is what the signal itself
+/// supports, but one halving is as far as this goes for now: past it the
+/// gathered image is small enough that what the composite magnifies back
+/// up starts to show.
+constexpr Scalar kMinBlurDownscale = 0.5f;
+
+/// How far down a blur is held before it is gathered, the way Impeller's
+/// Gaussian picks it: a power of two that brings the sigma to about four
+/// texels, so the kernel is a fixed width however wide the blur is.
+///
+/// Powers of two only, because halving is what a bilinear sample does
+/// cleanly, and never past the floor above.
+Scalar BlurDownscale(Scalar sigma) {
+  if (sigma <= 4) {
+    return 1.0f;
+  }
+  return std::pow(2.0f, std::max(std::log2(kMinBlurDownscale),
+                                 std::round(std::log2(4.0f / sigma))));
+}
+
+int32_t TapRadius(Scalar sigma) {
+  if (!(sigma > 0)) {
+    return 0;
+  }
+  return std::min(static_cast<int32_t>(std::ceil(3.0f * sigma)), 64);
+}
+
+}  // namespace
+
+uint32_t SceneFlattener::AppendBlurChain(uint32_t source,
+                                         const flutter::DlImageFilter* filter,
+                                         const Matrix& transform) {
+  const flutter::DlBlurImageFilter* blur =
+      filter != nullptr ? filter->asBlur() : nullptr;
+  if (blur == nullptr) {
+    return source;
+  }
+
+  const Rect coverage = passes_[source].coverage;
+
+  // The texture is in device pixels and the sigma is in the layer's own
+  // space, so the transform is what says how far it reaches across it.
+  const Scalar scale = transform.GetMaxBasisLengthXY();
+  const Scalar sigma_x = blur->sigma_x() * scale;
+  const Scalar sigma_y = blur->sigma_y() * scale;
+
+  // Held smaller the wider the blur is, so the kernel stays about the
+  // same width whatever the sigma. One factor for both axes: the steps
+  // share their textures, and the second reads what the first wrote.
+  const Scalar down = std::min(BlurDownscale(sigma_x), BlurDownscale(sigma_y));
+
+  // What the kernel spans in the texture it actually gathers from.
+  const Scalar held_x = sigma_x * down;
+  const Scalar held_y = sigma_y * down;
+  const Scalar width = std::max(1.0f, std::ceil(coverage.GetWidth() * down));
+  const Scalar height = std::max(1.0f, std::ceil(coverage.GetHeight() * down));
+  const FilterUniform steps[2] = {
+      FilterUniform{.step = Point(1.0f / width, 0),
+                    .sigma = held_x,
+                    .radius = TapRadius(held_x)},
+      FilterUniform{.step = Point(0, 1.0f / height),
+                    .sigma = held_y,
+                    .radius = TapRadius(held_y)},
+  };
+
+  // Whatever the parent draws the layer at belongs to the pass it
+  // composites, which is the last step rather than the content.
+  const Scalar opacity = passes_[source].opacity;
+  passes_[source].opacity = 1.0f;
+
+  // The content is held at the size the blur gathers from, rather than
+  // drawn full size and reduced afterwards. A tap steps one texel of what
+  // it writes, so anything bigger on the way in has taps striding over
+  // source texels that are never read. Rasterizing the content at that
+  // size to begin with is cheaper than resampling a larger one and truer
+  // than any resampling could be: nothing is resampled at all.
+  passes_[source].resolution_scale = down;
+  KeyPass(passes_[source]);
+
+  uint32_t previous = source;
+  for (const FilterUniform& step : steps) {
+    if (step.radius <= 0) {
+      continue;  // Narrower than a texel: no tap would reach past centre.
+    }
+    const auto index = static_cast<uint32_t>(passes_.size());
+    passes_.push_back(Pass{
+        .filter_source = previous,
+        .filter_step = step,
+        .resolution_scale = down,
+        .coverage = coverage,
+    });
+    KeyPass(passes_[index]);
+    previous = index;
+  }
+  passes_[previous].opacity = opacity;
+  return previous;
+}
+
+uint32_t SceneFlattener::OpenBackdrop(const std::vector<Item>& behind,
+                                      const PrSceneNode& node,
+                                      const std::optional<Rect>& clip) {
+  if (behind.empty()) {
+    return kNoPass;  // Nothing has been drawn for it to show.
+  }
+  const std::optional<Rect> inner = Narrow(clip, node.clip);
+  if (node.clip.has_value() && !inner.has_value()) {
+    return kNoPass;
+  }
+
+  // Where it shows the backdrop: its own bounds rather than everything
+  // that has ever been drawn, narrowed by the clip. With no bounds it
+  // shows wherever it is allowed to.
+  std::optional<Rect> shows = node.backdrop_bounds;
+  if (inner.has_value()) {
+    shows = shows.has_value() ? shows->IntersectionOrEmpty(*inner) : inner;
+  }
+  if (shows.has_value() && shows->IsEmpty()) {
+    return kNoPass;
+  }
+
+  // What the filter has to read to fill that, which reaches past it.
+  const Rect needs = shows.has_value() ? ExpandForFilterInput(
+                                             *shows, node.backdrop_filter.get(),
+                                             node.transform)
+                                       : Rect::MakeMaximum();
+
+  // Only what lands in it. A picture the backdrop cannot see is not one
+  // it is decided by, so it is neither drawn again for it nor named
+  // among the contents it is held against -- which is what lets a
+  // backdrop survive a frame that changed something elsewhere.
+  std::vector<Item> reads;
+  std::optional<Rect> drawn;
+  for (const Item& item : behind) {
+    if (!item.coverage.IntersectsWithRect(needs)) {
+      continue;
+    }
+    drawn = drawn.has_value() ? drawn->Union(item.coverage) : item.coverage;
+    reads.push_back(item);
+  }
+  if (!drawn.has_value()) {
+    return kNoPass;  // Nothing behind it reaches where it shows.
+  }
+
+  // Held back to what was actually drawn: reaching further than the
+  // content went gathers nothing but the clear.
+  const Rect coverage = needs.IsMaximum()
+                            ? drawn.value()
+                            : needs.IntersectionOrEmpty(drawn.value());
+  if (coverage.IsEmpty()) {
+    return kNoPass;
+  }
+
+  // A copy of what it reads, which is cheap: an item names a picture
+  // rather than holding one.
+  const auto index = static_cast<uint32_t>(passes_.size());
+  passes_.push_back(Pass{
+      .image_filter = node.backdrop_filter,
+      .items = std::move(reads),
+      .coverage = coverage,
+  });
+  KeyPass(passes_[index]);
+  return AppendBlurChain(index, node.backdrop_filter.get(), node.transform);
 }
 
 uint32_t SceneFlattener::Open(const PrSceneNode& group,
@@ -669,6 +966,16 @@ uint32_t SceneFlattener::Open(const PrSceneNode& group,
     return kNoPass;
   }
 
+  // The texture this pass resolves into is sized from the coverage, so
+  // the filter's reach has to be in it before KeyPass reads it.
+  //
+  // Deliberately not clipped back afterwards. The margin past the
+  // content is what the filter fades into: a texture cropped to the clip
+  // would leave the filter sampling content texels at its edge instead
+  // of nothing, which smears rather than fades.
+  coverage = ExpandForFilter(coverage.value(), group.image_filter.get(),
+                             group.transform);
+
   // In front of what it clips, and only now that the coverage is
   // known: a clip bounds a pass, it never grows one.
   if (group.clip_shape != nullptr) {
@@ -692,7 +999,7 @@ uint32_t SceneFlattener::Open(const PrSceneNode& group,
       .coverage = coverage.value(),
   });
   KeyPass(passes_[index]);
-  return index;
+  return AppendBlurChain(index, group.image_filter.get(), group.transform);
 }
 
 void SceneFlattener::FlattenScene(const PrSceneNode& root,
@@ -716,9 +1023,8 @@ void SceneFlattener::FlattenPicture(const PrPicture& picture,
                                     const Matrix& placement,
                                     const std::optional<Rect>& clip,
                                     const std::vector<uint32_t>& layer_passes) {
-  const Rect pass = Rect::MakeXYWH(plan.origin.x, plan.origin.y,
-                                   static_cast<Scalar>(plan.width),
-                                   static_cast<Scalar>(plan.height));
+  const Rect pass = Rect::MakeXYWH(plan.origin.x, plan.origin.y, plan.extent.x,
+                                   plan.extent.y);
 
   // Precomputed matrix transform.
   std::vector<Matrix> placed;
@@ -771,9 +1077,14 @@ void SceneFlattener::FlattenPicture(const PrPicture& picture,
         continue;
       }
       Pass& child = passes_[index];
-      child.texture_slot = static_cast<uint32_t>(plan.textures.size());
+      const auto slot = static_cast<uint32_t>(plan.textures.size());
+      child.texture_slot = slot;
       plan.textures.push_back(child.texture);
-      EmitComposite(plan, arena, child, child.texture_slot);
+      EmitComposite(plan, arena, child, slot, ProgramType::kColor,
+                    child.opacity,
+                    child.filter_source != kNoPass
+                        ? std::optional<Rect>(Bound(pass, clip))
+                        : std::nullopt);
       continue;
     }
 
@@ -891,11 +1202,14 @@ void SceneFlattener::FlattenPicture(const PrPicture& picture,
 void EncodePlan(const RenderPlan& plan,
                 const ProgramSet& programs,
                 GpuCommandBuffer& cmd_buffer) {
-  const float viewport_origin[4] = {static_cast<float>(plan.width),
-                                    static_cast<float>(plan.height),
-                                    plan.origin.x, plan.origin.y};
+  const float viewport_origin[4] = {plan.extent.x, plan.extent.y, plan.origin.x,
+                                    plan.origin.y};
   cmd_buffer.SetConstantData(GPUShaderStage::kVertex, viewport_origin,
                              sizeof(viewport_origin), 3);
+  if (plan.filter.has_value()) {
+    cmd_buffer.SetConstantData(GPUShaderStage::kFragment, &plan.filter.value(),
+                               sizeof(FilterUniform), 6);
+  }
   cmd_buffer.SetTextureTable(plan.textures.data(), plan.textures.size());
 
   ProgramType current_program = ProgramType::kInvalid;

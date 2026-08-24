@@ -22,6 +22,10 @@ class AiksContext;
 
 namespace flutter {
 
+class Stopwatch;
+
+class LayerTree;
+
 /// Abstract Base Class that represents where we will be rendering content.
 class Surface {
  public:
@@ -50,6 +54,15 @@ class Surface {
   virtual bool AllowsDrawingWhenGpuDisabled() const;
 
   virtual bool EnableRasterCache() const;
+
+  // Propeller prototype: the rasterizer offers each frame's layer tree to
+  // the surface before AcquireFrame; the Metal and Vulkan impeller
+  // surfaces render it through Propeller unless FLUTTER_PROPELLER=0.
+  // Default: ignored.
+  virtual void SetPropellerLayerTree(flutter::LayerTree* layer_tree,
+                                     float device_pixel_ratio,
+                                     const Stopwatch* raster_time = nullptr,
+                                     const Stopwatch* ui_time = nullptr) {}
 
   virtual std::shared_ptr<impeller::AiksContext> GetAiksContext() const;
 

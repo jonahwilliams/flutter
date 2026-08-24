@@ -34,6 +34,10 @@ struct SourceOptions {
   /// opengl semantics. Only used on metal targets.
   bool use_half_textures = false;
 
+  /// Keep explicit layout(binding) values instead of applying the
+  /// fragment-stage binding base offset.
+  bool keep_declared_bindings = false;
+
   /// @brief Whether the GLSL framebuffer fetch extension will be required.
   ///
   /// Only used on OpenGLES targets.

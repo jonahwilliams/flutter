@@ -44,6 +44,7 @@ class Switches {
   std::string entry_point = "";
   std::string entry_point_prefix = "";
   bool use_half_textures = false;
+  bool keep_declared_bindings = false;
   bool require_framebuffer_fetch = false;
   bool verbose = false;
 

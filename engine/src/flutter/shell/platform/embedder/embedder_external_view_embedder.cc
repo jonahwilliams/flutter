@@ -16,7 +16,25 @@
 #include "impeller/display_list/dl_dispatcher.h"  // nogncheck
 #endif                                            // IMPELLER_SUPPORTS_RENDERING
 
+#include "flutter/fml/build_config.h"
+
+#if defined(IMPELLER_SUPPORTS_RENDERING) && \
+    (defined(FML_OS_MACOSX) || defined(FML_OS_IOS))
+#define PROPELLER_AVAILABLE 1
+#include "flutter/flow/layers/layer_tree.h"
+#include "flutter/impeller/propeller/propeller_shell_hook.h"
+#endif
+
 namespace flutter {
+
+namespace {
+// Propeller prototype: the pending layer tree for the frame being
+// submitted. Raster thread only; cleared at the end of SubmitFlutterView.
+LayerTree* g_propeller_layer_tree = nullptr;
+float g_propeller_device_pixel_ratio = 1.0f;
+const Stopwatch* g_propeller_raster_time = nullptr;
+const Stopwatch* g_propeller_ui_time = nullptr;
+}  // namespace
 
 static const auto kRootViewIdentifier = EmbedderExternalView::ViewIdentifier{};
 
@@ -373,6 +391,20 @@ class Layer {
     auto cull_rect =
         impeller::Rect::MakeSize(impeller_target->GetRenderTargetSize());
 
+#if defined(PROPELLER_AVAILABLE)
+    // Propeller prototype: render the frame's layer tree instead of the
+    // flattened display list (flattening destroys the picture identity the
+    // MLR caches key on). Falls through when disabled.
+    if (g_propeller_layer_tree != nullptr &&
+        impeller::PropellerRenderFlowTree(g_propeller_layer_tree->root_layer(),
+                                          *impeller_target,
+                                          g_propeller_device_pixel_ratio,
+                                          g_propeller_raster_time,
+                                          g_propeller_ui_time)) {
+      return;
+    }
+#endif  // PROPELLER_AVAILABLE
+
     impeller::RenderToTarget(aiks_context->GetContentContext(),     //
                              *impeller_target,                      //
                              display_list,                          //
@@ -539,6 +571,17 @@ class LayerBuilder {
 
 };  // namespace
 
+void EmbedderExternalViewEmbedder::SetPropellerLayerTree(
+    LayerTree* layer_tree,
+    float device_pixel_ratio,
+    const Stopwatch* raster_time,
+    const Stopwatch* ui_time) {
+  g_propeller_layer_tree = layer_tree;
+  g_propeller_device_pixel_ratio = device_pixel_ratio;
+  g_propeller_raster_time = raster_time;
+  g_propeller_ui_time = ui_time;
+}
+
 void EmbedderExternalViewEmbedder::SubmitFlutterView(
     int64_t flutter_view_id,
     GrDirectContext* context,
@@ -641,6 +684,7 @@ void EmbedderExternalViewEmbedder::SubmitFlutterView(
   }
 
   frame->Submit();
+  g_propeller_layer_tree = nullptr;
 }
 
 }  // namespace flutter

@@ -4,6 +4,7 @@
 
 #include <algorithm>
 
+#include "display_list/effects/image_filters/dl_blur_image_filter.h"
 #include "flutter/display_list/dl_paint.h"
 #include "flutter/display_list/geometry/dl_path_builder.h"
 #include "flutter/testing/testing.h"
@@ -135,6 +136,90 @@ TEST(DispatcherTest, ADifferentProgramBreaksTheBatch) {
   EXPECT_EQ(plan.draws[2].start, 6u + plan.draws[1].count);
   // One bind set: nothing rolled.
   EXPECT_EQ(plan.buffers.size(), 1u);
+}
+
+TEST(DispatcherTest, ABlurredLayerHoldsWhatTheBlurReaches) {
+  StubGpuContext context;
+  BufferArena arena(context);
+
+  const Rect content = Rect::MakeLTRB(100, 100, 140, 140);
+  auto blurred = [&](std::shared_ptr<flutter::DlImageFilter> filter) {
+    PrPictureBuilder builder;
+    flutter::DlPaint paint = Fill(flutter::DlColor::kRed());
+    paint.setImageFilter(filter);
+    builder.SaveLayer(std::nullopt, &paint);
+    builder.DrawRect(content, Fill(flutter::DlColor::kRed()));
+    builder.Restore();
+    return builder.Build();
+  };
+
+  std::shared_ptr<PrPicture> plain = blurred(nullptr);
+  std::shared_ptr<PrPicture> blur =
+      blurred(std::make_shared<flutter::DlBlurImageFilter>(
+          5.0f, 5.0f, flutter::DlTileMode::kDecal));
+
+  ASSERT_EQ(plain->GetDraws().size(), 1u);
+  ASSERT_EQ(blur->GetDraws().size(), 1u);
+  ASSERT_EQ(plain->GetDraws()[0].type, Draw::DrawType::kLayer);
+  ASSERT_EQ(blur->GetDraws()[0].type, Draw::DrawType::kLayer);
+
+  // The composite draw is culled and bounded by its own rect, so a blur
+  // that reaches past the content has to be in it.
+  EXPECT_EQ(plain->GetDraws()[0].rect, content);
+  EXPECT_TRUE(blur->GetDraws()[0].rect.Contains(content));
+  EXPECT_LT(blur->GetDraws()[0].rect.GetLeft(), content.GetLeft());
+  EXPECT_GT(blur->GetDraws()[0].rect.GetRight(), content.GetRight());
+  EXPECT_TRUE(blur->GetBoundsUnion()->Contains(blur->GetDraws()[0].rect));
+}
+
+TEST(DispatcherTest, ABlurredLayerIsCulledByWhatItsBlurReaches) {
+  // The content sits outside the clip and the blur reaches back in. Kept
+  // on the strength of the blur, where the content alone would go.
+  StubGpuContext context;
+  BufferArena arena(context);
+
+  PrPictureBuilder builder;
+  builder.ClipRect(Rect::MakeLTRB(0, 0, 100, 100),
+                   flutter::DlClipOp::kIntersect, true);
+  flutter::DlPaint paint = Fill(flutter::DlColor::kRed());
+  paint.setImageFilter(std::make_shared<flutter::DlBlurImageFilter>(
+      8.0f, 8.0f, flutter::DlTileMode::kDecal));
+  builder.SaveLayer(std::nullopt, &paint);
+  builder.DrawRect(Rect::MakeLTRB(104, 40, 120, 60),
+                   Fill(flutter::DlColor::kRed()));
+  builder.Restore();
+  std::shared_ptr<PrPicture> picture = builder.Build();
+
+  bool composited = false;
+  for (const Draw& draw : picture->GetDraws()) {
+    composited = composited || draw.type == Draw::DrawType::kLayer;
+  }
+  EXPECT_TRUE(composited) << "the blur reaches the clip, so it is visible";
+}
+
+TEST(DispatcherTest, ABlurredPassIsSizedForItsBlur) {
+  StubGpuContext context;
+  BufferArena arena(context);
+
+  const Rect content = Rect::MakeLTRB(100, 100, 140, 140);
+  auto plan_for = [&](std::shared_ptr<flutter::DlImageFilter> filter) {
+    PrPictureBuilder builder;
+    flutter::DlPaint paint = Fill(flutter::DlColor::kRed());
+    paint.setImageFilter(filter);
+    builder.SaveLayer(std::nullopt, &paint);
+    builder.DrawRect(content, Fill(flutter::DlColor::kRed()));
+    builder.Restore();
+    return Flatten(builder.Build(), arena);
+  };
+
+  // Nothing to assert about the plan itself here beyond that both flatten;
+  // the point is that the pass the blur opens is the larger of the two,
+  // which is what sizes its texture.
+  RenderPlan plain = plan_for(nullptr);
+  RenderPlan blur = plan_for(std::make_shared<flutter::DlBlurImageFilter>(
+      6.0f, 6.0f, flutter::DlTileMode::kDecal));
+  EXPECT_FALSE(plain.draws.empty());
+  EXPECT_FALSE(blur.draws.empty());
 }
 
 TEST(DispatcherTest, ALayerWithNoPassCompositesNothing) {
@@ -550,6 +635,11 @@ std::shared_ptr<PrPicture> RectPicture(const Rect& rect,
   return builder.Build();
 }
 
+/// The most taps a step will ever gather either side of centre.
+int32_t TapRadiusCeiling() {
+  return 64;
+}
+
 /// A scene, ordered and encoded: the flattener holds both halves.
 SceneFlattener Flattened(const PrSceneNode& scene,
                          BufferArena& arena,
@@ -575,6 +665,493 @@ RenderPlan FlattenTheScene(const PrSceneNode& scene, BufferArena& arena) {
 }
 
 }  // namespace
+
+TEST(DispatcherTest, ABlurredLayerResolvesThroughTwoFilterSteps) {
+  StubGpuContext context;
+  BufferArena arena(context);
+
+  PrPictureBuilder builder;
+  flutter::DlPaint paint = Fill(flutter::DlColor::kRed());
+  paint.setOpacity(0.5f);
+  // Under the threshold, so nothing is held down and the sigmas arrive
+  // as given. What downscaling does to them is its own test.
+  paint.setImageFilter(std::make_shared<flutter::DlBlurImageFilter>(
+      3.0f, 2.0f, flutter::DlTileMode::kDecal));
+  builder.SaveLayer(std::nullopt, &paint);
+  builder.DrawRect(Rect::MakeLTRB(100, 100, 140, 140),
+                   Fill(flutter::DlColor::kRed()));
+  builder.Restore();
+
+  SceneFlattener flattened = Flattened(SceneOf(builder.Build()), arena);
+  const std::vector<SceneFlattener::Pass>& passes = flattened.GetPasses();
+
+  // The content, one step per axis, and the frame.
+  ASSERT_EQ(passes.size(), 4u);
+  EXPECT_EQ(passes[0].filter_source, SceneFlattener::kNoPass)
+      << "the content draws itself";
+  EXPECT_EQ(passes[1].filter_source, 0u);
+  EXPECT_EQ(passes[2].filter_source, 1u);
+
+  // One axis each, and the sigmas are the ones the filter asked for --
+  // the transform here is identity, so nothing scales them.
+  EXPECT_EQ(passes[1].filter_step.step.y, 0);
+  EXPECT_GT(passes[1].filter_step.step.x, 0);
+  EXPECT_EQ(passes[1].filter_step.sigma, 3);
+  EXPECT_EQ(passes[2].filter_step.step.x, 0);
+  EXPECT_GT(passes[2].filter_step.step.y, 0);
+  EXPECT_EQ(passes[2].filter_step.sigma, 2);
+  EXPECT_EQ(passes[1].resolution_scale, 1.0f);
+  EXPECT_EQ(passes[2].resolution_scale, 1.0f);
+  EXPECT_GT(passes[1].filter_step.radius, 0);
+
+  // Every step covers what the blur reaches, and the layer's own alpha
+  // belongs to the last one, since that is what the frame composites.
+  EXPECT_EQ(passes[1].coverage, passes[0].coverage);
+  EXPECT_EQ(passes[2].coverage, passes[0].coverage);
+  EXPECT_EQ(passes[0].opacity, 1.0f);
+  // Through an eight bit alpha channel on the way, so near rather than
+  // exact.
+  EXPECT_NEAR(passes[2].opacity, 0.5f, 1.0f / 255.0f);
+
+  // A step is held against whatever held its source, so a layer that has
+  // not changed keeps the blur it already resolved.
+  EXPECT_TRUE(passes[1].key.IsCacheable());
+  EXPECT_TRUE(passes[2].key.IsCacheable());
+
+  // It holds the same contents, so it takes the same names for them
+  // rather than a summary of them. What tells the steps apart from each
+  // other and from the source is how far along they are.
+  EXPECT_EQ(passes[1].key.ids[0], passes[0].key.ids[0]);
+  EXPECT_EQ(passes[2].key.ids[0], passes[0].key.ids[0]);
+  EXPECT_EQ(passes[0].key.variant, 0u);
+  EXPECT_EQ(passes[1].key.variant, 1u);
+  EXPECT_EQ(passes[2].key.variant, 2u);
+  EXPECT_FALSE(passes[1].key == passes[0].key) << "a texture each";
+  EXPECT_FALSE(passes[1].key == passes[2].key) << "a texture each";
+
+  // Each step draws its one quad with the blur program and carries the
+  // uniform the shader reads.
+  const std::vector<RenderPlan>& plans = flattened.GetPlan();
+  for (uint32_t step : {1u, 2u}) {
+    ASSERT_TRUE(plans[step].filter.has_value()) << "step " << step;
+    ASSERT_EQ(plans[step].draws.size(), 1u) << "step " << step;
+    EXPECT_EQ(plans[step].draws[0].program, ProgramType::kBlur)
+        << "step " << step;
+    EXPECT_EQ(plans[step].draws[0].count, 6u) << "step " << step;
+  }
+}
+
+TEST(DispatcherTest, AClipThatCutsNothingIsNotCarried) {
+  StubGpuContext context;
+  BufferArena arena(context);
+  auto blur = std::make_shared<flutter::DlBlurImageFilter>(
+      4.0f, 4.0f, flutter::DlTileMode::kDecal);
+
+  // Rows that each clip their own contents to their own bounds, which is
+  // the ordinary way a list is built -- and a clip that is its item's own
+  // bounds cuts nothing at all.
+  PrSceneBuilder scene_builder(Rect::MakeLTRB(0, 0, 800, 800));
+  for (int i = 0; i < 3; i++) {
+    scene_builder.Save();
+    scene_builder.ClipRect(Rect::MakeLTRB(0, 100 + i * 50, 800, 140 + i * 50));
+    scene_builder.DrawPicture(
+        RectPicture(Rect::MakeLTRB(0, 100 + i * 50, 400, 140 + i * 50),
+                    flutter::DlColor::kRed()),
+        1);
+    scene_builder.Restore();
+  }
+  scene_builder.DrawPicture(
+      RectPicture(Rect::MakeLTRB(0, 300, 400, 340), flutter::DlColor::kGreen()),
+      1);
+  scene_builder.SaveLayer(std::nullopt, nullptr, blur.get());
+  scene_builder.DrawPicture(
+      RectPicture(Rect::MakeLTRB(10, 110, 390, 290), flutter::DlColor::kBlue()),
+      1);
+  scene_builder.Restore();
+
+  TextureCache cache(&context);
+  SceneFlattener flattened;
+  flattened.FlattenScene(scene_builder.Build(), Rect::MakeLTRB(0, 0, 800, 800));
+  flattened.EncodePasses(arena, cache, TextureFormat::kRGBA8UNorm);
+
+  const std::vector<SceneFlattener::Pass>& passes = flattened.GetPasses();
+
+  // The snapshot the backdrop reads. Its items were copied from what came
+  // before, carrying whatever clips they had; each row's clip is its own
+  // bounds, so none of them cut and none of them are kept.
+  const SceneFlattener::Pass& frame = passes.back();
+  ASSERT_FALSE(frame.items.empty());
+  const SceneFlattener::Item* backdrop = nullptr;
+  for (const SceneFlattener::Item& item : frame.items) {
+    if (item.IsComposite()) {
+      backdrop = &item;
+      break;
+    }
+  }
+  ASSERT_NE(backdrop, nullptr);
+
+  const SceneFlattener::Pass& tail = passes[backdrop->pass];
+  ASSERT_NE(tail.filter_source, SceneFlattener::kNoPass);
+  const SceneFlattener::Pass& mid = passes[tail.filter_source];
+  ASSERT_NE(mid.filter_source, SceneFlattener::kNoPass);
+  const uint32_t snapshot_index = mid.filter_source;
+  const SceneFlattener::Pass& snapshot = passes[snapshot_index];
+
+  ASSERT_GE(snapshot.items.size(), 3u);
+  for (const SceneFlattener::Item& item : snapshot.items) {
+    EXPECT_FALSE(item.clip.has_value())
+        << "a clip that is its item's own bounds cuts nothing";
+  }
+
+  // So the whole snapshot goes down as one run, with no scissor at all.
+  const RenderPlan& plan = flattened.GetPlan()[snapshot_index];
+  ASSERT_EQ(plan.draws.size(), 1u) << "one run, no scissors";
+  EXPECT_EQ(plan.draws[0].program, ProgramType::kColor);
+}
+
+TEST(DispatcherTest, ABackdropReadsWhatWasDrawnBeforeIt) {
+  StubGpuContext context;
+  BufferArena arena(context);
+
+  auto blur = std::make_shared<flutter::DlBlurImageFilter>(
+      4.0f, 4.0f, flutter::DlTileMode::kDecal);
+
+  PrSceneBuilder scene_builder(Rect::MakeLTRB(0, 0, 400, 400));
+  scene_builder.DrawPicture(
+      RectPicture(Rect::MakeLTRB(0, 0, 200, 200), flutter::DlColor::kRed()), 1);
+  scene_builder.DrawPicture(
+      RectPicture(Rect::MakeLTRB(0, 200, 200, 400), flutter::DlColor::kGreen()),
+      1);
+  scene_builder.SaveLayer(std::nullopt, nullptr, blur.get());
+  scene_builder.DrawPicture(
+      RectPicture(Rect::MakeLTRB(50, 50, 150, 150), flutter::DlColor::kBlue()),
+      1);
+  scene_builder.Restore();
+
+  TextureCache cache(&context);
+  SceneFlattener flattened;
+  flattened.FlattenScene(scene_builder.Build(), Rect::MakeLTRB(0, 0, 400, 400));
+  flattened.EncodePasses(arena, cache, TextureFormat::kRGBA8UNorm);
+
+  const SceneFlattener::Pass& frame = flattened.GetPasses().back();
+  // The two behind it, what it shows of them, and its own content.
+  ASSERT_EQ(frame.items.size(), 4u);
+  EXPECT_FALSE(frame.items[0].IsComposite());
+  EXPECT_FALSE(frame.items[1].IsComposite());
+  EXPECT_TRUE(frame.items[2].IsComposite()) << "the backdrop, before the child";
+  EXPECT_FALSE(frame.items[3].IsComposite());
+
+  // What it reads is a copy of what came before it, and nothing after.
+  const std::vector<SceneFlattener::Pass>& passes = flattened.GetPasses();
+  const SceneFlattener::Pass& tail = passes[frame.items[2].pass];
+  ASSERT_NE(tail.filter_source, SceneFlattener::kNoPass)
+      << "the blur should have chained onto it";
+  const SceneFlattener::Pass& mid = passes[tail.filter_source];
+  ASSERT_NE(mid.filter_source, SceneFlattener::kNoPass);
+  const SceneFlattener::Pass& snapshot = passes[mid.filter_source];
+  EXPECT_EQ(snapshot.items.size(), 2u) << "the two drawn before it";
+  EXPECT_EQ(snapshot.items[0].picture, frame.items[0].picture);
+  EXPECT_EQ(snapshot.items[1].picture, frame.items[1].picture);
+
+  // It cannot show more than was drawn.
+  EXPECT_TRUE(Rect::MakeLTRB(0, 0, 200, 400).Contains(snapshot.coverage));
+}
+
+TEST(DispatcherTest, ABackdropOnlyReadsWhatItCanSee) {
+  StubGpuContext context;
+  BufferArena arena(context);
+
+  auto blur = std::make_shared<flutter::DlBlurImageFilter>(
+      2.0f, 2.0f, flutter::DlTileMode::kDecal);
+
+  // Near sits under where the backdrop shows; far is nowhere near it.
+  std::shared_ptr<PrPicture> near =
+      RectPicture(Rect::MakeLTRB(0, 0, 100, 100), flutter::DlColor::kRed());
+  std::shared_ptr<PrPicture> far = RectPicture(
+      Rect::MakeLTRB(600, 600, 700, 700), flutter::DlColor::kGreen());
+
+  PrSceneBuilder scene_builder(Rect::MakeLTRB(0, 0, 800, 800));
+  scene_builder.DrawPicture(near, 1);
+  scene_builder.DrawPicture(far, 1);
+  scene_builder.SaveLayer(Rect::MakeLTRB(0, 0, 100, 100), nullptr, blur.get());
+  scene_builder.DrawPicture(
+      RectPicture(Rect::MakeLTRB(10, 10, 90, 90), flutter::DlColor::kBlue()),
+      1);
+  scene_builder.Restore();
+
+  TextureCache cache(&context);
+  SceneFlattener flattened;
+  flattened.FlattenScene(scene_builder.Build(), Rect::MakeLTRB(0, 0, 800, 800));
+  flattened.EncodePasses(arena, cache, TextureFormat::kRGBA8UNorm);
+
+  const std::vector<SceneFlattener::Pass>& passes = flattened.GetPasses();
+  const SceneFlattener::Pass& frame = passes.back();
+  ASSERT_EQ(frame.items.size(), 4u);
+  ASSERT_TRUE(frame.items[2].IsComposite()) << "the backdrop";
+
+  // Walk back through the two gathering steps to what was snapshotted.
+  const SceneFlattener::Pass& tail = passes[frame.items[2].pass];
+  ASSERT_NE(tail.filter_source, SceneFlattener::kNoPass);
+  const SceneFlattener::Pass& mid = passes[tail.filter_source];
+  ASSERT_NE(mid.filter_source, SceneFlattener::kNoPass);
+  const SceneFlattener::Pass& snapshot = passes[mid.filter_source];
+
+  // The far picture was drawn before it but cannot be seen through it,
+  // so it is neither redrawn for it nor named among what decides it.
+  ASSERT_EQ(snapshot.items.size(), 1u) << "the far picture should be culled";
+  EXPECT_EQ(snapshot.items[0].picture, near);
+  EXPECT_EQ(snapshot.key.ids.size(), 1u);
+  EXPECT_EQ(snapshot.key.ids[0], near->GetId());
+
+  // And it holds only what it shows, not the union of the whole scene.
+  EXPECT_LT(snapshot.coverage.GetRight(), 600);
+  EXPECT_LT(snapshot.coverage.GetBottom(), 600);
+}
+
+TEST(DispatcherTest, ABackdropWithNothingBehindItDrawsNothing) {
+  StubGpuContext context;
+  BufferArena arena(context);
+
+  auto blur = std::make_shared<flutter::DlBlurImageFilter>(
+      4.0f, 4.0f, flutter::DlTileMode::kDecal);
+
+  PrSceneBuilder scene_builder(Rect::MakeLTRB(0, 0, 400, 400));
+  scene_builder.SaveLayer(std::nullopt, nullptr, blur.get());
+  scene_builder.DrawPicture(
+      RectPicture(Rect::MakeLTRB(50, 50, 150, 150), flutter::DlColor::kBlue()),
+      1);
+  scene_builder.Restore();
+
+  TextureCache cache(&context);
+  SceneFlattener flattened;
+  flattened.FlattenScene(scene_builder.Build(), Rect::MakeLTRB(0, 0, 400, 400));
+  flattened.EncodePasses(arena, cache, TextureFormat::kRGBA8UNorm);
+
+  const SceneFlattener::Pass& frame = flattened.GetPasses().back();
+  ASSERT_EQ(frame.items.size(), 1u) << "its own content and no backdrop";
+  EXPECT_FALSE(frame.items[0].IsComposite());
+}
+
+TEST(DispatcherTest, AFilteredNodeIsClippedLikeItsSiblings) {
+  StubGpuContext context;
+  BufferArena arena(context);
+
+  // The shape a layer tree takes: a scene clip over alternating nodes,
+  // some a filtered layer of their own and some a plain leaf. A node
+  // carries its clip rather than sitting under one, so a composite that
+  // reads only what it inherited comes out unclipped beside siblings
+  // that are not -- and the scissor is thrown wide for every one of
+  // them and put back for the next.
+  PrSceneBuilder scene_builder(Rect::MakeLTRB(0, 0, 1600, 1200));
+  scene_builder.ClipRect(Rect::MakeLTRB(0, 112, 1600, 1200));
+  for (int i = 0; i < 4; i++) {
+    const Scalar y = 200 + i * 120;
+    flutter::DlPaint paint = Fill(flutter::DlColor::kRed());
+    paint.setImageFilter(std::make_shared<flutter::DlBlurImageFilter>(
+        4.0f, 4.0f, flutter::DlTileMode::kDecal));
+    scene_builder.SaveLayer(std::nullopt, &paint);
+    scene_builder.DrawPicture(RectPicture(Rect::MakeLTRB(100, y, 200, y + 96),
+                                          flutter::DlColor::kRed()),
+                              1);
+    scene_builder.Restore();
+    scene_builder.DrawPicture(RectPicture(Rect::MakeLTRB(300, y, 400, y + 96),
+                                          flutter::DlColor::kGreen()),
+                              1);
+  }
+
+  TextureCache cache(&context);
+  SceneFlattener flattened;
+  flattened.FlattenScene(scene_builder.Build(),
+                         Rect::MakeLTRB(0, 0, 1600, 1200));
+  flattened.EncodePasses(arena, cache, TextureFormat::kRGBA8UNorm);
+
+  const SceneFlattener::Pass& frame = flattened.GetPasses().back();
+  ASSERT_EQ(frame.items.size(), 8u) << "four filtered, four plain";
+
+  // Every item says the same thing about its clip, composite and leaf
+  // alike. Which thing matters less than that they agree: one of them
+  // out of step is a scissor either side of it.
+  for (const SceneFlattener::Item& item : frame.items) {
+    ASSERT_EQ(item.clip.has_value(), frame.items[0].clip.has_value())
+        << (item.IsComposite() ? "a composite" : "a leaf") << " is out of step";
+    if (item.clip.has_value()) {
+      EXPECT_EQ(*item.clip, *frame.items[0].clip);
+    }
+  }
+
+  // So every draw batches, behind at most one scissor.
+  const RenderPlan& plan = flattened.GetPlan().back();
+  ASSERT_FALSE(plan.draws.empty());
+  EXPECT_LE(plan.draws.size(), 2u) << "at most one scissor and one run";
+  const GPUDraw& run = plan.draws.back();
+  EXPECT_EQ(run.program, ProgramType::kColor);
+  EXPECT_EQ(run.count, 48u) << "four composites and four rects";
+}
+
+TEST(DispatcherTest, TurningABlurUpDoesNotReuseTheOldOne) {
+  StubGpuContext context;
+  BufferArena arena(context);
+
+  // The same content at two strengths. A scene carries its filter
+  // itself, so no picture id moves when the sigma does -- the key has to
+  // say so on its own or the second frame shows the first frame's blur.
+  std::shared_ptr<PrPicture> content =
+      RectPicture(Rect::MakeLTRB(0, 0, 100, 100), flutter::DlColor::kRed());
+  auto steps_for = [&](Scalar sigma) {
+    PrSceneBuilder scene_builder(kSurface);
+    flutter::DlPaint paint = Fill(flutter::DlColor::kRed());
+    paint.setImageFilter(std::make_shared<flutter::DlBlurImageFilter>(
+        sigma, sigma, flutter::DlTileMode::kDecal));
+    scene_builder.SaveLayer(std::nullopt, &paint);
+    scene_builder.DrawPicture(content, 1);
+    scene_builder.Restore();
+    return Flattened(scene_builder.Build(), arena).GetPasses();
+  };
+
+  const std::vector<SceneFlattener::Pass> soft = steps_for(2.0f);
+  const std::vector<SceneFlattener::Pass> hard = steps_for(3.0f);
+  ASSERT_EQ(soft.size(), hard.size());
+  ASSERT_GE(soft.size(), 3u);
+
+  // Same content, so the same names for it.
+  EXPECT_EQ(soft[0].key.ids[0], hard[0].key.ids[0]);
+  // Different strength, so not the same texture.
+  EXPECT_FALSE(soft[1].key == hard[1].key) << "the blur would be reused";
+  EXPECT_FALSE(soft[2].key == hard[2].key) << "the blur would be reused";
+}
+
+TEST(DispatcherTest, AnUnchangedBlurredLayerKeepsWhatItResolved) {
+  StubGpuContext context;
+  TextureCache cache(&context);
+  BufferArena arena(context);
+
+  // The same picture both times: a layer nothing touched should not be
+  // blurred again for the next frame.
+  PrPictureBuilder builder;
+  flutter::DlPaint paint = Fill(flutter::DlColor::kRed());
+  paint.setImageFilter(std::make_shared<flutter::DlBlurImageFilter>(
+      4.0f, 4.0f, flutter::DlTileMode::kDecal));
+  builder.SaveLayer(std::nullopt, &paint);
+  builder.DrawRect(Rect::MakeLTRB(0, 0, 100, 100),
+                   Fill(flutter::DlColor::kRed()));
+  builder.Restore();
+  std::shared_ptr<PrPicture> picture = builder.Build();
+
+  SceneFlattener first = Flattened(SceneOf(picture), arena, &cache);
+  ASSERT_EQ(first.GetPasses().size(), 4u);
+  for (uint32_t step : {0u, 1u, 2u}) {
+    EXPECT_FALSE(first.GetPasses()[step].ready) << "step " << step;
+    EXPECT_NE(first.GetPasses()[step].texture, nullptr) << "step " << step;
+  }
+
+  cache.Next();  // A frame goes by.
+
+  SceneFlattener second = Flattened(SceneOf(picture), arena, &cache);
+  ASSERT_EQ(second.GetPasses().size(), 4u);
+  for (uint32_t step : {0u, 1u, 2u}) {
+    EXPECT_TRUE(second.GetPasses()[step].ready)
+        << "step " << step << " had to be drawn again";
+    EXPECT_EQ(second.GetPasses()[step].texture, first.GetPasses()[step].texture)
+        << "step " << step << " landed on a different texture";
+  }
+}
+
+TEST(DispatcherTest, AWideBlurIsHeldDownWhileItIsGathered) {
+  StubGpuContext context;
+  BufferArena arena(context);
+
+  auto chain_for = [&](Scalar sigma) {
+    PrPictureBuilder builder;
+    flutter::DlPaint paint = Fill(flutter::DlColor::kRed());
+    paint.setImageFilter(std::make_shared<flutter::DlBlurImageFilter>(
+        sigma, sigma, flutter::DlTileMode::kDecal));
+    builder.SaveLayer(std::nullopt, &paint);
+    builder.DrawRect(Rect::MakeLTRB(0, 0, 400, 400),
+                     Fill(flutter::DlColor::kRed()));
+    builder.Restore();
+    return Flattened(SceneOf(builder.Build()), arena);
+  };
+
+  struct Expected {
+    Scalar sigma;
+    Scalar scale;
+  };
+  // A power of two either side of four texels, and a floor: one halving
+  // per axis is as far down as this goes, so anything wider than that
+  // stops there and gathers a broader kernel instead.
+  const Expected ladder[] = {
+      {.sigma = 2, .scale = 1.0f},  {.sigma = 4, .scale = 1.0f},
+      {.sigma = 6, .scale = 0.5f},  {.sigma = 16, .scale = 0.5f},
+      {.sigma = 64, .scale = 0.5f}, {.sigma = 400, .scale = 0.5f},
+  };
+  for (const Expected& expect : ladder) {
+    SceneFlattener flattened = chain_for(expect.sigma);
+    const std::vector<SceneFlattener::Pass>& passes = flattened.GetPasses();
+
+    // The content, one gathering step per axis, and the frame. Nothing
+    // resamples: the content is drawn at the size it is gathered at.
+    ASSERT_EQ(passes.size(), 4u) << "sigma " << expect.sigma;
+
+    // All three held at the same size, so a tap is one texel of what it
+    // reads as much as of what it writes. Anything larger on the way in
+    // has the taps striding over source texels that never get read.
+    for (uint32_t step : {0u, 1u, 2u}) {
+      EXPECT_EQ(passes[step].resolution_scale, expect.scale)
+          << "sigma " << expect.sigma << " step " << step;
+    }
+
+    for (uint32_t step : {1u, 2u}) {
+      EXPECT_EQ(passes[step].filter_step.sigma, expect.sigma * expect.scale)
+          << "sigma " << expect.sigma << " step " << step;
+      EXPECT_LE(passes[step].filter_step.radius, TapRadiusCeiling())
+          << "sigma " << expect.sigma << " step " << step;
+      EXPECT_EQ(passes[step].filter_source, step - 1)
+          << "sigma " << expect.sigma << " step " << step;
+    }
+
+    // The offscreen is allocated at the held size, not at the coverage:
+    // a target of one size with transients of another is a render pass
+    // that draws nothing anyone would want.
+    // Taken off the coverage the pass actually spans, which the filter
+    // widened past the content that was drawn into it.
+    const std::vector<RenderPlan>& plans = flattened.GetPlan();
+    const uint32_t held =
+        static_cast<uint32_t>(std::ceil(plans[0].extent.x * expect.scale));
+    for (uint32_t step : {0u, 1u, 2u}) {
+      EXPECT_EQ(passes[step].key.width, held)
+          << "sigma " << expect.sigma << " step " << step;
+    }
+    if (expect.scale < 1.0f) {
+      EXPECT_LT(held, static_cast<uint32_t>(plans[0].extent.x))
+          << "sigma " << expect.sigma;
+    }
+
+    for (uint32_t step : {0u, 1u, 2u}) {
+      EXPECT_EQ(plans[step].width, passes[step].key.width)
+          << "sigma " << expect.sigma << " step " << step;
+      EXPECT_EQ(plans[step].height, passes[step].key.height)
+          << "sigma " << expect.sigma << " step " << step;
+      EXPECT_EQ(plans[step].extent, plans[0].extent)
+          << "sigma " << expect.sigma << " step " << step;
+    }
+  }
+}
+
+TEST(DispatcherTest, ALayerWithNoBlurKeepsItsSinglePass) {
+  StubGpuContext context;
+  BufferArena arena(context);
+
+  PrPictureBuilder builder;
+  flutter::DlPaint paint = Fill(flutter::DlColor::kRed());
+  builder.SaveLayer(std::nullopt, &paint);
+  builder.DrawRect(Rect::MakeLTRB(100, 100, 140, 140),
+                   Fill(flutter::DlColor::kRed()));
+  builder.Restore();
+
+  SceneFlattener flattened = Flattened(SceneOf(builder.Build()), arena);
+  ASSERT_EQ(flattened.GetPasses().size(), 2u) << "the layer and the frame";
+  EXPECT_FALSE(flattened.GetPlan()[0].filter.has_value());
+}
 
 TEST(DispatcherTest, ASceneDrawsItsLeavesInOrder) {
   StubGpuContext context;

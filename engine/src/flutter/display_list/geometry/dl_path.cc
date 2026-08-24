@@ -33,6 +33,21 @@ inline constexpr SkPathFillType ToSkFillType(flutter::DlPathFillType dl_type) {
 
 namespace flutter {
 
+DlPath::DlPath() : data_(std::make_shared<Data>(SkPath())) {}
+
+DlPath::DlPath(const SkPath& path) : data_(std::make_shared<Data>(path)) {
+  std::vector<impeller::PathEdge> edges;
+  impeller::PathEdgeVisitor::PathCallback cb =
+      [&edges](const impeller::PathEdge& edge, bool starts, bool) {
+        edges.push_back(edge);
+      };
+  impeller::PathEdgeVisitor visitor(cb);
+  Dispatch(visitor);
+  visitor.Finish();
+  data_->edges = std::move(edges);
+  data_->has_edges = true;
+}
+
 using FillType = impeller::FillType;
 using Convexity = impeller::Convexity;
 
@@ -181,6 +196,20 @@ void DlPath::WillRenderSkPath() const {
   }
 }
 
+const std::shared_ptr<DlPath>& DlPath::GetStroked(const StrokeKey& key) const {
+  static const std::shared_ptr<DlPath> kNone;
+  if (data_->stroked == nullptr || !(data_->stroke_key == key)) {
+    return kNone;
+  }
+  return data_->stroked;
+}
+
+void DlPath::SetStroked(const StrokeKey& key,
+                        std::shared_ptr<DlPath> stroked) const {
+  data_->stroke_key = key;
+  data_->stroked = std::move(stroked);
+}
+
 [[nodiscard]] DlPath DlPath::WithOffset(const DlPoint offset) const {
   if (offset.IsZero()) {
     return *this;
@@ -254,6 +283,15 @@ bool DlPath::IsVolatile() const {
 
 bool DlPath::IsConvex() const {
   return data_->sk_path.isConvex();
+}
+
+const std::vector<impeller::PathEdge>* DlPath::GetEdges() const {
+  return data_->has_edges ? &data_->edges : nullptr;
+}
+
+void DlPath::SetEdges(std::vector<impeller::PathEdge> edges) const {
+  data_->edges = std::move(edges);
+  data_->has_edges = true;
 }
 
 DlPath DlPath::operator+(const DlPath& other) const {

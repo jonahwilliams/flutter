@@ -279,7 +279,9 @@ shaderc::CompileOptions SPIRVCompilerOptions::BuildShadercOptions() const {
   shaderc::CompileOptions options;
 
   SetDefaultLimitations(options);
-  SetBindingBaseOffset(options);
+  if (!keep_declared_bindings) {
+    SetBindingBaseOffset(options);
+  }
 
   options.SetAutoBindUniforms(true);
   options.SetAutoMapLocations(true);

@@ -5,7 +5,9 @@
 #ifndef FLUTTER_DISPLAY_LIST_GEOMETRY_DL_PATH_H_
 #define FLUTTER_DISPLAY_LIST_GEOMETRY_DL_PATH_H_
 
+#include <cstdint>
 #include <functional>
+#include <memory>
 
 #include "flutter/display_list/geometry/dl_geometry_types.h"
 #include "flutter/impeller/geometry/path_source.h"
@@ -19,6 +21,30 @@ using DlPathReceiver = impeller::PathReceiver;
 class DlPath : public impeller::PathSource {
  public:
   static constexpr uint32_t kMaxVolatileUses = 2;
+
+  /// What a stroked outline was built for. The caps and joins are the
+  /// DlStrokeCap and DlStrokeJoin the paint carried, as their own
+  /// values: this header cannot see dl_paint.h.
+  struct StrokeKey {
+    DlScalar width = 0;
+    DlScalar miter_limit = 0;
+    uint8_t cap = 0;
+    uint8_t join = 0;
+
+    bool operator==(const StrokeKey& other) const = default;
+  };
+
+  /// This path's stroked outline, if the one it holds was stroked with
+  /// `key`, and nullptr otherwise.
+  ///
+  /// One slot only: a path is stroked the same way on every frame it is
+  /// drawn, so a second would never be read. The stroking itself
+  /// belongs to the renderer; this only remembers the result.
+  const std::shared_ptr<DlPath>& GetStroked(const StrokeKey& key) const;
+
+  /// Hold `stroked` as this path's outline under `key`, replacing
+  /// whatever was there.
+  void SetStroked(const StrokeKey& key, std::shared_ptr<DlPath> stroked) const;
 
   static DlPath MakeRect(const DlRect& rect);
   static DlPath MakeRectLTRB(DlScalar left,
@@ -56,8 +82,8 @@ class DlPath : public impeller::PathSource {
                         DlDegrees sweep,
                         bool use_center);
 
-  DlPath() : data_(std::make_shared<Data>(SkPath())) {}
-  explicit DlPath(const SkPath& path) : data_(std::make_shared<Data>(path)) {}
+  DlPath();
+  explicit DlPath(const SkPath& path);
 
   DlPath(const DlPath& path) = default;
   DlPath(DlPath&& path) = default;
@@ -96,6 +122,9 @@ class DlPath : public impeller::PathSource {
   bool IsVolatile() const;
   bool IsConvex() const override;
 
+  const std::vector<impeller::PathEdge>* GetEdges() const override;
+  void SetEdges(std::vector<impeller::PathEdge> edges) const;
+
   DlPath operator+(const DlPath& other) const;
 
  private:
@@ -106,6 +135,16 @@ class DlPath : public impeller::PathSource {
 
     SkPath sk_path;
     uint32_t render_count = 0u;
+
+    /// The outline of a stroke of this path, and what it was stroked
+    /// with. One only: see GetStroked.
+    StrokeKey stroke_key;
+    std::shared_ptr<DlPath> stroked;
+
+    /// The flattened edges (lines and quads) of this path, used by Propeller
+    /// to avoid re-evaluating curves and verbs at draw time.
+    std::vector<impeller::PathEdge> edges;
+    bool has_edges = false;
   };
 
   std::shared_ptr<Data> data_;

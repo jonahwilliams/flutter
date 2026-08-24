@@ -14,6 +14,7 @@
 #include "flutter/lib/ui/painting/rrect.h"
 #include "flutter/lib/ui/painting/rsuperellipse.h"
 #include "flutter/lib/ui/painting/vertices.h"
+#include "impeller/propeller/picture.h"
 #include "third_party/tonic/typed_data/typed_list.h"
 
 namespace flutter {
@@ -192,12 +193,12 @@ class Canvas : public RefCountedDartWrappable<Canvas>, DisplayListOpFlags {
 
   void Invalidate();
 
-  DisplayListBuilder* builder() { return display_list_builder_.get(); }
+  impeller::PrPictureBuilder* builder() { return builder_.get(); }
 
  private:
-  explicit Canvas(sk_sp<DisplayListBuilder> builder);
+  explicit Canvas(std::shared_ptr<impeller::PrPictureBuilder> builder);
 
-  sk_sp<DisplayListBuilder> display_list_builder_;
+  std::shared_ptr<impeller::PrPictureBuilder> builder_;
 };
 
 }  // namespace flutter

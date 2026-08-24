@@ -182,6 +182,9 @@ void ContainerLayer::PaintChildren(PaintContext& context) const {
   // and the trace event on this common function has a small overhead.
   for (auto& layer : layers_) {
     if (layer->needs_painting(context)) {
+      if (context.layer_observer != nullptr) {
+        context.layer_observer->WillPaintChildLayer(*layer);
+      }
       layer->Paint(context);
     }
   }

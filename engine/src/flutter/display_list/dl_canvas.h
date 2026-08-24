@@ -5,6 +5,8 @@
 #ifndef FLUTTER_DISPLAY_LIST_DL_CANVAS_H_
 #define FLUTTER_DISPLAY_LIST_DL_CANVAS_H_
 
+#include <iostream>
+
 #include "flutter/display_list/display_list.h"
 #include "flutter/display_list/dl_blend_mode.h"
 #include "flutter/display_list/dl_paint.h"
@@ -181,6 +183,12 @@ class DlCanvas {
                          const DlPaint* paint = nullptr) = 0;
   virtual void DrawDisplayList(const sk_sp<DisplayList> display_list,
                                DlScalar opacity = SK_Scalar1) = 0;
+
+  // Propeller prototype: an engine picture (impeller::MLRPicture) carried
+  // opaquely so flow need not depend on the type. The propeller recorder
+  // overrides this; every other canvas ignores it.
+  virtual void DrawOpaquePicture(const std::shared_ptr<void>& picture,
+                                 DlScalar opacity = SK_Scalar1) {}
 
   virtual void DrawText(const std::shared_ptr<DlText>& text,
                         DlScalar x,

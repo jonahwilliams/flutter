@@ -6,7 +6,6 @@
 
 #include "flutter/display_list/dl_builder.h"
 #include "flutter/fml/trace_event.h"
-#include "flutter/shell/common/dl_op_spy.h"
 #include "third_party/skia/include/gpu/ganesh/GrDirectContext.h"
 #include "third_party/skia/include/gpu/ganesh/GrRecordingContext.h"
 
@@ -70,9 +69,7 @@ bool EmbedderExternalView::HasEngineRenderedContents() {
     return has_engine_rendered_contents_.value();
   }
   TryEndRecording();
-  DlOpSpy dl_op_spy;
-  slice_->dispatch(dl_op_spy);
-  has_engine_rendered_contents_ = dl_op_spy.did_draw() && !slice_->is_empty();
+  has_engine_rendered_contents_ = !slice_->is_empty();
   // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
   return has_engine_rendered_contents_.value();
 }

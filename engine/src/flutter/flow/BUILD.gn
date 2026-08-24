@@ -100,12 +100,19 @@ source_set("flow") {
     "//flutter/txt",
   ]
 
+  check_includes = false
   deps = [ "//flutter/skia" ]
 
   if (impeller_supports_rendering) {
+    # Propeller's flow recorder lives here rather than in the propeller
+    # target: it paints a flow layer tree, and propeller cannot depend on
+    # flow when flow already depends on propeller.
+    sources += [ "//flutter/impeller/propeller/flow_recorder.cc" ]
+
     deps += [
       "//flutter/impeller",
       "//flutter/impeller/display_list",
+      "//flutter/impeller/propeller",
       "//flutter/impeller/typographer/backends/skia:typographer_skia_backend",
     ]
   }

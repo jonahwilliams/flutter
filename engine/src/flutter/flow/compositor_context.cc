@@ -118,16 +118,17 @@ RasterStatus CompositorContext::ScopedFrame::Raster(
   TRACE_EVENT0("flutter", "CompositorContext::ScopedFrame::Raster");
 
   std::optional<DlRect> clip_rect;
-  if (frame_damage) {
-    clip_rect = frame_damage->ComputeClipRect(layer_tree, !ignore_raster_cache,
-                                              !gr_context_);
+  // if (frame_damage) {
+  //   clip_rect = frame_damage->ComputeClipRect(layer_tree,
+  //   !ignore_raster_cache,
+  //                                             !gr_context_);
 
-    if (aiks_context_ &&
-        !ShouldPerformPartialRepaint(clip_rect, layer_tree.frame_size())) {
-      clip_rect = std::nullopt;
-      frame_damage->Reset();
-    }
-  }
+  //   if (aiks_context_ &&
+  //       !ShouldPerformPartialRepaint(clip_rect, layer_tree.frame_size())) {
+  //     clip_rect = std::nullopt;
+  //     frame_damage->Reset();
+  //   }
+  // }
 
   bool root_needs_readback = layer_tree.Preroll(
       *this, ignore_raster_cache, clip_rect ? *clip_rect : kGiantRect);

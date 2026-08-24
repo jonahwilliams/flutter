@@ -20,12 +20,21 @@ DisplayListLayer::DisplayListLayer(const DlPoint& offset,
                                    bool will_change)
     : offset_(offset), display_list_(std::move(display_list)) {
   if (display_list_) {
-    bounds_ = display_list_->GetBounds().Shift(offset_.x, offset_.y);
+    content_bounds_ = display_list_->GetBounds();
+    bounds_ = content_bounds_.Shift(offset_.x, offset_.y);
 #if !SLIMPELLER
     display_list_raster_cache_item_ = DisplayListRasterCacheItem::Make(
         display_list_, ToSkPoint(offset_), is_complex, will_change);
 #endif  //  !SLIMPELLER
   }
+}
+
+DisplayListLayer::DisplayListLayer(const DlPoint& offset,
+                                   std::shared_ptr<void> engine_picture,
+                                   const DlRect& picture_bounds)
+    : offset_(offset), engine_picture_(std::move(engine_picture)) {
+  content_bounds_ = picture_bounds;
+  bounds_ = content_bounds_.Shift(offset_.x, offset_.y);
 }
 
 bool DisplayListLayer::IsReplacing(DiffContext* context,
@@ -54,13 +63,23 @@ void DisplayListLayer::Diff(DiffContext* context, const Layer* old_layer) {
   if (context->has_raster_cache()) {
     context->WillPaintWithIntegralTransform();
   }
-  context->AddLayerBounds(display_list()->GetBounds());
+  context->AddLayerBounds(content_bounds_);
   context->SetLayerPaintRegion(this, context->CurrentSubtreeRegion());
 }
 
 bool DisplayListLayer::Compare(DiffContext::Statistics& statistics,
                                const DisplayListLayer* l1,
                                const DisplayListLayer* l2) {
+  if (l1->engine_picture_ != nullptr || l2->engine_picture_ != nullptr) {
+    // Engine pictures are immutable and shared: the same object is the
+    // same content, and there is nothing cheaper or deeper to compare.
+    if (l1->engine_picture_.get() == l2->engine_picture_.get()) {
+      statistics.AddSameInstancePicture();
+      return true;
+    }
+    statistics.AddNewPicture();
+    return false;
+  }
   const auto& dl1 = l1->display_list_;
   const auto& dl2 = l2->display_list_;
   if (dl1.get() == dl2.get()) {
@@ -94,6 +113,12 @@ bool DisplayListLayer::Compare(DiffContext::Statistics& statistics,
 }
 
 void DisplayListLayer::Preroll(PrerollContext* context) {
+  if (engine_picture_ != nullptr) {
+    // A picture reference carries its opacity, so the caller always can.
+    context->renderable_state_flags = LayerStateStack::kCallerCanApplyOpacity;
+    set_paint_bounds(bounds_);
+    return;
+  }
   DisplayList* disp_list = display_list();
 
 #if !SLIMPELLER
@@ -107,11 +132,17 @@ void DisplayListLayer::Preroll(PrerollContext* context) {
 }
 
 void DisplayListLayer::Paint(PaintContext& context) const {
-  FML_DCHECK(display_list_);
   FML_DCHECK(needs_painting(context));
 
   auto mutator = context.state_stack.save();
   mutator.translate(offset_.x, offset_.y);
+
+  if (engine_picture_ != nullptr) {
+    context.canvas->DrawOpaquePicture(
+        engine_picture_, context.state_stack.outstanding_opacity());
+    return;
+  }
+  FML_DCHECK(display_list_);
 
 #if !SLIMPELLER
   if (context.raster_cache) {

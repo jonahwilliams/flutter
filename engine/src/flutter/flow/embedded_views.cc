@@ -6,10 +6,36 @@
 
 namespace flutter {
 
+namespace {
+
+// The equivalent of the r-tree: the bounds of every draw the picture
+// holds.
+void AppendDrawRects(const impeller::PrPicture& picture,
+                     std::vector<DlIRect>& rects) {
+  const std::vector<impeller::Draw>& draws = picture.GetDraws();
+  const std::vector<impeller::Rect>& bounds = picture.GetBounds();
+  for (size_t i = 0; i < draws.size(); i++) {
+    // A clip's entry is the extent it admits, not anything it paints.
+    if (draws[i].type == impeller::Draw::DrawType::kRectClip ||
+        draws[i].type == impeller::Draw::DrawType::kRRectClip) {
+      continue;
+    }
+    if (bounds[i].IsEmpty()) {
+      continue;
+    }
+    rects.push_back(DlIRect::RoundOut(bounds[i]));
+  }
+  // A referenced picture is not walked: its draws are in its own
+  // coordinates and the reference is what carries them here. The layer
+  // draw's own entry covers all of them, which is coarser than walking
+  // but never smaller than what the picture reaches.
+}
+
+}  // namespace
+
 DisplayListEmbedderViewSlice::DisplayListEmbedderViewSlice(DlRect view_bounds) {
-  builder_ = std::make_unique<DisplayListBuilder>(
-      /*bounds=*/view_bounds,
-      /*prepare_rtree=*/true);
+  builder_ = std::make_unique<impeller::PrPictureBuilder>();
+  builder_->SetSurfaceBounds(view_bounds);
 }
 
 DlCanvas* DisplayListEmbedderViewSlice::canvas() {
@@ -17,25 +43,25 @@ DlCanvas* DisplayListEmbedderViewSlice::canvas() {
 }
 
 void DisplayListEmbedderViewSlice::end_recording() {
-  display_list_ = builder_->Build();
-  FML_DCHECK(display_list_->has_rtree());
+  picture_ = builder_->Build();
   builder_ = nullptr;
+
+  std::vector<DlIRect> rects;
+  AppendDrawRects(*picture_, rects);
+  region_ = DlRegion(rects);
 }
 
 const DlRegion& DisplayListEmbedderViewSlice::getRegion() const {
-  return display_list_->rtree()->region();
+  return region_;
 }
 
 void DisplayListEmbedderViewSlice::render_into(DlCanvas* canvas) {
-  canvas->DrawDisplayList(display_list_);
-}
-
-void DisplayListEmbedderViewSlice::dispatch(DlOpReceiver& receiver) {
-  display_list_->Dispatch(receiver);
+  canvas->DrawOpaquePicture(picture_);
 }
 
 bool DisplayListEmbedderViewSlice::is_empty() {
-  return display_list_->GetBounds().IsEmpty();
+  const std::optional<impeller::Rect>& bounds = picture_->GetBoundsUnion();
+  return !bounds.has_value() || bounds->IsEmpty();
 }
 
 bool DisplayListEmbedderViewSlice::recording_ended() {

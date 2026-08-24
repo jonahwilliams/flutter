@@ -220,7 +220,8 @@ class CapabilitiesVK final : public Capabilities,
                          vk::PhysicalDeviceSamplerYcbcrConversionFeaturesKHR,
                          vk::PhysicalDevice16BitStorageFeatures,
                          vk::PhysicalDeviceImageCompressionControlFeaturesEXT,
-                         vk::PhysicalDeviceTextureCompressionASTCHDRFeatures>;
+                         vk::PhysicalDeviceTextureCompressionASTCHDRFeatures,
+                         vk::PhysicalDeviceVulkan12Features>;
 
   std::optional<PhysicalDeviceFeatures> GetEnabledDeviceFeatures(
       const vk::PhysicalDevice& physical_device) const;

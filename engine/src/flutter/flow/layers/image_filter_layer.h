@@ -12,6 +12,13 @@ namespace flutter {
 
 class ImageFilterLayer : public CacheableContainerLayer {
  public:
+  // |Layer|
+  const ImageFilterLayer* as_image_filter_layer() const override {
+    return this;
+  }
+
+  const DlImageFilter* image_filter() const { return filter_.get(); }
+
   explicit ImageFilterLayer(const std::shared_ptr<DlImageFilter>& filter,
                             const DlPoint& offset = DlPoint());
 

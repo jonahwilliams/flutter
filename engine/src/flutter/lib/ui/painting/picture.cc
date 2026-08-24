@@ -4,6 +4,8 @@
 
 #include "flutter/lib/ui/painting/picture.h"
 
+#include "impeller/propeller/snapshot_hook.h"
+
 #include <memory>
 #include <utility>
 
@@ -29,50 +31,106 @@ IMPLEMENT_WRAPPERTYPEINFO(ui, Picture);
 
 void Picture::CreateAndAssociateWithDartWrapper(
     Dart_Handle dart_handle,
-    sk_sp<DisplayList> display_list) {
-  FML_DCHECK(display_list->isUIThreadSafe());
-  auto canvas_picture = fml::MakeRefCounted<Picture>(std::move(display_list));
+    std::shared_ptr<impeller::PrPicture> picture) {
+  auto canvas_picture = fml::MakeRefCounted<Picture>(std::move(picture));
   canvas_picture->AssociateWithDartWrapper(dart_handle);
 }
 
-Picture::Picture(sk_sp<DisplayList> display_list)
-    : display_list_(std::move(display_list)) {}
+// TODO: PrPicture has no id or retained flag yet, so nothing downstream
+// can recognise the same picture across frames the way MLR's pass
+// recycling did.
+Picture::Picture(std::shared_ptr<impeller::PrPicture> picture)
+    : picture_(std::move(picture)) {}
 
 Picture::~Picture() = default;
 
 Dart_Handle Picture::toImage(uint32_t width,
                              uint32_t height,
                              Dart_Handle raw_image_callback) {
-  if (!display_list_) {
-    return tonic::ToDart("Picture is null");
-  }
-  return RasterizeToImage(display_list_, width, height, raw_image_callback);
+  // Propeller pictures have no display list to rasterize through this
+  // path yet.
+  return tonic::ToDart("Picture.toImage is not supported with Propeller");
 }
+
+namespace {
+
+/// Picture.toImageSync hands its image back immediately; the texture
+/// lands once the raster thread has rendered the picture, which is
+/// before any frame recorded after this call gets flattened. Draws that
+/// resolve it earlier see no texture and skip.
+class DlDeferredPropellerImage final : public DlImage {
+ public:
+  explicit DlDeferredPropellerImage(DlISize size) : size_(size) {}
+
+  void Fulfill(sk_sp<DlImage> image) {
+    std::scoped_lock lock(mutex_);
+    image_ = std::move(image);
+  }
+
+  // |DlImage|
+  Type GetImageType() const override { return Type::kImpeller; }
+
+  // |DlImage|
+  const impeller::DlImageImpeller* asImpellerImage() const override {
+    std::scoped_lock lock(mutex_);
+    return image_ ? image_->asImpellerImage() : nullptr;
+  }
+
+  // |DlImage|
+  bool isTextureBacked() const override { return true; }
+
+  // |DlImage|
+  DlColorSpace GetColorSpace() const override { return DlColorSpace::kSRGB; }
+
+  // |DlImage|
+  bool isOpaque() const override { return false; }
+
+  // |DlImage|
+  bool isUIThreadSafe() const override { return true; }
+
+  // |DlImage|
+  DlISize GetSize() const override { return size_; }
+
+  // |DlImage|
+  size_t GetApproximateByteSize() const override {
+    return sizeof(*this) + static_cast<size_t>(size_.width) * size_.height * 4;
+  }
+
+  // |DlImage|
+  OwningContext owning_context() const override {
+    return OwningContext::kRaster;
+  }
+
+ private:
+  mutable std::mutex mutex_;
+  sk_sp<DlImage> image_;
+  const DlISize size_;
+};
+
+}  // namespace
 
 void Picture::toImageSync(uint32_t width,
                           uint32_t height,
                           int32_t target_format,
                           Dart_Handle raw_image_handle) {
-  FML_DCHECK(display_list_);
-  SnapshotPixelFormat snapshot_pixel_format;
-  // This must be kept in sync with painting.dart.
-  switch (target_format) {
-    case 0:
-      snapshot_pixel_format = SnapshotPixelFormat::kDontCare;
-      break;
-    case 1:
-      snapshot_pixel_format = SnapshotPixelFormat::kRGBA32Float;
-      break;
-    case 2:
-      snapshot_pixel_format = SnapshotPixelFormat::kR32Float;
-      break;
-    default:
-      FML_DCHECK(false) << "unknown target format: " << target_format;
-      snapshot_pixel_format = SnapshotPixelFormat::kDontCare;
-      break;
+  // target_format is ignored: propeller snapshots are RGBA8, the
+  // kDontCare answer.
+  auto* dart_state = UIDartState::Current();
+  if (!dart_state || !picture_ || width == 0 || height == 0) {
+    return;
   }
-  RasterizeToImageSync(display_list_, width, height, snapshot_pixel_format,
-                       raw_image_handle);
+  auto deferred = sk_make_sp<DlDeferredPropellerImage>(
+      DlISize(static_cast<int32_t>(width), static_cast<int32_t>(height)));
+  auto image = CanvasImage::Create();
+  image->set_image(deferred);
+  image->AssociateWithDartWrapper(raw_image_handle);
+  dart_state->GetTaskRunners().GetRasterTaskRunner()->PostTask(
+      [picture = picture_, deferred, width, height] {
+        if (sk_sp<DlImage> rendered =
+                impeller::PropellerSnapshotPicture(picture, width, height)) {
+          deferred->Fulfill(std::move(rendered));
+        }
+      });
 }
 
 static sk_sp<DlImage> CreateDeferredImage(
@@ -128,16 +186,18 @@ void Picture::RasterizeToImageSync(sk_sp<DisplayList> display_list,
 }
 
 void Picture::dispose() {
-  display_list_.reset();
+  picture_.reset();
   ClearDartWrapper();
 }
 
 size_t Picture::GetAllocationSize() const {
-  if (display_list_) {
-    return display_list_->bytes() + sizeof(Picture);
-  } else {
-    return sizeof(Picture);
+  if (picture_) {
+    // An estimate from the dominant spans; the GC only wants pressure.
+    return sizeof(Picture) + sizeof(impeller::PrPicture) +
+           picture_->GetDraws().size() * sizeof(impeller::Draw) +
+           picture_->GetPositions().size() * sizeof(impeller::Point);
   }
+  return sizeof(Picture);
 }
 
 #if IMPELLER_SUPPORTS_RENDERING

@@ -86,6 +86,14 @@ void PrSceneBuilder::SaveLayer(const std::optional<flutter::DlRect>& bounds,
   group.opacity = attributes.getOpacity();
   group.image_filter = attributes.getImageFilter();
   group.color_filter = attributes.getColorFilter();
+  if (backdrop != nullptr) {
+    group.backdrop_filter = backdrop->shared();
+    group.backdrop_blend = attributes.getBlendMode();
+    group.backdrop_id = backdrop_id;
+    if (bounds.has_value()) {
+      group.backdrop_bounds = bounds->TransformBounds(group.transform);
+    }
+  }
   open_.push_back(std::move(group));
 }
 

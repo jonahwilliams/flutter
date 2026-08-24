@@ -32,6 +32,17 @@ class GPUSurfaceVulkanImpeller final : public Surface {
   // |Surface|
   bool IsValid() override;
 
+  // |Surface|
+  void SetPropellerLayerTree(flutter::LayerTree* layer_tree,
+                             float device_pixel_ratio,
+                             const Stopwatch* raster_time,
+                             const Stopwatch* ui_time) override {
+    propeller_layer_tree_ = layer_tree;
+    propeller_device_pixel_ratio_ = device_pixel_ratio;
+    propeller_raster_time_ = raster_time;
+    propeller_ui_time_ = ui_time;
+  }
+
  private:
   FML_FRIEND_TEST(testing::GPUSurfaceVulkanImpeller,
                   RecreatesTransientsWhenFrameSizeChanges);
@@ -43,6 +54,12 @@ class GPUSurfaceVulkanImpeller final : public Surface {
   /// The size of the textures in [transients_]
   impeller::ISize transients_size_ = {};
   bool is_valid_ = false;
+  // Propeller prototype: stashed per frame by the rasterizer; consumed by
+  // the encode callback.
+  flutter::LayerTree* propeller_layer_tree_ = nullptr;
+  float propeller_device_pixel_ratio_ = 1.0f;
+  const Stopwatch* propeller_raster_time_ = nullptr;
+  const Stopwatch* propeller_ui_time_ = nullptr;
 
   // |Surface|
   std::unique_ptr<SurfaceFrame> AcquireFrame(const DlISize& size) override;

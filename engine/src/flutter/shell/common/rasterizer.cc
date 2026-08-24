@@ -750,6 +750,19 @@ DrawSurfaceStatus Rasterizer::DrawToSurfaceUnsafe(
     embedder_root_canvas = external_view_embedder_->GetRootCanvas();
   }
 
+  // Propeller prototype: offer the layer tree to the surface and the view
+  // embedder; whichever renders this frame's content consumes it.
+  // The stopwatches ride along: the performance overlay layer paints
+  // imperatively, so Propeller must re-record it against live timings.
+  const Stopwatch* raster_time = &compositor_context_->raster_time();
+  const Stopwatch* ui_time = &compositor_context_->ui_time();
+  surface_->SetPropellerLayerTree(&layer_tree, device_pixel_ratio, raster_time,
+                                  ui_time);
+  if (external_view_embedder_) {
+    external_view_embedder_->SetPropellerLayerTree(
+        &layer_tree, device_pixel_ratio, raster_time, ui_time);
+  }
+
   // On Android, the external view embedder deletes surfaces in `BeginFrame`.
   //
   // Deleting a surface also clears the GL context. Therefore, acquire the

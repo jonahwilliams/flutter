@@ -17,6 +17,8 @@
 #include "flutter/fml/trace_event.h"
 #include "impeller/display_list/dl_dispatcher.h"
 #include "impeller/renderer/backend/metal/surface_mtl.h"
+#include "flutter/flow/layers/layer_tree.h"
+#include "flutter/impeller/propeller/metal/propeller_engine.h"
 #include "impeller/typographer/backends/skia/typographer_context_skia.h"
 
 static_assert(__has_feature(objc_arc), "ARC must be enabled.");
@@ -124,7 +126,11 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceMetalImpeller::AcquireFrameFromCAMetalLa
                          drawable,                                            //
                          weak_last_texture,                                   //
                          weak_layer,                                          //
-                         swapchain_transients = swapchain_transients_         //
+                         swapchain_transients = swapchain_transients_,        //
+                         propeller_layer_tree = propeller_layer_tree_,        //
+                         propeller_dpr = propeller_device_pixel_ratio_,       //
+                         propeller_raster_time = propeller_raster_time_,      //
+                         propeller_ui_time = propeller_ui_time_              //
   ](SurfaceFrame& surface_frame, DlCanvas* canvas) mutable -> bool {
         id<MTLTexture> strong_last_texture = weak_last_texture;
         CAMetalLayer* strong_layer = weak_layer;
@@ -182,6 +188,25 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceMetalImpeller::AcquireFrameFromCAMetalLa
           return true;
         }
 
+        // Propeller prototype: when enabled, render the frame's layer tree
+        // straight into the drawable and present, bypassing the display
+        // list path entirely (the flattened DL is information-destroying;
+        // Propeller consumes the tree).
+        if (propeller_layer_tree != nullptr) {
+          if (auto* propeller = impeller::PropellerEngine::GetIfEnabled()) {
+            if (propeller->RenderLayerTree(propeller_layer_tree->root_layer(),
+                                           drawable.texture, propeller_dpr,
+                                           propeller_raster_time,
+                                           propeller_ui_time)) {
+              if (!surface->PreparePresent()) {
+                return false;
+              }
+              surface_frame.set_user_data(std::move(surface));
+              return true;
+            }
+          }
+        }
+
         impeller::Rect cull_rect = impeller::Rect::Make(surface->coverage());
         surface->SetFrameBoundary(surface_frame.submit_info().frame_boundary);
 
@@ -216,6 +241,11 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceMetalImpeller::AcquireFrameFromCAMetalLa
     }
     framebuffer_info.supports_partial_repaint = true;
   }
+  // The tree pointer is frame-local in the rasterizer: one draw may
+  // consume it. A resubmitted frame never re-stashes it, and recording a
+  // dead tree is a use-after-free.
+  propeller_layer_tree_ = nullptr;
+
 
   return std::make_unique<SurfaceFrame>(
       nullptr,           // surface
@@ -249,9 +279,13 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceMetalImpeller::AcquireFrameFromMTLTextur
   SurfaceFrame::EncodeCallback encode_callback =
       fml::MakeCopyable([disable_partial_repaint = disable_partial_repaint_,  //
                          damage = damage_,
-                         aiks_context = aiks_context_,                 //
-                         weak_texture,                                 //
-                         swapchain_transients = swapchain_transients_  //
+                         aiks_context = aiks_context_,                  //
+                         weak_texture,                                  //
+                         swapchain_transients = swapchain_transients_,  //
+                         propeller_layer_tree = propeller_layer_tree_,  //
+                         propeller_dpr = propeller_device_pixel_ratio_,  //
+                         propeller_raster_time = propeller_raster_time_,  //
+                         propeller_ui_time = propeller_ui_time_  //
   ](SurfaceFrame& surface_frame, DlCanvas* canvas) mutable -> bool {
         id<MTLTexture> strong_texture = weak_texture;
         if (!strong_texture) {
@@ -298,6 +332,24 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceMetalImpeller::AcquireFrameFromMTLTextur
             return false;
           }
           return surface->Present();
+        }
+
+        // Propeller prototype: render the frame's layer tree straight into
+        // the target texture and present, bypassing the display list path
+        // (macOS embedder renders to MTLTextures, so this is the branch
+        // that runs for `flutter run -d macos`).
+        if (propeller_layer_tree != nullptr) {
+          if (auto* propeller = impeller::PropellerEngine::GetIfEnabled()) {
+            if (propeller->RenderLayerTree(propeller_layer_tree->root_layer(),
+                                           strong_texture, propeller_dpr,
+                                           propeller_raster_time,
+                                           propeller_ui_time)) {
+              if (!surface->PreparePresent()) {
+                return false;
+              }
+              return surface->Present();
+            }
+          }
         }
 
         impeller::Rect cull_rect = impeller::Rect::Make(surface->coverage());

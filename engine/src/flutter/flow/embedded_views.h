@@ -17,6 +17,7 @@
 #include "flutter/flow/surface_frame.h"
 #include "flutter/fml/memory/ref_counted.h"
 #include "flutter/fml/raster_thread_merger.h"
+#include "impeller/propeller/picture.h"
 
 #if IMPELLER_SUPPORTS_RENDERING
 #include "flutter/impeller/display_list/aiks_context.h"  // nogncheck
@@ -31,6 +32,8 @@ class AiksContext;
 class GrDirectContext;
 
 namespace flutter {
+
+class Stopwatch;
 
 enum class MutatorType {
   kClipRect,
@@ -393,13 +396,13 @@ class DisplayListEmbedderViewSlice : public EmbedderViewSlice {
   const DlRegion& getRegion() const override;
 
   void render_into(DlCanvas* canvas) override;
-  void dispatch(DlOpReceiver& receiver);
   bool is_empty();
   bool recording_ended();
 
  private:
-  std::unique_ptr<DisplayListBuilder> builder_;
-  sk_sp<DisplayList> display_list_;
+  std::unique_ptr<impeller::PrPictureBuilder> builder_;
+  std::shared_ptr<impeller::PrPicture> picture_;
+  DlRegion region_;
 };
 
 // Facilitates embedding of platform views within the flow layer tree.
@@ -429,6 +432,8 @@ class DisplayListEmbedderViewSlice : public EmbedderViewSlice {
 //   2. For each view to be drawn, call |PrepareFlutterView|, then
 //   |SubmitFlutterView|.
 //   3. At the end of a frame, if |GetUsedThisFrame| is true, call |EndFrame|.
+class LayerTree;
+
 class ExternalViewEmbedder {
   // TODO(cyanglaz): Make embedder own the `EmbeddedViewParams`.
 
@@ -481,6 +486,14 @@ class ExternalViewEmbedder {
   virtual DlCanvas* CompositeEmbeddedView(int64_t platform_view_id) = 0;
 
   // Prepare for a view to be drawn.
+  // Propeller prototype: the rasterizer offers each frame's layer tree
+  // before submission; embedders that composite via backing stores render
+  // it through Propeller when enabled. Default: ignored.
+  virtual void SetPropellerLayerTree(LayerTree* layer_tree,
+                                     float device_pixel_ratio,
+                                     const Stopwatch* raster_time = nullptr,
+                                     const Stopwatch* ui_time = nullptr) {}
+
   virtual void PrepareFlutterView(DlISize frame_size,
                                   double device_pixel_ratio) = 0;
 

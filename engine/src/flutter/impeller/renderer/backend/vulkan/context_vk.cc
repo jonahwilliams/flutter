@@ -220,7 +220,7 @@ void ContextVK::Setup(Settings settings) {
   //
   // variant, major, minor, patch
   application_info.setApplicationVersion(VK_API_VERSION_1_0);
-  application_info.setApiVersion(VK_API_VERSION_1_1);
+  application_info.setApiVersion(VK_API_VERSION_1_2);
   application_info.setEngineVersion(kImpellerEngineVersion);
   application_info.setPEngineName("Impeller");
   application_info.setPApplicationName("Impeller");

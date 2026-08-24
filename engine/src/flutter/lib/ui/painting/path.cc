@@ -41,8 +41,11 @@ int CanvasPath::getFillType() {
 }
 
 void CanvasPath::setFillType(int fill_type) {
-  sk_path_.setFillType(static_cast<SkPathFillType>(fill_type));
+  if (static_cast<SkPathFillType>(fill_type) == sk_path_.fillType()) {
+    return;
+  }
   resetVolatility();
+  sk_path_.setFillType(static_cast<SkPathFillType>(fill_type));
 }
 
 void CanvasPath::moveTo(double x, double y) {
@@ -342,8 +345,18 @@ void CanvasPath::clone(Dart_Handle path_handle) {
 }
 
 const DlPath& CanvasPath::path() const {
+  const SkPathFillType fill_type = sk_path_.fillType();
   if (!dl_path_.has_value()) {
     dl_path_.emplace(sk_path_.snapshot());
+  } else if (dl_path_->GetSkPath().getFillType() != fill_type) {
+    // Only the fill rule moved on: every mutation that touches the
+    // geometry drops the snapshot outright, so the one held here is
+    // still this path's. An SkPath carries the rule beside its
+    // geometry rather than in it, so this shares the geometry rather
+    // than copying it back out of the builder.
+    SkPath path = dl_path_->GetSkPath();
+    path.setFillType(fill_type);
+    dl_path_.emplace(path);
   }
   return dl_path_.value();
 }

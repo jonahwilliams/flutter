@@ -66,6 +66,10 @@ class KHRSwapchainImplVK final
 
   std::optional<ISize> GetCurrentUnderlyingSurfaceSize() const;
 
+  vk::Semaphore TakeFrameRenderSemaphore();
+
+  void SetFrameRenderDone(vk::Semaphore semaphore);
+
  private:
   std::weak_ptr<Context> context_;
   vk::UniqueSurfaceKHR surface_;
@@ -76,6 +80,8 @@ class KHRSwapchainImplVK final
   std::vector<std::unique_ptr<KHRFrameSynchronizerVK>> synchronizers_;
   std::vector<vk::UniqueSemaphore> present_semaphores_;
   size_t current_frame_ = 0u;
+  // Monotonic acquire count, only for debug-naming per-acquire semaphores.
+  uint64_t acquire_count_ = 0u;
   ISize size_;
   bool enable_msaa_ = true;
   bool is_valid_ = false;

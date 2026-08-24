@@ -68,7 +68,7 @@ void Paragraph::paint(Canvas* canvas, double x, double y) {
     return;
   }
 
-  DisplayListBuilder* builder = canvas->builder();
+  flutter::DlCanvas* builder = canvas->builder();
   if (builder) {
     m_paragraph_->Paint(builder, x, y);
   }

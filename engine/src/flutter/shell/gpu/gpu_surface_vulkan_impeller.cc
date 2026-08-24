@@ -7,6 +7,8 @@
 #include <memory>
 
 #include "flow/surface_frame.h"
+#include "flutter/flow/layers/layer_tree.h"
+#include "flutter/fml/build_config.h"
 #include "flutter/fml/make_copyable.h"
 #include "fml/trace_event.h"
 #include "impeller/core/formats.h"
@@ -95,6 +97,7 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceVulkanImpeller::AcquireFrame(
 
   if (delegate_ == nullptr) {
     auto& context_vk = impeller::SurfaceContextVK::Cast(*impeller_context_);
+
     std::unique_ptr<impeller::Surface> surface =
         context_vk.AcquireNextSurface();
 
@@ -107,10 +110,17 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceVulkanImpeller::AcquireFrame(
     auto cull_rect =
         impeller::Rect::MakeSize(render_target.GetRenderTargetSize());
 
-    SurfaceFrame::EncodeCallback encode_callback = [aiks_context =
-                                                        aiks_context_,  //
-                                                    render_target,
-                                                    cull_rect  //
+    SurfaceFrame::EncodeCallback encode_callback =
+        [aiks_context = aiks_context_,             //
+         parent_context = context_vk.GetParent(),  //
+         surface_context = std::static_pointer_cast<impeller::SurfaceContextVK>(
+             impeller_context_),  //
+         render_target,           //
+         cull_rect                //
+         //  propeller_layer_tree = propeller_layer_tree_,             //
+         //  propeller_dpr = propeller_device_pixel_ratio_,            //
+         //  propeller_raster_time = propeller_raster_time_,           //
+         // propeller_ui_time = propeller_ui_time_  //
     ](SurfaceFrame& surface_frame, DlCanvas* canvas) mutable -> bool {
       if (!aiks_context) {
         return false;
@@ -130,6 +140,11 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceVulkanImpeller::AcquireFrame(
           /*reset_host_buffer=*/surface_frame.submit_info().frame_boundary  //
       );
     };
+
+    // The tree pointer is frame-local in the rasterizer: one draw may
+    // consume it. A resubmitted frame (surface churn during navigation)
+    // never re-stashes it, and recording a dead tree is a use-after-free.
+    propeller_layer_tree_ = nullptr;
 
     return std::make_unique<SurfaceFrame>(
         nullptr,                          // surface

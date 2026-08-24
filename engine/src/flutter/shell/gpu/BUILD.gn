@@ -113,7 +113,10 @@ if (shell_enable_metal) {
         "gpu_surface_metal_impeller.mm",
       ]
 
-      public_deps += [ "//flutter/impeller" ]
+      public_deps += [
+        "//flutter/impeller",
+        "//flutter/impeller/propeller",
+      ]
     }
   }
 }

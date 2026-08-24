@@ -32,7 +32,15 @@ class MockLayer;
 }  // namespace testing
 
 class ContainerLayer;
+class ClipPathLayer;
+class ClipRectLayer;
+class ClipRRectLayer;
 class DisplayListLayer;
+class OpacityLayer;
+class BackdropFilterLayer;
+class ColorFilterLayer;
+class ImageFilterLayer;
+class TransformLayer;
 class PerformanceOverlayLayer;
 class TextureLayer;
 class RasterCacheItem;
@@ -75,6 +83,18 @@ struct PrerollContext {
   std::vector<RasterCacheItem*>* raster_cached_entries;
 };
 
+class Layer;
+
+/// Observes the paint traversal. WillPaintChildLayer is called with each
+/// child layer immediately before that layer paints.
+class LayerPaintObserver {
+ public:
+  virtual void WillPaintChildLayer(const Layer& layer) = 0;
+
+ protected:
+  ~LayerPaintObserver() = default;
+};
+
 struct PaintContext {
   // When splitting the scene into multiple canvases (e.g when embedding
   // a platform view on iOS) during the paint traversal we apply any state
@@ -106,6 +126,14 @@ struct PaintContext {
 
   bool impeller_enabled = false;
   impeller::AiksContext* aiks_context;
+
+  /// Whether the canvas being painted into composites pictures rather
+  /// than taking primitives, which is what the propeller layer tree
+  /// does. A layer that draws geometry of its own has to record it into
+  /// a picture and hand that over instead.
+  bool propeller_enabled = false;
+
+  LayerPaintObserver* layer_observer = nullptr;
 };
 
 // Represents a single composited layer. Created on the UI thread but then
@@ -242,10 +270,33 @@ class Layer {
   }
 #endif  //  !SLIMPELLER
   virtual const ContainerLayer* as_container_layer() const { return nullptr; }
+
+  // Propeller prototype: containers that change how their children render
+  // (filters, masks, clip shapes it cannot express) name themselves here,
+  // so unimplemented effects warn once instead of silently rendering the
+  // children unfiltered or unclipped. Null means the layer applies no
+  // effect of its own.
+  virtual const char* propeller_unsupported_effect() const { return nullptr; }
   virtual const DisplayListLayer* as_display_list_layer() const {
     return nullptr;
   }
   virtual const TextureLayer* as_texture_layer() const { return nullptr; }
+  virtual const TransformLayer* as_transform_layer() const { return nullptr; }
+  virtual const OpacityLayer* as_opacity_layer() const { return nullptr; }
+  virtual const ClipRectLayer* as_clip_rect_layer() const { return nullptr; }
+  virtual const BackdropFilterLayer* as_backdrop_filter_layer() const {
+    return nullptr;
+  }
+  virtual const ColorFilterLayer* as_color_filter_layer() const {
+    return nullptr;
+  }
+  virtual const ImageFilterLayer* as_image_filter_layer() const {
+    return nullptr;
+  }
+  virtual const ClipPathLayer* as_clip_path_layer() const { return nullptr; }
+  virtual const ClipRRectLayer* as_clip_rrect_layer() const {
+    return nullptr;
+  }
   virtual const PerformanceOverlayLayer* as_performance_overlay_layer() const {
     return nullptr;
   }

@@ -843,5 +843,40 @@ TEST(DisplayListPath, CannotConstructFromSkiaInverseEvenOdd) {
 }
 #endif
 
+TEST(DisplayListPath, StrokedOutlineIsHeldUnderItsKey) {
+  const DlPath path = DlPath::MakeRectLTRB(0, 0, 10, 10);
+  const DlPath::StrokeKey key{.width = 2, .miter_limit = 4};
+
+  EXPECT_EQ(path.GetStroked(key), nullptr);
+
+  auto outline = std::make_shared<DlPath>(DlPath::MakeRectLTRB(-1, -1, 11, 11));
+  path.SetStroked(key, outline);
+  EXPECT_EQ(path.GetStroked(key), outline);
+
+  // A copy is the same path, so it is the same outline.
+  const DlPath alias = path;
+  EXPECT_EQ(alias.GetStroked(key), outline);
+
+  // Anything else about the stroke is a different outline, and this
+  // holds one.
+  EXPECT_EQ(path.GetStroked(DlPath::StrokeKey{.width = 3, .miter_limit = 4}),
+            nullptr);
+  EXPECT_EQ(path.GetStroked(DlPath::StrokeKey{.width = 2, .miter_limit = 8}),
+            nullptr);
+  EXPECT_EQ(path.GetStroked(
+                DlPath::StrokeKey{.width = 2, .miter_limit = 4, .cap = 1}),
+            nullptr);
+  EXPECT_EQ(path.GetStroked(
+                DlPath::StrokeKey{.width = 2, .miter_limit = 4, .join = 1}),
+            nullptr);
+
+  // The one slot: a second stroke replaces the first.
+  auto wider = std::make_shared<DlPath>(DlPath::MakeRectLTRB(-2, -2, 12, 12));
+  const DlPath::StrokeKey wide{.width = 4, .miter_limit = 4};
+  path.SetStroked(wide, wider);
+  EXPECT_EQ(path.GetStroked(wide), wider);
+  EXPECT_EQ(path.GetStroked(key), nullptr);
+}
+
 }  // namespace testing
 }  // namespace flutter

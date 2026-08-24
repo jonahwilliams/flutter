@@ -133,7 +133,10 @@ enum ProgramType {
   kClipResolveEvenOdd = 8,
   /// Back to fully visible, where a clip was popped.
   kClipReset = 9,
-  kProgramLength = 11,
+  /// One axis of a separable Gaussian, sampling what the pass before it
+  /// resolved into. Two of these in a row are a blur.
+  kBlur = 11,
+  kProgramLength = 12,
 };
 
 using ProgramSet = std::array<const GPUProgram*, ProgramType::kProgramLength>;

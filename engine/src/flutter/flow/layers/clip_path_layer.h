@@ -16,6 +16,9 @@ class ClipPathLayer : public ClipShapeLayer<DlPath> {
   explicit ClipPathLayer(const DlPath& clip_path,
                          Clip clip_behavior = Clip::kAntiAlias);
 
+  const ClipPathLayer* as_clip_path_layer() const override { return this; }
+  const DlPath& clip_path() const { return clip_shape(); }
+
  protected:
   const DlRect clip_shape_bounds() const override;
 

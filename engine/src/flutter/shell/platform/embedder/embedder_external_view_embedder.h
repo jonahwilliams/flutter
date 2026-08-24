@@ -102,6 +102,12 @@ class EmbedderExternalViewEmbedder final : public ExternalViewEmbedder {
   DlCanvas* CompositeEmbeddedView(int64_t view_id) override;
 
   // |ExternalViewEmbedder|
+  // |ExternalViewEmbedder|
+  void SetPropellerLayerTree(LayerTree* layer_tree,
+                             float device_pixel_ratio,
+                             const Stopwatch* raster_time,
+                             const Stopwatch* ui_time) override;
+
   void SubmitFlutterView(
       int64_t flutter_view_id,
       GrDirectContext* context,

@@ -11,6 +11,7 @@
 #include "flutter/lib/ui/painting/image.h"
 #include "flutter/lib/ui/ui_dart_state.h"
 #include "flutter/shell/common/snapshot_pixel_format.h"
+#include "impeller/propeller/picture.h"
 
 namespace flutter {
 class Canvas;
@@ -23,9 +24,11 @@ class Picture : public RefCountedDartWrappable<Picture> {
   ~Picture() override;
   static void CreateAndAssociateWithDartWrapper(
       Dart_Handle dart_handle,
-      sk_sp<DisplayList> display_list);
+      std::shared_ptr<impeller::PrPicture> picture);
 
-  sk_sp<DisplayList> display_list() const { return display_list_; }
+  const std::shared_ptr<impeller::PrPicture>& picture() const {
+    return picture_;
+  }
 
   Dart_Handle toImage(uint32_t width,
                       uint32_t height,
@@ -66,9 +69,9 @@ class Picture : public RefCountedDartWrappable<Picture> {
                                         Dart_Handle raw_image_callback);
 
  private:
-  explicit Picture(sk_sp<DisplayList> display_list);
+  explicit Picture(std::shared_ptr<impeller::PrPicture> picture);
 
-  sk_sp<DisplayList> display_list_;
+  std::shared_ptr<impeller::PrPicture> picture_;
 };
 
 }  // namespace flutter

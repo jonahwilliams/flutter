@@ -19,6 +19,7 @@
 #include "txt/platform.h"
 #ifdef IMPELLER_SUPPORTS_RENDERING
 #include "impeller/display_list/dl_text_impeller.h"              // nogncheck
+#include "impeller/propeller/picture.h"                          // nogncheck
 #include "impeller/typographer/backends/skia/text_frame_skia.h"  // nogncheck
 #endif  // IMPELLER_SUPPORTS_RENDERING
 
@@ -141,17 +142,28 @@ void PerformanceOverlayLayer::Paint(PaintContext& context) const {
   std::vector<DlColor> color_storage;
   SkFont font = MakeStatisticsFont(font_path_);
 
-  VisualizeStopWatch(context.canvas, context.impeller_enabled,
-                     context.raster_time, x, y, width, height - padding,
+  // The graphs are geometry, and the propeller layer tree composites
+  // pictures rather than taking geometry, so there they are recorded
+  // into one and handed over.
+  impeller::PrPictureBuilder recorded;
+  DlCanvas* canvas = context.propeller_enabled ? &recorded : context.canvas;
+
+  VisualizeStopWatch(canvas, context.impeller_enabled, context.raster_time, x,
+                     y, width, height - padding,
                      options_ & kVisualizeRasterizerStatistics,
                      options_ & kDisplayRasterizerStatistics, "Raster",
                      vertices_storage, color_storage, font);
 
-  VisualizeStopWatch(context.canvas, context.impeller_enabled, context.ui_time,
-                     x, y + height, width, height - padding,
+  VisualizeStopWatch(canvas, context.impeller_enabled, context.ui_time, x,
+                     y + height, width, height - padding,
                      options_ & kVisualizeEngineStatistics,
                      options_ & kDisplayEngineStatistics, "UI",
                      vertices_storage, color_storage, font);
+
+  if (context.propeller_enabled) {
+    context.canvas->DrawOpaquePicture(
+        recorded.Build(), context.state_stack.outstanding_opacity());
+  }
 }
 
 }  // namespace flutter

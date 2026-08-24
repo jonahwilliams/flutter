@@ -50,6 +50,26 @@ Draw::UVData MakeUVData(const Rect& src,
   };
 }
 
+/// Half of one minus root two over two: how far in from a side the
+/// largest rect inside an ellipse starts.
+constexpr Scalar kOvalInset = 0.14645f;
+
+/// A rect wholly inside `rrect`, which is its bounds pulled in by the
+/// widest radius on each side. Conservative: the true interior is wider
+/// than this through the middle of each edge.
+Rect InteriorOf(const RoundRect& rrect) {
+  const RoundingRadii& radii = rrect.GetRadii();
+  const Rect bounds = rrect.GetBounds();
+  const Scalar left = std::max(radii.top_left.width, radii.bottom_left.width);
+  const Scalar right =
+      std::max(radii.top_right.width, radii.bottom_right.width);
+  const Scalar top = std::max(radii.top_left.height, radii.top_right.height);
+  const Scalar bottom =
+      std::max(radii.bottom_left.height, radii.bottom_right.height);
+  return Rect::MakeLTRB(bounds.GetLeft() + left, bounds.GetTop() + top,
+                        bounds.GetRight() - right, bounds.GetBottom() - bottom);
+}
+
 bool IsStateful(Draw::DrawType type) {
   static constexpr bool kStatefulTable[] = {
       false,  // kRect
@@ -174,6 +194,36 @@ PrPictureBuilder::PrPictureBuilder(Scalar dpr) : dpr_(dpr) {
 
 PrPictureBuilder::~PrPictureBuilder() = default;
 
+Rect ExpandForFilterInput(const Rect& coverage,
+                          const flutter::DlImageFilter* filter,
+                          const Matrix& ctm) {
+  if (filter == nullptr || coverage.IsEmpty() || coverage.IsMaximum()) {
+    return coverage;
+  }
+  flutter::DlIRect in;
+  if (filter->get_input_device_bounds(flutter::DlIRect::RoundOut(coverage), ctm,
+                                      in) == nullptr) {
+    return coverage;
+  }
+  return Rect::MakeLTRB(in.GetLeft(), in.GetTop(), in.GetRight(),
+                        in.GetBottom());
+}
+
+Rect ExpandForFilter(const Rect& coverage,
+                     const flutter::DlImageFilter* filter,
+                     const Matrix& ctm) {
+  if (filter == nullptr || coverage.IsEmpty() || coverage.IsMaximum()) {
+    return coverage;
+  }
+  flutter::DlIRect out;
+  if (filter->map_device_bounds(flutter::DlIRect::RoundOut(coverage), ctm,
+                                out) == nullptr) {
+    return coverage;
+  }
+  return Rect::MakeLTRB(out.GetLeft(), out.GetTop(), out.GetRight(),
+                        out.GetBottom());
+}
+
 void PrPictureBuilder::Reset() {
   Matrix base = Matrix::MakeScale({dpr_, dpr_, 1});
 
@@ -226,6 +276,11 @@ void PrPictureBuilder::SaveLayer(const std::optional<flutter::DlRect>& bounds,
   Rect cull_rect = save_stack_.back().cull_rect;
   const flutter::DlPaint attributes = paint ? *paint : flutter::DlPaint();
 
+  // Expand cull rect based on filter inputs, as these may sample outside of the
+  // exact culling rect.
+  cull_rect = ExpandForFilterInput(cull_rect, attributes.getImageFilterPtr(),
+                                   current_transform);
+
   pictures_.push_back(std::make_shared<PrPicture>());
   pictures_.back()->transforms_.push_back(current_transform);
   transform_dirty_ = false;
@@ -239,11 +294,10 @@ void PrPictureBuilder::SaveLayer(const std::optional<flutter::DlRect>& bounds,
       .color_filter = attributes.getColorFilter(),  //
   });
 
-  // The layer declares how far its content reaches, so it bounds that
-  // content the way a clip does. A filter reads pixels the layer does not
-  // show, so a filtered layer keeps the rect it inherited.
-  if (bounds.has_value() && backdrop == nullptr &&
-      attributes.getImageFilter() == nullptr) {
+  // The layer declares where its content is, so anything it draws
+  // outside that rect is content nothing will show: it bounds the layer
+  // the way a clip does.
+  if (bounds.has_value() && backdrop == nullptr) {
     IntersectCullRect(bounds.value());
   }
 }
@@ -270,6 +324,12 @@ void PrPictureBuilder::Restore() {
       // no reason to keep the picture that recorded it.
       return;
     }
+    // What the filter shows, rather than what the content drew. The draw
+    // below is culled against this and the picture above unions it in,
+    // so a layer whose blur reaches into view has to say so here or be
+    // dropped for content that does not.
+    coverage =
+        ExpandForFilter(coverage, stack.image_filter.get(), stack.transform);
 
     // The draw's rect is in the coordinates local to it, so it goes back
     // through the transform it will be drawn under. The maximum rect is
@@ -298,8 +358,6 @@ void PrPictureBuilder::Restore() {
             .type = Draw::DrawType::kLayer,
             .blend_mode = BlendMode::kSrcOver,
             .rect = local_bounds,
-            // White at the layer's alpha: the draw that composites it
-            // multiplies what the layer resolved into by this.
             .color = flutter::DlColor::kWhite().withAlphaF(
                 stack.distributed_opacity),
             .layer =
@@ -313,8 +371,6 @@ void PrPictureBuilder::Restore() {
     return;
   }
 
-  // The stack comes back first: the coverage a pop restores, and the
-  // transform it restores it under, are the ones on the entry below.
   const size_t depth = save_stack_.back().clip_depth;
   save_stack_.pop_back();
   if (old_transform != save_stack_.back().transform) {
@@ -327,13 +383,25 @@ void PrPictureBuilder::PopClips(size_t depth) {
   if (clip_stack_.size() <= depth) {
     return;
   }
+  // TODO: claudlish
   // What the popped clips could have masked, which is what the reset
   // has to reach and never more than the cull rect they narrowed.
   Rect restored;
+  bool any_live = false;
   for (auto it = clip_stack_.begin() + depth; it != clip_stack_.end(); it++) {
+    if (!it->live) {
+      continue;  // Never drawn, so there is nothing of it to undo.
+    }
+    any_live = true;
     restored = restored.Union(it->coverage);
   }
   clip_stack_.erase(clip_stack_.begin() + depth, clip_stack_.end());
+  if (!any_live) {
+    // Nothing was masked, so nothing has to be put back. The cull rect
+    // still widened, which the scissor follows.
+    RecordScissor();
+    return;
+  }
 
   // Coverage multiplies, so a clip replayed over a region that was not
   // put back is multiplied into itself. The scissor holds the reset and
@@ -355,6 +423,9 @@ void PrPictureBuilder::PopClips(size_t depth) {
   // skipped the reset would multiply them in a second time.
   RecordClip(reset, Rect::MakeMaximum());
   for (const ClipEntry& clip : clip_stack_) {
+    if (!clip.live) {
+      continue;  // The reset did not take away what was never applied.
+    }
     RecordClip(clip.shape, clip.coverage);
     RecordClip(clip.resolve, clip.coverage);
   }
@@ -474,7 +545,8 @@ void PrPictureBuilder::ClipRect(const Rect& rect,
           .rect = rect,
           .color = flutter::DlColor(),  //
       },
-      Draw::DrawType::kClipResolveNonZero, save_stack_.back().cull_rect);
+      Draw::DrawType::kClipResolveNonZero, save_stack_.back().cull_rect,
+      /*interior=*/rect);
 }
 
 void PrPictureBuilder::ClipOval(const Rect& bounds,
@@ -496,7 +568,10 @@ void PrPictureBuilder::ClipOval(const Rect& bounds,
           .color = flutter::DlColor(),                             //
           .radii = RoundingRadii::MakeRadii(bounds.GetSize() / 2)  //
       },
-      Draw::DrawType::kClipResolveNonZero, save_stack_.back().cull_rect);
+      Draw::DrawType::kClipResolveNonZero, save_stack_.back().cull_rect,
+      /*interior=*/
+      bounds.Expand(-bounds.GetSize().width * kOvalInset,
+                    -bounds.GetSize().height * kOvalInset));
 }
 
 void PrPictureBuilder::ClipRoundRect(const RoundRect& rrect,
@@ -518,7 +593,8 @@ void PrPictureBuilder::ClipRoundRect(const RoundRect& rrect,
           .color = flutter::DlColor(),  //
           .radii = rrect.GetRadii()     //
       },
-      Draw::DrawType::kClipResolveNonZero, save_stack_.back().cull_rect);
+      Draw::DrawType::kClipResolveNonZero, save_stack_.back().cull_rect,
+      /*interior=*/InteriorOf(rrect));
 }
 
 void PrPictureBuilder::ClipRoundSuperellipse(const RoundSuperellipse& rse,
@@ -1541,7 +1617,8 @@ void PrPictureBuilder::RecordScissor(Rect local_bounds) {
 
 void PrPictureBuilder::AppendClip(Draw shape,
                                   Draw::DrawType resolve,
-                                  Rect coverage) {
+                                  Rect coverage,
+                                  Rect interior) {
   shape.transform = pictures_.back()->GetCurrentTransform();
   shape.color = flutter::DlColor::kWhite();
   ClipEntry entry{
@@ -1554,14 +1631,44 @@ void PrPictureBuilder::AppendClip(Draw shape,
               .color = flutter::DlColor(),  //
           },
       .coverage = coverage,
+      // Only where the shape stays square to the axes: a turned rect's
+      // bounds reach outside it, and a rect that reaches outside the
+      // clip is no use for saying what the clip cannot cut.
+      .interior =
+          interior.IsEmpty() || !save_stack_.back().transform.IsAligned2D()
+              ? Rect()
+              : interior.TransformBounds(save_stack_.back().transform),
   };
   entry.resolve.transform = shape.transform;
-  RecordClip(entry.shape, coverage);
-  RecordClip(entry.resolve, coverage);
+  // Not recorded here. Nothing has been drawn under it yet, so nothing
+  // is known to reach past it, and a clip that nothing reaches past
+  // masks nothing.
   clip_stack_.push_back(entry);
 }
 
+void PrPictureBuilder::MaterializePendingClips(const Rect& coverage) {
+  bool reaches_past = false;
+  for (const ClipEntry& clip : clip_stack_) {
+    if (!clip.live && !clip.interior.Contains(coverage)) {
+      reaches_past = true;
+      break;
+    }
+  }
+  if (!reaches_past) {
+    return;
+  }
+  for (ClipEntry& clip : clip_stack_) {
+    if (clip.live) {
+      continue;
+    }
+    RecordClip(clip.shape, clip.coverage);
+    RecordClip(clip.resolve, clip.coverage);
+    clip.live = true;
+  }
+}
+
 void PrPictureBuilder::AppendDraw(Draw draw, Rect coverage) {
+  MaterializePendingClips(coverage);
   draw.transform = pictures_.back()->GetCurrentTransform();
   RecordDraw(draw, coverage);
 }
@@ -1632,6 +1739,10 @@ void PrPictureBuilder::AppendPicture(const PrPicture& source) {
   auto rebase = [](uint32_t index, uint32_t base) {
     return index == Draw::kNoIndex ? Draw::kNoIndex : index + base;
   };
+
+  // Its draws are recorded straight rather than through AppendDraw, so
+  // whatever clips are standing are settled here instead.
+  MaterializePendingClips(Rect::MakeMaximum());
 
   bool scissored = false;
   for (size_t i = 0; i < source.draws_.size(); i++) {

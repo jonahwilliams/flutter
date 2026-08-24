@@ -165,6 +165,33 @@ struct DlColor {
            toC(blue_) << 0;
   }
 
+  /// The color as a vertex stream carries it: premultiplied RGBA8 with
+  /// red in the low byte, which is the order a shader unpacking it with
+  /// `c & 0xFF` as red reads.
+  inline uint32_t premultipliedRGBA() const {
+    if (color_space_ != DlColorSpace::kSRGB) {
+      return withColorSpace(DlColorSpace::kSRGB).premultipliedRGBA();
+    }
+    return toC(alpha_) << 24 |          //
+           toC(blue_ * alpha_) << 16 |  //
+           toC(green_ * alpha_) << 8 |  //
+           toC(red_ * alpha_) << 0;
+  }
+
+  /// The same byte order, without the premultiply: for a stream whose
+  /// consumer multiplies by alpha itself. Interpolating between two
+  /// colours belongs here rather than after the multiply, which is what
+  /// a gradient's stops need.
+  inline uint32_t unpremultipliedRGBA() const {
+    if (color_space_ != DlColorSpace::kSRGB) {
+      return withColorSpace(DlColorSpace::kSRGB).unpremultipliedRGBA();
+    }
+    return toC(alpha_) << 24 |  //
+           toC(blue_) << 16 |   //
+           toC(green_) << 8 |   //
+           toC(red_) << 0;
+  }
+
   /// Checks that no difference in color components exceeds the delta.
   ///
   /// This doesn't check against the actual distance between the colors in some

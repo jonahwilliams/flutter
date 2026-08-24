@@ -66,6 +66,17 @@ class SwapchainVK {
   ///        recreated on the next frame.
   virtual void UpdateSurfaceSize(const ISize& size) = 0;
 
+  //----------------------------------------------------------------------------
+  /// Propeller prototype: an external renderer that touches the acquired
+  /// image in its own submission must wait on the semaphore the acquire
+  /// signalled. Taking it transfers that duty; the caller must then hand
+  /// back a semaphore its submission signals via SetFrameRenderDone, which
+  /// the present submission waits on instead. Null when the swapchain kind
+  /// does not support external rendering.
+  virtual vk::Semaphore TakeFrameRenderSemaphore() { return nullptr; }
+
+  virtual void SetFrameRenderDone(vk::Semaphore semaphore) {}
+
  protected:
   SwapchainVK();
 };

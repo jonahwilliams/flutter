@@ -29,6 +29,24 @@ struct PrSceneNode {
   std::shared_ptr<flutter::DlImageFilter> image_filter;
   std::shared_ptr<const flutter::DlColorFilter> color_filter;
 
+  /// What this group shows through itself: everything drawn into the
+  /// same target before it, put through this filter and composited
+  /// underneath the group's own content.
+  ///
+  /// Only a scene node ever carries one. A backdrop reaches the builder
+  /// through the layer state stack, whose delegate is the scene, so a
+  /// picture never sees one.
+  std::shared_ptr<flutter::DlImageFilter> backdrop_filter;
+  /// How the filtered backdrop goes down over what it read.
+  BlendMode backdrop_blend = BlendMode::kSrcOver;
+  /// Names a backdrop that several groups share, so the one they read
+  /// is resolved once rather than once each.
+  std::optional<int64_t> backdrop_id;
+  /// Where the group shows it, in root space. A backdrop reads only what
+  /// lands here, so this is what decides both how much has to be
+  /// resolved and which of what came before decides it.
+  std::optional<Rect> backdrop_bounds;
+
   /// The shape this group clips its content to, recorded as a picture
   /// of nothing but clip draws. Its own pass applies it, and the pass
   /// boundary is the restore.

@@ -41,6 +41,12 @@ class KHRSwapchainVK final : public SwapchainVK {
   void AddFinalCommandBuffer(
       std::shared_ptr<CommandBuffer> cmd_buffer) const override;
 
+  // |SwapchainVK|
+  vk::Semaphore TakeFrameRenderSemaphore() override;
+
+  // |SwapchainVK|
+  void SetFrameRenderDone(vk::Semaphore semaphore) override;
+
  private:
   friend class SwapchainVK;
 

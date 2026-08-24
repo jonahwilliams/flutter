@@ -203,6 +203,7 @@ Switches::Switches(const fml::CommandLine& command_line)
       entry_point_prefix(
           command_line.GetOptionValueWithDefault("entry-point-prefix", "")),
       use_half_textures(command_line.HasOption("use-half-textures")),
+      keep_declared_bindings(command_line.HasOption("keep-declared-bindings")),
       require_framebuffer_fetch(
           command_line.HasOption("require-framebuffer-fetch")),
       verbose(command_line.HasOption("verbose")),
@@ -336,6 +337,7 @@ SourceOptions Switches::CreateSourceOptions() const {
   options.gles_language_version = gles_language_version;
   options.metal_version = metal_version;
   options.use_half_textures = use_half_textures;
+  options.keep_declared_bindings = keep_declared_bindings;
   options.require_framebuffer_fetch = require_framebuffer_fetch;
   return options;
 }

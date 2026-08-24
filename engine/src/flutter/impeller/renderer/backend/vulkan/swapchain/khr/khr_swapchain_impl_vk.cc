@@ -24,10 +24,21 @@ struct KHRFrameSynchronizerVK {
   vk::UniqueFence acquire;
   bool acquire_fence_pending = false;
   vk::UniqueSemaphore render_ready;
+  // Which acquire minted the current render_ready, for the handshake
+  // breadcrumb log.
+  uint64_t acquire_number = 0;
   std::shared_ptr<CommandBuffer> final_cmd_buffer;
   bool is_valid = false;
   // Whether the renderer attached an onscreen command buffer to render to.
   bool has_onscreen = false;
+  // Propeller prototype: an external renderer waited on render_ready in
+  // its own submission and signals this in exchange. Null means nobody
+  // did and render_ready is still the thing to wait on.
+  vk::Semaphore external_done;
+  // Retired render_ready semaphores. A dropped frame can leave a wait
+  // (or a signal) pending on one, so a fresh semaphore is minted per
+  // acquire and old ones only die behind a proven fence.
+  std::vector<vk::UniqueSemaphore> retired_semaphores;
 
   explicit KHRFrameSynchronizerVK(const vk::Device& device) {
     auto acquire_res = device.createFenceUnique({});
@@ -63,6 +74,25 @@ struct KHRFrameSynchronizerVK {
       VALIDATION_LOG << "Could not reset fence: " << vk::to_string(result);
       return false;
     }
+    // The fence proves this synchronizer's whole prior cycle retired --
+    // the present submit, and transitively the external renderer's
+    // submission it waited on -- so every retired semaphore's pending
+    // operations are done.
+    retired_semaphores.clear();
+    return true;
+  }
+
+  /// Replace render_ready ahead of the next acquire's signal. The old
+  /// one may carry a pending wait from a frame that never presented;
+  /// it retires instead of being re-signalled.
+  bool RefreshRenderReady(const vk::Device& device) {
+    retired_semaphores.push_back(std::move(render_ready));
+    auto render_res = device.createSemaphoreUnique({});
+    if (render_res.result != vk::Result::eSuccess) {
+      VALIDATION_LOG << "Could not create render-ready semaphore.";
+      return false;
+    }
+    render_ready = std::move(render_res.value);
     return true;
   }
 };
@@ -250,6 +280,9 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
       return;
     }
     present_semaphores.push_back(std::move(present_res.value));
+    ContextVK::SetDebugName(
+        vk_context.GetDevice(), *present_semaphores.back(),
+        "PresentSem" + std::to_string(present_semaphores.size() - 1u));
   }
 
   std::vector<std::unique_ptr<KHRFrameSynchronizerVK>> synchronizers;
@@ -348,6 +381,15 @@ std::shared_ptr<Context> KHRSwapchainImplVK::GetContext() const {
   return context_.lock();
 }
 
+vk::Semaphore KHRSwapchainImplVK::TakeFrameRenderSemaphore() {
+  const auto& sync = synchronizers_[current_frame_];
+  return *sync->render_ready;
+}
+
+void KHRSwapchainImplVK::SetFrameRenderDone(vk::Semaphore semaphore) {
+  synchronizers_[current_frame_]->external_done = semaphore;
+}
+
 KHRSwapchainImplVK::AcquireResult KHRSwapchainImplVK::AcquireNextDrawable() {
   auto context_strong = context_.lock();
   if (!context_strong) {
@@ -359,6 +401,7 @@ KHRSwapchainImplVK::AcquireResult KHRSwapchainImplVK::AcquireNextDrawable() {
   current_frame_ = (current_frame_ + 1u) % synchronizers_.size();
 
   const auto& sync = synchronizers_[current_frame_];
+  sync->external_done = nullptr;
 
   //----------------------------------------------------------------------------
   /// Wait on the host for the synchronizer fence.
@@ -367,6 +410,14 @@ KHRSwapchainImplVK::AcquireResult KHRSwapchainImplVK::AcquireNextDrawable() {
     VALIDATION_LOG << "Could not wait for fence.";
     return KHRSwapchainImplVK::AcquireResult{};
   }
+
+  if (!sync->RefreshRenderReady(context.GetDevice())) {
+    return KHRSwapchainImplVK::AcquireResult{};
+  }
+  acquire_count_++;
+  sync->acquire_number = acquire_count_;
+  ContextVK::SetDebugName(context.GetDevice(), *sync->render_ready,
+                          "RenderReadyA" + std::to_string(acquire_count_));
 
   //----------------------------------------------------------------------------
   /// Get the next image index.
@@ -483,7 +534,11 @@ bool KHRSwapchainImplVK::Present(
     vk::PipelineStageFlags wait_stage =
         vk::PipelineStageFlagBits::eColorAttachmentOutput;
     submit_info.setWaitDstStageMask(wait_stage);
-    submit_info.setWaitSemaphores(*sync->render_ready);
+    // An external renderer consumed the acquire semaphore; its work is
+    // what the present transition now orders against.
+    vk::Semaphore render_done =
+        sync->external_done ? sync->external_done : *sync->render_ready;
+    submit_info.setWaitSemaphores(render_done);
     submit_info.setSignalSemaphores(*present_semaphores_[index]);
     submit_info.setCommandBuffers(vk_final_cmd_buffer);
     auto result =

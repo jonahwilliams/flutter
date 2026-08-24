@@ -7,6 +7,7 @@
 
 #include "flutter/display_list/dl_builder.h"
 #include "flutter/lib/ui/dart_wrapper.h"
+#include "impeller/propeller/picture.h"
 
 namespace flutter {
 class Canvas;
@@ -21,7 +22,7 @@ class PictureRecorder : public RefCountedDartWrappable<PictureRecorder> {
 
   ~PictureRecorder() override;
 
-  sk_sp<DisplayListBuilder> BeginRecording(DlRect bounds);
+  std::shared_ptr<impeller::PrPictureBuilder> BeginRecording(DlRect bounds);
   void endRecording(Dart_Handle dart_picture);
 
   void set_canvas(fml::RefPtr<Canvas> canvas) { canvas_ = std::move(canvas); }
@@ -29,7 +30,7 @@ class PictureRecorder : public RefCountedDartWrappable<PictureRecorder> {
  private:
   PictureRecorder();
 
-  sk_sp<DisplayListBuilder> display_list_builder_;
+  std::shared_ptr<impeller::PrPictureBuilder> builder_;
 
   fml::RefPtr<Canvas> canvas_;
 };

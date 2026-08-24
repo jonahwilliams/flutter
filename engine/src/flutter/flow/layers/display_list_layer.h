@@ -24,7 +24,20 @@ class DisplayListLayer : public Layer {
                    bool is_complex,
                    bool will_change);
 
+  /// Propeller prototype: the layer carries an engine picture
+  /// (impeller::MLRPicture) opaquely instead of a display list; the
+  /// recorder that understands it draws it, everything else skips it.
+  DisplayListLayer(const DlPoint& offset,
+                   std::shared_ptr<void> engine_picture,
+                   const DlRect& picture_bounds);
+
   DisplayList* display_list() const { return display_list_.get(); }
+
+  const std::shared_ptr<void>& engine_picture() const {
+    return engine_picture_;
+  }
+
+  const DlPoint& offset() const { return offset_; }
 
   bool IsReplacing(DiffContext* context, const Layer* layer) const override;
 
@@ -55,8 +68,11 @@ class DisplayListLayer : public Layer {
 
   DlPoint offset_;
   DlRect bounds_;
+  /// Content bounds in the picture's own space, either source.
+  DlRect content_bounds_;
 
   sk_sp<DisplayList> display_list_;
+  std::shared_ptr<void> engine_picture_;
 
   static bool Compare(DiffContext::Statistics& statistics,
                       const DisplayListLayer* l1,

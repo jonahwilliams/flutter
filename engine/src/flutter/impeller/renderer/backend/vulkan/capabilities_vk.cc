@@ -438,6 +438,12 @@ CapabilitiesVK::GetEnabledDeviceFeatures(
     supported_chain
         .unlink<vk::PhysicalDeviceTextureCompressionASTCHDRFeatures>();
   }
+  // The Vulkan12Features struct is only legal on a 1.2 device.
+  const bool device_is_12 =
+      device.getProperties().apiVersion >= VK_API_VERSION_1_2;
+  if (!device_is_12) {
+    supported_chain.unlink<vk::PhysicalDeviceVulkan12Features>();
+  }
 
   device.getFeatures2(&supported_chain.get());
 
@@ -451,6 +457,10 @@ CapabilitiesVK::GetEnabledDeviceFeatures(
     // We require this for enabling wireframes in the playground. But its not
     // necessarily a big deal if we don't have this feature.
     required.fillModeNonSolid = supported.fillModeNonSolid;
+
+    // Per-attachment blend state: the Propeller canvas pipelines blend
+    // each attachment differently in one pipeline.
+    required.independentBlend = supported.independentBlend;
 
     // Enable anisotropic filtering when available. Samplers with
     // `max_anisotropy` greater than 1 may only be created when this feature
@@ -512,6 +522,23 @@ CapabilitiesVK::GetEnabledDeviceFeatures(
   } else {
     required_chain
         .unlink<vk::PhysicalDeviceTextureCompressionASTCHDRFeatures>();
+  }
+
+  // Vulkan 1.2: descriptor indexing for the Propeller bindless table.
+  if (device_is_12) {
+    auto& required = required_chain.get<vk::PhysicalDeviceVulkan12Features>();
+    const auto& supported =
+        supported_chain.get<vk::PhysicalDeviceVulkan12Features>();
+
+    required.runtimeDescriptorArray = supported.runtimeDescriptorArray;
+    required.descriptorBindingPartiallyBound =
+        supported.descriptorBindingPartiallyBound;
+    required.shaderSampledImageArrayNonUniformIndexing =
+        supported.shaderSampledImageArrayNonUniformIndexing;
+    required.descriptorBindingSampledImageUpdateAfterBind =
+        supported.descriptorBindingSampledImageUpdateAfterBind;
+  } else {
+    required_chain.unlink<vk::PhysicalDeviceVulkan12Features>();
   }
 
   // Vulkan 1.1

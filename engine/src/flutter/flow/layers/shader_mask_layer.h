@@ -12,6 +12,11 @@ namespace flutter {
 
 class ShaderMaskLayer : public CacheableContainerLayer {
  public:
+  // |Layer|
+  const char* propeller_unsupported_effect() const override {
+    return "ShaderMaskLayer";
+  }
+
   ShaderMaskLayer(std::shared_ptr<DlColorSource> color_source,
                   const DlRect& mask_rect,
                   DlBlendMode blend_mode);

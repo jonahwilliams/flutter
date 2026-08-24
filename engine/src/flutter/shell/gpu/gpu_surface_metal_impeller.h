@@ -48,6 +48,12 @@ class IMPELLER_CA_METAL_LAYER_AVAILABLE GPUSurfaceMetalImpeller
   std::shared_ptr<std::map<void*, DlIRect>> damage_ =
       std::make_shared<std::map<void*, DlIRect>>();
   std::shared_ptr<impeller::SwapchainTransientsMTL> swapchain_transients_;
+  // Propeller prototype: stashed per frame by the rasterizer; consumed by
+  // the encode callback when FLUTTER_PROPELLER=1.
+  flutter::LayerTree* propeller_layer_tree_ = nullptr;
+  float propeller_device_pixel_ratio_ = 1.0f;
+  const Stopwatch* propeller_raster_time_ = nullptr;
+  const Stopwatch* propeller_ui_time_ = nullptr;
 
   // |Surface|
   std::unique_ptr<SurfaceFrame> AcquireFrame(
@@ -73,6 +79,17 @@ class IMPELLER_CA_METAL_LAYER_AVAILABLE GPUSurfaceMetalImpeller
 
   // |Surface|
   bool EnableRasterCache() const override;
+
+  // |Surface|
+  void SetPropellerLayerTree(flutter::LayerTree* layer_tree,
+                             float device_pixel_ratio,
+                             const Stopwatch* raster_time,
+                             const Stopwatch* ui_time) override {
+    propeller_layer_tree_ = layer_tree;
+    propeller_device_pixel_ratio_ = device_pixel_ratio;
+    propeller_raster_time_ = raster_time;
+    propeller_ui_time_ = ui_time;
+  }
 
   // |Surface|
   std::shared_ptr<impeller::AiksContext> GetAiksContext() const override;

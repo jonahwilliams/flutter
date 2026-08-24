@@ -1,0 +1,233 @@
+# Copyright 2013 The Flutter Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//flutter/impeller/tools/compiler.gni")
+import("//flutter/impeller/tools/embed_blob.gni")
+import("//flutter/impeller/tools/impeller.gni")
+import("//flutter/impeller/tools/metal_library.gni")
+
+# The same ubershader family as the Metal set, written once in Vulkan
+# GLSL and compiled to SPIR-V at build time. Halves ride the `half`
+# aliases in glsl/types.glsl: float today, float16_t under PROPELLER_HALF
+# once a device path sets it.
+impellerc("propeller_shaders_spirv") {
+  mnemonic = "IMPELLERC_PROPELLER"
+  shaders = [
+    "glsl/vertex.vert",
+    "glsl/fragment.frag",
+    "glsl/fragment_fetch_blend.frag",
+    "glsl/fragment_single.frag",
+    "glsl/composite.frag",
+    "glsl/composite_blend.frag",
+    "glsl/composite_filter.frag",
+    "glsl/winding.frag",
+    "glsl/winding_composite.frag",
+    "glsl/winding_canvas_composite.frag",
+    "glsl/blur.frag",
+    "glsl/backdrop_filter.frag",
+    "glsl/texture_color_filter.frag",
+  ]
+  shader_target_flags = [
+    "--vulkan",
+
+    # The sources declare every binding; impeller's fragment-stage base
+    # offset would break the propeller pipeline layouts.
+    "--keep-declared-bindings",
+  ]
+  sl_file_extension = "vkspv"
+  intermediates_subdir = "propeller_vk"
+}
+
+if (is_mac || is_ios) {
+  # The propeller ubershader. Hand-written MSL rather than impellerc output:
+  # it is bindless and framebuffer-fetch based, which the GLSL frontend has
+  # no way to express.
+  metal_library("propeller_metallib") {
+    name = "propeller"
+
+    # Bindless texture arguments (MTLResourceID in a device buffer) start at
+    # Metal 3.0, which in turn requires macOS 13 / iOS 16.
+    metal_version = "3.0"
+
+    sources = [
+      "metal/shaders/clip.metal",
+      "metal/shaders/composite.metal",
+      "metal/shaders/filters.metal",
+      "metal/shaders/fragment.metal",
+      "metal/shaders/ramp.metal",
+      "metal/shaders/vertex.metal",
+      "metal/shaders/winding.metal",
+    ]
+
+    inputs = [
+      "metal/shaders/blend.h",
+      "metal/shaders/color_filter.h",
+      "metal/shaders/common.h",
+      "metal/shaders/shade.h",
+    ]
+  }
+
+  embed_blob("propeller_shaders") {
+    metallib_files = get_target_outputs(":propeller_metallib")
+    symbol_name = "propeller_shaders"
+    blob = metallib_files[0]
+    hdr = "$target_gen_dir/mtl/propeller_shaders.h"
+    cc = "$target_gen_dir/mtl/propeller_shaders.cc"
+    deps = [ ":propeller_metallib" ]
+  }
+}
+
+impeller_component("propeller") {
+  sources = [
+    "buffer_arena.cc",
+    "buffer_arena.h",
+    "dispatcher.cc",
+    "dispatcher.h",
+
+    # flow_recorder.cc is compiled by //flutter/flow: it needs the flow
+    # layer headers, and flow already depends on this target.
+    "flow_recorder.h",
+    "freetype_glyph_rasterizer.cc",
+    "freetype_glyph_rasterizer.h",
+    "geometry.cc",
+    "geometry.h",
+    "gradient_atlas.cc",
+    "gradient_atlas.h",
+    "paged_atlas.cc",
+    "paged_atlas.h",
+    "path_geometry.cc",
+    "path_geometry.h",
+    "picture.cc",
+    "picture.h",
+    "renderer/frame_arena.h",
+    "scene.cc",
+    "scene.h",
+    "renderer/gpu_context.h",
+    "renderer/shadow_lut.cc",
+    "renderer/shadow_lut.h",
+    "skia_typeface_resolver.cc",
+    "skia_typeface_resolver.h",
+    "snapshot_hook.cc",
+    "snapshot_hook.h",
+    "text_materializer.cc",
+    "text_materializer.h",
+  ]
+
+  # display_list and flow are public: mlr.h implements DlCanvas and the
+  # engine takes a flow layer tree, so both appear in our public headers.
+  public_deps = [
+    ":propeller_shaders_spirv",
+    "../core",
+    "../geometry",
+    "../typographer",
+    "//flutter/display_list",
+  ]
+
+  deps = [
+    "../typographer/backends/skia:typographer_skia_backend",
+    "//flutter/fml",
+    "//flutter/skia",
+    "//flutter/third_party/freetype2",
+  ]
+
+  if (is_mac || is_ios) {
+    sources += [
+      "metal/metal_pipelines.h",
+      "metal/metal_pipelines.mm",
+      "metal/metal_renderer.h",
+      "metal/metal_renderer.mm",
+      "metal/propeller_engine.h",
+      "metal/propeller_engine.mm",
+      "propeller_shell_hook.h",
+    ]
+    deps += [
+      ":propeller_shaders",
+      "//flutter/impeller/display_list",
+      "//flutter/impeller/renderer/backend/metal",
+    ]
+    frameworks = [
+      # CoreText/CoreGraphics: rasterizing fonts whose outlines only the
+      # platform can read (skia_typeface_resolver.cc).
+      "CoreGraphics.framework",
+      "CoreText.framework",
+      "Foundation.framework",
+      "Metal.framework",
+    ]
+  }
+}
+
+propeller_vkspv_shaders = [
+  "vertex.vert",
+  "fragment.frag",
+  "fragment_fetch_blend.frag",
+  "fragment_single.frag",
+  "composite.frag",
+  "composite_blend.frag",
+  "composite_filter.frag",
+  "winding.frag",
+  "winding_composite.frag",
+  "winding_canvas_composite.frag",
+  "blur.frag",
+  "backdrop_filter.frag",
+  "texture_color_filter.frag",
+]
+
+foreach(shader, propeller_vkspv_shaders) {
+  shader_name = get_path_info(shader, "name")
+  embed_blob("propeller_vkspv_$shader_name") {
+    symbol_name = "propeller_vkspv_$shader_name"
+    blob = "$target_gen_dir/propeller_vk/$shader.vkspv"
+    hdr = "$target_gen_dir/vkspv/$shader_name.h"
+    cc = "$target_gen_dir/vkspv/$shader_name.cc"
+    deps = [ ":propeller_shaders_spirv" ]
+  }
+}
+
+# TODO: Vulkan is out of the build while the renderer is restructured.
+# The sources are still in vulkan/, and propeller_vkspv_* above still
+# compiles their SPIR-V.
+
+impeller_component("propeller_unittests") {
+  testonly = true
+
+  sources = [
+    "testing/buffer_arena_unittests.cc",
+    "testing/dispatcher_unittests.cc",
+    "testing/freetype_glyph_rasterizer_unittests.cc",
+    "testing/geometry_unittests.cc",
+    "testing/path_geometry_unittests.cc",
+    "testing/scene_unittests.cc",
+    "testing/picture_unittests.cc",
+    "testing/stub_gpu_context.h",
+    "testing/text_materializer_unittests.cc",
+  ]
+
+  deps = [
+    ":propeller_shaders_spirv",
+    ":propeller",
+    "../geometry:geometry_asserts",
+    # The engines call RecordFlowTree, which //flutter/flow compiles; a
+    # testonly leaf can depend on both sides without a cycle.
+    "//flutter/flow",
+    "../fixtures:file_fixtures",
+    "//flutter/display_list",
+    "//flutter/testing:test_swiftshader_utils",
+    "//flutter/testing:testing_lib",
+  ]
+
+  if (is_mac || is_ios) {
+    sources += [
+      "testing/metal_renderer_unittests.mm",
+    ]
+
+    # The render tests wrap MTLTextures as impeller textures and then as
+    # engine images to exercise the image path, so they include the Metal
+    # backend and DlImageImpeller directly rather than through
+    # propeller's private dependencies on them.
+    deps += [
+      "//flutter/impeller/display_list",
+      "//flutter/impeller/renderer/backend/metal",
+    ]
+  }
+}

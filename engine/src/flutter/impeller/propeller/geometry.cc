@@ -4,6 +4,8 @@
 
 #include "impeller/propeller/geometry.h"
 
+#include "flutter/fml/logging.h"
+
 #include <algorithm>
 #include <array>
 #include <cstring>
@@ -233,7 +235,11 @@ constexpr Point Forward(Point normal) {
 /// The mesh of the idealized round rect, in the order ConvexMeshEmitter
 /// walks a contour: per edge a joint with the edge before it, the
 /// interior triangle, and the coverage the edge itself carries.
-std::vector<RRectTemplateVertex> BuildRRectTemplate() {
+/// `feather_straight_edges` is false when the transform will leave the
+/// four straight runs square to the pixel grid, which is where they need
+/// no ramp of their own -- the same trade a plain rect makes.
+std::vector<RRectTemplateVertex> BuildRRectTemplate(
+    bool feather_straight_edges) {
   std::vector<RRectTemplateVertex> out;
   const TemplatePoint centre{kAnchorCentre, Point()};
 
@@ -268,12 +274,16 @@ std::vector<RRectTemplateVertex> BuildRRectTemplate() {
     push(at, normal, Point(), kPathImplicitFringeOuter);
   };
 
-  auto line = [&push, &centre](const TemplatePoint& p0, const TemplatePoint& p1,
-                               Point normal) {
+  auto line = [&push, &centre, feather_straight_edges](const TemplatePoint& p0,
+                                                       const TemplatePoint& p1,
+                                                       Point normal) {
     push(centre, Point(), Point(), kPathImplicitInterior);
     push(p0, Point(), Point(), kPathImplicitCurveP0);
     push(p1, Point(), Point(), kPathImplicitCurveP0);
 
+    if (!feather_straight_edges) {
+      return;
+    }
     push(p0, Point(), Point(), kPathImplicitCurveP0);
     push(p1, Point(), Point(), kPathImplicitCurveP0);
     push(p0, normal, Point(), kPathImplicitFringeOuter);
@@ -335,10 +345,21 @@ std::vector<RRectTemplateVertex> BuildRRectTemplate() {
   return out;
 }
 
-const std::vector<RRectTemplateVertex>& GetRRectTemplate() {
-  static const std::vector<RRectTemplateVertex>* mesh =
-      new std::vector<RRectTemplateVertex>(BuildRRectTemplate());
-  return *mesh;
+const std::vector<RRectTemplateVertex>& GetRRectTemplate(
+    bool feather_straight_edges) {
+  static const std::vector<RRectTemplateVertex>* feathered =
+      new std::vector<RRectTemplateVertex>(BuildRRectTemplate(true));
+  static const std::vector<RRectTemplateVertex>* square =
+      new std::vector<RRectTemplateVertex>(BuildRRectTemplate(false));
+  return feather_straight_edges ? *feathered : *square;
+}
+
+/// Whether the round rect's straight runs come out of `matrix` still
+/// square to the pixel grid. They are axis aligned in the shape's own
+/// space, so anything that only scales and translates leaves them so,
+/// and a ramp along them would be a ramp across nothing.
+bool StraightEdgesAreFeathered(const Matrix& matrix) {
+  return !matrix.IsTranslationScaleOnly();
 }
 
 struct RRectAnchorPlacement {
@@ -365,7 +386,8 @@ std::pair<uint32_t, uint32_t> RRectGeometryGenerator::GetAllocationCount(
     const PrPicture& picture,
     const Draw& draw,
     const Matrix& matrix) {
-  const auto count = static_cast<uint32_t>(GetRRectTemplate().size());
+  const auto count = static_cast<uint32_t>(
+      GetRRectTemplate(StraightEdgesAreFeathered(matrix)).size());
   return {count, count};
 }
 
@@ -392,7 +414,8 @@ void RRectGeometryGenerator::Generate(const PrPicture& picture,
   };
 
   const uint32_t color = draw.color.premultipliedRGBA();
-  const std::vector<RRectTemplateVertex>& mesh = GetRRectTemplate();
+  const std::vector<RRectTemplateVertex>& mesh =
+      GetRRectTemplate(StraightEdgesAreFeathered(matrix));
   for (uint32_t i = 0; i < mesh.size(); i++) {
     const RRectTemplateVertex& vertex = mesh[i];
     const RRectAnchorPlacement& anchor = anchors[vertex.anchor];
@@ -408,130 +431,6 @@ void RRectGeometryGenerator::Generate(const PrPicture& picture,
     index_out[i] = static_cast<uint16_t>(index_start + i);
   }
 }
-
-namespace {
-
-/// Writes the signed coverage of one concave contour: a fan from an
-/// anchor, the lune between each chord and its curve, and the fringe
-/// that antialiases the straight parts.
-class ConcaveMeshEmitter {
- public:
-  ConcaveMeshEmitter(Scalar scale, uint32_t color, GeometryStaging& staging)
-      : fringe_(1.0f / scale), color_(color), staging_(staging) {
-    staging_.Clear();
-  }
-
-  /// Write one closed contour.
-  ///
-  /// Its facing is taken once, across the whole fan, rather than from
-  /// each triangle as it goes: an edge collinear with the anchor sweeps
-  /// no area and so has no facing to read, and the first and last edge
-  /// of every contour are collinear with it by construction. Read one
-  /// at a time they default to positive, which is backwards for a
-  /// contour wound the other way and leaves those edges' fringe
-  /// cancelling the coverage it should be adding.
-  void Contour(const PathEdge* edges, size_t count) {
-    if (count == 0) {
-      return;
-    }
-    anchor_ = edges[0].p0;
-    Scalar swept = 0;
-    for (size_t i = 0; i < count; i++) {
-      swept += (edges[i].p0 - anchor_).Cross(edges[i].p1 - anchor_);
-    }
-    const Scalar facing = swept < 0 ? -1.0f : 1.0f;
-    for (size_t i = 0; i < count; i++) {
-      Edge(edges[i], facing);
-    }
-  }
-
- private:
-  void Edge(const PathEdge& edge, Scalar facing) {
-    if (edge.p0 == edge.p1) {
-      return;
-    }
-
-    if (edge.is_curve) {
-      // The chord is interior here -- the curve triangle owns the
-      // boundary -- so the fan triangle is fully covered.
-      Push(anchor_, kPathImplicitInterior);
-      Push(edge.p0, kPathImplicitInterior);
-      Push(edge.p1, kPathImplicitInterior);
-      // The lune between chord and curve, antialiased at the curve. The
-      // chop is coarse enough that the control point sits well past the
-      // curve, so the outer half of the ramp is inside the triangle and
-      // needs no fringe of its own.
-      Push(edge.p0, kPathImplicitCurveP0);
-      Push(edge.control, kPathImplicitCurveControl);
-      Push(edge.p1, kPathImplicitCurveP1);
-      return;
-    }
-
-    // A straight boundary segment: the fan triangle's outer edge is the
-    // silhouette, so it carries the ramp. The iso-lines run parallel to
-    // p0->p1, which leaves the two edges meeting the anchor hard, so
-    // adjacent fans cancel exactly.
-    Push(anchor_, kPathImplicitInterior);
-    Push(edge.p0, kPathImplicitCurveP0);
-    Push(edge.p1, kPathImplicitCurveP0);
-
-    const Point direction = edge.p1 - edge.p0;
-    const Scalar length = direction.GetLength();
-    if (length < 1e-6f) {
-      return;
-    }
-    Point normal = Point(direction.y, -direction.x) / length;
-    if (normal.Dot(edge.p0 - anchor_) < 0) {
-      normal = -normal;
-    }
-    // The outer half of the ramp, a device pixel past the chord and
-    // away from the anchor. Forced to the fan's facing so it sums with
-    // the same sign: its natural winding is the other way round.
-    const Point q0 = edge.p0 + normal * fringe_;
-    const Point q1 = edge.p1 + normal * fringe_;
-    PushFacing(edge.p0, kPathImplicitCurveP0, edge.p1, kPathImplicitCurveP0, q0,
-               kPathImplicitFringeOuter, facing);
-    PushFacing(edge.p1, kPathImplicitCurveP0, q1, kPathImplicitFringeOuter, q0,
-               kPathImplicitFringeOuter, facing);
-  }
-
-  void Push(Point position, uint8_t implicit_class) {
-    staging_.positions.push_back(position);
-    staging_.attributes.push_back(Attributes{
-        // Untextured coverage, and the paint index is not known yet.
-        .uv = Point(0, 0),
-        .color = color_,
-        .paint = PackPaint(0, implicit_class),
-    });
-  }
-
-  /// A triangle wound to face `sign`, whichever order it came in.
-  void PushFacing(Point a,
-                  uint8_t class_a,
-                  Point b,
-                  uint8_t class_b,
-                  Point c,
-                  uint8_t class_c,
-                  Scalar sign) {
-    const Scalar area = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-    Push(a, class_a);
-    if ((area < 0) != (sign < 0)) {
-      Push(c, class_c);
-      Push(b, class_b);
-    } else {
-      Push(b, class_b);
-      Push(c, class_c);
-    }
-  }
-
-  /// A device pixel in local units.
-  const Scalar fringe_;
-  const uint32_t color_;
-  GeometryStaging& staging_;
-  Point anchor_;
-};
-
-}  // namespace
 
 namespace {
 
@@ -569,6 +468,100 @@ std::array<ShadowHalf, 2> ShadowHalves(const Draw::ShadowData& shadow) {
 
 }  // namespace
 
+namespace {
+
+/// One band of blurred coverage around a silhouette: the fan over its
+/// interior when the interior is covered at all, and the ring between the
+/// inner and outer rims either way. Coverage across the band comes from
+/// the Gaussian LUT, which a shadow and a mask blur read the same way.
+struct BlurBand {
+  /// Half the band's width. The LUT spans two sigma either side of the
+  /// silhouette, so this is two sigma.
+  Scalar blur = 0;
+  uint32_t color = 0;
+  ShadowInterior interior = ShadowInterior::kFull;
+};
+
+uint32_t BlurBandVertexCount(uint32_t count, ShadowInterior interior) {
+  const uint32_t fan = interior == ShadowInterior::kFull ? 3u : 0u;
+  return count * (fan + 6u);
+}
+
+void EmitBlurBand(const Point* silhouette,
+                  uint32_t count,
+                  const BlurBand& band,
+                  uint32_t paint,
+                  ShadowRing& ring,
+                  Point* position_out,
+                  Attributes* attributes_out,
+                  uint16_t* index_out,
+                  uint16_t index_start,
+                  uint32_t& vertex) {
+  BuildShadowRing(silhouette, count, band.blur, ring);
+
+  auto push = [&](Point position, Scalar u) {
+    position_out[vertex] = position;
+    attributes_out[vertex] = Attributes{
+        .uv = Point(u, 0.5f),
+        .color = band.color,
+        .paint = paint,
+    };
+    index_out[vertex] = static_cast<uint16_t>(index_start + vertex);
+    vertex++;
+  };
+
+  // Where a distance inside the silhouette falls on the ramp, which runs
+  // from a blur radius outside through the silhouette to a blur radius
+  // inside.
+  const Scalar u_outer = 0.5f / kShadowLUTWidth;
+  const Scalar u_inner = 1.0f - 0.5f / kShadowLUTWidth;
+  auto u_at = [&](Scalar inside) {
+    const Scalar t =
+        band.blur > 0 ? (inside + band.blur) / (2 * band.blur) : 1.0f;
+    return u_outer + std::clamp(t, 0.0f, 1.0f) * (u_inner - u_outer);
+  };
+  // The inner rim stops where it actually reached, which is short of a
+  // blur radius on anything narrower than one.
+  const Scalar u_ring_inner = u_at(ring.inset);
+  const Scalar u_centroid = u_at(ring.inradius);
+
+  const Point* fan_edge =
+      band.interior == ShadowInterior::kFull ? ring.inner.data() : nullptr;
+  const Point* ring_from = ring.inner.data();
+  Scalar ring_from_u = u_ring_inner;
+  if (band.interior == ShadowInterior::kFromSilhouette) {
+    ring_from = silhouette;
+    ring_from_u = 0.5f;
+  }
+
+  for (uint32_t i = 0; i < count; i++) {
+    const uint32_t j = (i + 1) % count;
+    if (fan_edge != nullptr) {
+      push(ring.centroid, u_centroid);
+      push(fan_edge[i], u_ring_inner);
+      push(fan_edge[j], u_ring_inner);
+    }
+    push(ring_from[i], ring_from_u);
+    push(ring.outer[i], u_outer);
+    push(ring_from[j], ring_from_u);
+    push(ring_from[j], ring_from_u);
+    push(ring.outer[i], u_outer);
+    push(ring.outer[j], u_outer);
+  }
+}
+
+/// Point the paint at the Gaussian LUT, which it reads as coverage
+/// rather than as colour.
+void BindBlurLUT(PrPaint* paint_out, const GeometryContext& frame) {
+  if (frame.shadow_lut == nullptr) {
+    return;
+  }
+  paint_out->texture_index = SlotFor(*frame.textures, frame.shadow_lut);
+  paint_out->flags |= kPaintFlagTextureIsCoverage;
+}
+
+}  // namespace
+
 std::pair<uint32_t, uint32_t> ShadowGeometryGenerator::GetAllocationCount(
     const PrPicture& picture,
     const Draw& draw,
@@ -576,8 +569,7 @@ std::pair<uint32_t, uint32_t> ShadowGeometryGenerator::GetAllocationCount(
   const uint32_t count = draw.shadow_data.length;
   uint32_t vertices = 0;
   for (const ShadowHalf& half : ShadowHalves(draw.shadow_data)) {
-    const uint32_t fan = half.interior == ShadowInterior::kFull ? 3 : 0;
-    vertices += count * (fan + 6);
+    vertices += BlurBandVertexCount(count, half.interior);
   }
   return {vertices, vertices};
 }
@@ -594,74 +586,70 @@ void ShadowGeometryGenerator::Generate(const PrPicture& picture,
                                        const GeometryContext& frame) {
   const Draw::ShadowData& shadow = draw.shadow_data;
   const uint32_t count = shadow.length;
-
-  if (frame.shadow_lut != nullptr) {
-    paint_out->texture_index = SlotFor(*frame.textures, frame.shadow_lut);
-    paint_out->flags |= kPaintFlagTextureIsCoverage;
-  }
+  BindBlurLUT(paint_out, frame);
 
   const Point* recorded = picture.GetPositions().data() + shadow.offset;
+  const uint32_t paint = PackPaint(paint_index);
   uint32_t vertex = 0;
   for (const ShadowHalf& half : ShadowHalves(shadow)) {
     silhouette_.assign(recorded, recorded + count);
     for (Point& point : silhouette_) {
       point.y += half.offset_y;
     }
-    BuildShadowRing(silhouette_.data(), count, half.blur, ring_);
-
-    const uint32_t color =
-        draw.color.withAlphaF(draw.color.getAlphaF() * half.alpha)
-            .premultipliedRGBA();
-    const uint32_t paint = PackPaint(paint_index);
-    auto push = [&](Point position, Scalar u) {
-      position_out[vertex] = position;
-      attributes_out[vertex] = Attributes{
-          .uv = Point(u, 0.5f),
-          .color = color,
-          .paint = paint,
-      };
-      index_out[vertex] = static_cast<uint16_t>(index_start + vertex);
-      vertex++;
-    };
-
-    // Where a distance inside the silhouette falls on the ramp, which
-    // runs from a blur radius outside through the silhouette to a blur
-    // radius inside.
-    const Scalar u_outer = 0.5f / kShadowLUTWidth;
-    const Scalar u_inner = 1.0f - 0.5f / kShadowLUTWidth;
-    auto u_at = [&](Scalar inside) {
-      const Scalar t =
-          half.blur > 0 ? (inside + half.blur) / (2 * half.blur) : 1.0f;
-      return u_outer + std::clamp(t, 0.0f, 1.0f) * (u_inner - u_outer);
-    };
-    // Compute clammped inner blur.
-    const Scalar u_ring_inner = u_at(ring_.inset);
-    const Scalar u_centroid = u_at(ring_.inradius);
-
-    const std::vector<Point>* fan_edge =
-        half.interior == ShadowInterior::kFull ? &ring_.inner : nullptr;
-    const std::vector<Point>* ring_from = &ring_.inner;
-    Scalar ring_from_u = u_ring_inner;
-    if (half.interior == ShadowInterior::kFromSilhouette) {
-      ring_from = &silhouette_;
-      ring_from_u = 0.5f;
-    }
-
-    for (uint32_t i = 0; i < count; i++) {
-      const uint32_t j = (i + 1) % count;
-      if (fan_edge != nullptr) {
-        push(ring_.centroid, u_centroid);
-        push((*fan_edge)[i], u_ring_inner);
-        push((*fan_edge)[j], u_ring_inner);
-      }
-      push((*ring_from)[i], ring_from_u);
-      push(ring_.outer[i], u_outer);
-      push((*ring_from)[j], ring_from_u);
-      push((*ring_from)[j], ring_from_u);
-      push(ring_.outer[i], u_outer);
-      push(ring_.outer[j], u_outer);
-    }
+    EmitBlurBand(
+        silhouette_.data(), count,
+        BlurBand{
+            .blur = half.blur,
+            .color = draw.color.withAlphaF(draw.color.getAlphaF() * half.alpha)
+                         .premultipliedRGBA(),
+            .interior = half.interior,
+        },
+        paint, ring_, position_out, attributes_out, index_out, index_start,
+        vertex);
   }
+}
+
+std::pair<uint32_t, uint32_t> BlurGeometryGenerator::GetAllocationCount(
+    const PrPicture& picture,
+    const Draw& draw,
+    const Matrix& matrix) {
+  const uint32_t count =
+      BlurBandVertexCount(draw.blur_data.length, ShadowInterior::kFull);
+  return {count, count};
+}
+
+void BlurGeometryGenerator::Generate(const PrPicture& picture,
+                                     const Draw& draw,
+                                     const Matrix& matrix,
+                                     Point* position_out,
+                                     Attributes* attributes_out,
+                                     uint16_t* index_out,
+                                     PrPaint* paint_out,
+                                     uint16_t index_start,
+                                     uint32_t paint_index,
+                                     const GeometryContext& frame) {
+  const Draw::BlurData& blur = draw.blur_data;
+  BindBlurLUT(paint_out, frame);
+
+  // The mesh is built in the shape's own space. A sigma the paint gave
+  // in the shape's space is already there; one it gave in the device's
+  // has to come back through the transform to get there.
+  const Scalar scale = matrix.GetMaxBasisLengthXY();
+  const Scalar sigma =
+      blur.respect_ctm || scale <= 0 ? blur.sigma : blur.sigma / scale;
+
+  const Point* recorded = picture.GetPositions().data() + blur.offset;
+  uint32_t vertex = 0;
+  EmitBlurBand(recorded, blur.length,
+               BlurBand{
+                   .blur = 2.0f * sigma,
+                   .color = draw.color.premultipliedRGBA(),
+                   // A normal blur is fuzzy on both sides, so the
+                   // interior is the fan under the inner rim.
+                   .interior = ShadowInterior::kFull,
+               },
+               PackPaint(paint_index), ring_, position_out, attributes_out,
+               index_out, index_start, vertex);
 }
 
 std::pair<uint32_t, uint32_t> AtlasGeometryGenerator::GetAllocationCount(
@@ -783,26 +771,18 @@ std::pair<uint32_t, uint32_t> ConcavePathGeometryGenerator::GetAllocationCount(
     const PrPicture& picture,
     const Draw& draw,
     const Matrix& matrix) {
-  // Counting the mesh means building it, so it is built here and kept
-  // for the write that follows rather than walked a second time.
-  ConcaveMeshEmitter emitter(matrix.GetMaxBasisLengthXY(),
-                             draw.color.premultipliedRGBA(), staging_);
   const flutter::DlPath& path = picture.GetPaths()[draw.path_data.path_index];
+
+  vertex_count_ = 0;
   if (const auto* edges = path.GetEdges()) {
-    // A contour runs from one edge that starts one to the next, and the
-    // emitter needs the whole of it at once to know which way it faces.
-    const size_t total = edges->size();
-    size_t start = 0;
-    while (start < total) {
-      size_t end = start + 1;
-      while (end < total && !(*edges)[end].starts_contour) {
-        end++;
+    for (const auto& edge : *edges) {
+      if (edge.p0 == edge.p1) {
+        continue;
       }
-      emitter.Contour(edges->data() + start, end - start);
-      start = end;
+      vertex_count_ += edge.is_curve ? 6 : 9;
     }
   }
-  return {staging_.GetVertexCount(), staging_.GetVertexCount()};
+  return {vertex_count_, vertex_count_};
 }
 
 void ConcavePathGeometryGenerator::Generate(const PrPicture& picture,
@@ -815,15 +795,72 @@ void ConcavePathGeometryGenerator::Generate(const PrPicture& picture,
                                             uint16_t index_start,
                                             uint32_t paint_index,
                                             const GeometryContext& frame) {
-  const uint32_t count = staging_.GetVertexCount();
-  std::memcpy(position_out, staging_.positions.data(), count * sizeof(Point));
-  for (uint32_t i = 0; i < count; i++) {
-    index_out[i] = static_cast<uint16_t>(index_start + i);
+  const uint32_t color = draw.color.premultipliedRGBA();
+  uint32_t index = 0;
+  auto push = [&](Point position, uint8_t implicit_class) {
+    position_out[index] = position;
+    attributes_out[index] = Attributes{
+        // Untextured coverage, so nothing is sampled for it.
+        .uv = Point(0, 0),
+        .color = color,
+        .paint = PackPaint(paint_index, implicit_class),
+    };
+    index_out[index] = static_cast<uint16_t>(index_start + index);
+    index++;
+  };
 
-    Attributes attributes = staging_.attributes[i];
-    attributes.paint |= paint_index;
-    attributes_out[i] = attributes;
+  /// A device pixel in local units: what the fringe runs out by.
+  const Scalar fringe = 1.0f / matrix.GetMaxBasisLengthXY();
+
+  const flutter::DlPath& path = picture.GetPaths()[draw.path_data.path_index];
+  const auto* edges = path.GetEdges();
+  if (edges == nullptr) {
+    return;
   }
+
+  Point anchor;
+  for (const PathEdge& edge : *edges) {
+    // Taken before the degenerate skip: a contour that opens on an edge
+    // of no length still anchors its fan there.
+    if (edge.starts_contour) {
+      anchor = edge.p0;
+    }
+    if (edge.p0 == edge.p1) {
+      continue;
+    }
+
+    if (edge.is_curve) {
+      push(anchor, kPathImplicitInterior);
+      push(edge.p0, kPathImplicitInterior);
+      push(edge.p1, kPathImplicitInterior);
+      push(edge.p0, kPathImplicitCurveP0);
+      push(edge.control, kPathImplicitCurveControl);
+      push(edge.p1, kPathImplicitCurveP1);
+      continue;
+    }
+
+    push(anchor, kPathImplicitInterior);
+    push(edge.p0, kPathImplicitCurveP0);
+    push(edge.p1, kPathImplicitCurveP0);
+
+    const Point direction = edge.p1 - edge.p0;
+    const Scalar length = direction.GetLength();
+    Point normal =
+        length < 1e-6f ? Point() : Point(direction.y, -direction.x) / length;
+    if (normal.Dot(edge.p0 - anchor) < 0) {
+      normal = -normal;
+    }
+
+    const Point q0 = edge.p0 + normal * fringe;
+    const Point q1 = edge.p1 + normal * fringe;
+    push(edge.p0, kPathImplicitCurveP0);
+    push(q0, kPathImplicitFringeOuter);
+    push(q1, kPathImplicitFringeOuter);
+    push(edge.p0, kPathImplicitCurveP0);
+    push(q1, kPathImplicitFringeOuter);
+    push(edge.p1, kPathImplicitCurveP0);
+  }
+  FML_DCHECK(index == vertex_count_);
 }
 
 std::pair<uint32_t, uint32_t> ConvexPathGeometryGenerator::GetAllocationCount(

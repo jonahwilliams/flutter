@@ -273,6 +273,33 @@ enum class ShadowInterior {
 /// the silhouette shifted by the elevation, blurred wider, and darker --
 /// so they are two meshes, sampling the Gaussian LUT as coverage the
 /// way glyphs sample the atlas.
+/// A convex shape blurred by a mask filter: one band of Gaussian
+/// coverage around the shape's silhouette, the way a shadow draws one of
+/// its two halves.
+class BlurGeometryGenerator final : public GeometryGenerator {
+ public:
+  ~BlurGeometryGenerator() override = default;
+
+  std::pair<uint32_t, uint32_t> GetAllocationCount(
+      const PrPicture& picture,
+      const Draw& draw,
+      const Matrix& matrix) override;
+
+  void Generate(const PrPicture& picture,
+                const Draw& draw,
+                const Matrix& matrix,
+                Point* position_out,
+                Attributes* attributes_out,
+                uint16_t* index_out,
+                PrPaint* paint_out,
+                uint16_t index_start,
+                uint32_t paint_index,
+                const GeometryContext& frame) override;
+
+ private:
+  ShadowRing ring_;
+};
+
 class ShadowGeometryGenerator final : public GeometryGenerator {
  public:
   ~ShadowGeometryGenerator() override = default;
@@ -378,9 +405,8 @@ class ConcavePathGeometryGenerator final : public GeometryGenerator {
                 const GeometryContext& frame) override;
 
  private:
-  /// The mesh, counted by walking the contours and kept for the write
-  /// that follows.
-  GeometryStaging staging_;
+  /// What the count promised, which is what the write has room for.
+  uint32_t vertex_count_ = 0;
 };
 
 //------------------------------------------------------------------------------

@@ -34,10 +34,8 @@ Scalar MaxRadiusError(const PathEdge& edge, Point center, Scalar radius) {
 /// consumer sees a path. Production walks them straight into vertices.
 ConvexContour Walk(const flutter::DlPath& path) {
   ConvexContour contour;
-  PathEdgeVisitor::PathCallback collect = [&](const PathEdge& edge, bool,
-                                                bool) {
-    contour.edges.push_back(edge);
-  };
+  PathEdgeVisitor::PathCallback collect =
+      [&](const PathEdge& edge, bool, bool) { contour.edges.push_back(edge); };
   PathEdgeVisitor visitor(collect);
   path.Dispatch(visitor);
   visitor.Finish();
@@ -45,6 +43,68 @@ ConvexContour Walk(const flutter::DlPath& path) {
 }
 
 }  // namespace
+
+namespace {
+
+/// A regular polygon about the origin, which is the shape a flattened
+/// circle takes.
+std::vector<Point> Disc(Scalar radius, int count) {
+  std::vector<Point> out;
+  for (int i = 0; i < count; i++) {
+    const Scalar angle = 2 * kPi * i / count;
+    out.push_back(Point(radius * std::cos(angle), radius * std::sin(angle)));
+  }
+  return out;
+}
+
+}  // namespace
+
+TEST(PathGeometryTest, AShadowRingNeverFoldsThroughItsOwnMiddle) {
+  const Scalar radius = 50;
+  const std::vector<Point> disc = Disc(radius, 64);
+
+  // Well inside, right at the middle, and past it. The middle is where
+  // the rim used to cross itself: every vertex landed within rounding of
+  // the centroid, the sign of each sliver was noise, and the fan came
+  // out as a pinwheel of overlapping spokes.
+  for (Scalar blur : {10.0f, 40.0f, 50.0f, 100.0f}) {
+    ShadowRing ring;
+    BuildShadowRing(disc.data(), disc.size(), blur, ring);
+    ASSERT_EQ(ring.inner.size(), disc.size()) << "blur " << blur;
+
+    int facing = 0;
+    for (size_t i = 0; i < disc.size(); i++) {
+      const size_t j = (i + 1) % disc.size();
+      // No vertex may end up on the far side of the middle from where it
+      // started.
+      EXPECT_GE((ring.inner[i] - ring.centroid).Dot(disc[i] - ring.centroid),
+                0.0f)
+          << "blur " << blur << " vertex " << i;
+
+      const Scalar area =
+          (ring.inner[i] - ring.centroid).Cross(ring.inner[j] - ring.centroid);
+      const int sign = area > 0 ? 1 : (area < 0 ? -1 : 0);
+      if (sign != 0) {
+        if (facing == 0) {
+          facing = sign;
+        }
+        EXPECT_EQ(sign, facing)
+            << "blur " << blur << " triangle " << i << " faces the other way";
+      }
+    }
+
+    if (blur >= ring.inradius) {
+      // Nothing is left of the interior to fan over, so the rim is the
+      // middle exactly rather than a ring of near misses around it.
+      for (const Point& inner : ring.inner) {
+        EXPECT_EQ(inner, ring.centroid) << "blur " << blur;
+      }
+      EXPECT_EQ(facing, 0) << "every fan triangle should be degenerate";
+    } else {
+      EXPECT_NE(facing, 0) << "blur " << blur << " has an interior to fan";
+    }
+  }
+}
 
 TEST(PathGeometryTest, CircleChopsToQuadsThatTrackTheRadius) {
   const Scalar radius = 50;

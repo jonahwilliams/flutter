@@ -85,6 +85,10 @@ struct Draw {
     // the one silhouette.
     kShadow,
 
+    /// A convex shape blurred by a mask filter, as a band of Gaussian
+    /// coverage around its silhouette.
+    kBlurredFillPath,
+
     // Clip coverage back to fully visible, over the region a popped
     // clip masked.
     kClipReset,
@@ -141,6 +145,17 @@ struct Draw {
     uint32_t atlas_index;
   };
 
+  struct BlurData {
+    /// The silhouette, in the picture's point storage.
+    uint32_t offset;
+    uint32_t length;
+    /// The blur's standard deviation, as the paint gave it.
+    Scalar sigma;
+    /// Whether that sigma is measured in the shape's own space, which is
+    /// where the mesh is built, or in the device's.
+    bool respect_ctm;
+  };
+
   struct ShadowData {
     /// The silhouette, in the picture's point storage.
     uint32_t offset;
@@ -163,6 +178,7 @@ struct Draw {
     VerticesData vertices_data;
     AtlasData atlas_data;
     ShadowData shadow_data;
+    BlurData blur_data;
   };
 };
 
@@ -488,6 +504,18 @@ class PrPictureBuilder final : public flutter::DlCanvas {
   /// accumulate and a resolve if it is not.
   void FillPath(const flutter::DlPath& path, const flutter::DlPaint& paint);
 
+  /// Record `path` as a band of Gaussian coverage when the paint carries
+  /// a blur this can draw, and say whether it did. A paint with no mask
+  /// filter, a style other than normal, or a shape with no single
+  /// silhouette to ring falls through to the ordinary fill.
+  bool FillBlurredPath(const flutter::DlPath& path,
+                       const flutter::DlPaint& paint);
+
+  /// Flatten the path's contour into `shadow_silhouette_`, returning
+  /// what it bounds, or nothing when it has too few points to bound
+  /// anything.
+  std::optional<Rect> FlattenSilhouette(const flutter::DlPath& path);
+
   /// Record a stroked shape, whichever draw asked for it. A stroke is
   /// the fill of its own outline, so this is where it becomes one.
   void StrokePath(const flutter::DlPath& path, const flutter::DlPaint& paint);
@@ -537,8 +565,6 @@ class PrPictureBuilder final : public flutter::DlCanvas {
   flutter::DlColor ComputeImagePaintColor(const flutter::DlPaint* paint);
 
   flutter::DlColor ComputeDrawPaintColor(const flutter::DlPaint* paint);
-
-
 
   uint32_t AddImage(const sk_sp<flutter::DlImage>& image);
 

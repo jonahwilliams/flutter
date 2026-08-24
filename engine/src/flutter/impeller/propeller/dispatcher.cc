@@ -18,6 +18,7 @@ namespace {
 NoOpGeometryGenerator g_noop;
 RectGeometryGenerator g_rect;
 RRectGeometryGenerator g_rrect;
+BlurGeometryGenerator g_blur;
 ConvexPathGeometryGenerator g_convex_path;
 DrawPointsGeometryGenerator g_points;
 TextGeometryGenerator g_text;
@@ -48,6 +49,7 @@ GeometryGenerator* const kGeometryGenerators[] = {
     &g_vertices,      // kDrawVertices
     &g_atlas,         // kDrawAtlas
     &g_shadow,        // kShadow
+    &g_blur,          // kBlurredFillPath
     &g_rect,          // kClipReset
     &g_rect,          // kScissor
 };
@@ -73,6 +75,7 @@ constexpr ProgramType kDrawPrograms[] = {
     ProgramType::kColor,                  // kDrawVertices
     ProgramType::kColor,                  // kDrawAtlas
     ProgramType::kColor,                  // kShadow
+    ProgramType::kColor,                  // kBlurredFillPath
     ProgramType::kClipReset,              // kClipReset
     ProgramType::kInvalid,                // kScissor
 };

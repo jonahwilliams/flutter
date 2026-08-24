@@ -88,7 +88,202 @@ std::shared_ptr<PrPicture> RecordRoundRect(const Rect& bounds,
   return builder.Build();
 }
 
+/// The winding number the accumulator would read at `at`: every
+/// triangle covering it, signed by the way it faces. A point well
+/// inside carries full coverage from each fan triangle over it, so the
+/// facings alone are the winding.
+int WindingAt(const Written& out, uint32_t index_count, Point at) {
+  int winding = 0;
+  for (uint32_t i = 0; i + 2 < index_count; i += 3) {
+    const Point a = out.positions[out.indices[i]];
+    const Point b = out.positions[out.indices[i + 1]];
+    const Point c = out.positions[out.indices[i + 2]];
+    const Scalar ab = (b.x - a.x) * (at.y - a.y) - (b.y - a.y) * (at.x - a.x);
+    const Scalar bc = (c.x - b.x) * (at.y - b.y) - (c.y - b.y) * (at.x - b.x);
+    const Scalar ca = (a.x - c.x) * (at.y - c.y) - (a.y - c.y) * (at.x - c.x);
+    const bool inside =
+        (ab >= 0 && bc >= 0 && ca >= 0) || (ab <= 0 && bc <= 0 && ca <= 0);
+    if (!inside) {
+      continue;
+    }
+    const Scalar area = (b.x - a.x) * (c.y - a.y) - (c.x - a.x) * (b.y - a.y);
+    winding += area > 0 ? 1 : (area < 0 ? -1 : 0);
+  }
+  return winding;
+}
+
+/// Two squares wound the same way, neither closed by the path. An icon
+/// outline takes this shape, and so does every path the tessellation
+/// benchmark parses: its SVG reader has no case for Z.
+flutter::DlPath UnclosedEvenOddRing() {
+  SkPathBuilder sk;
+  sk.moveTo({0, 0});
+  sk.lineTo({20, 0});
+  sk.lineTo({20, 20});
+  sk.lineTo({0, 20});
+  sk.moveTo({5, 5});
+  sk.lineTo({15, 5});
+  sk.lineTo({15, 15});
+  sk.lineTo({5, 15});
+  sk.setFillType(SkPathFillType::kEvenOdd);
+  return flutter::DlPath(sk.detach());
+}
+
 }  // namespace
+
+TEST(GeometryGeneratorTest, CachedEdgesMatchALiveWalk) {
+  // The cache is built once in DlPath's constructor; the generators
+  // used to walk the path on every draw. If those two ever disagree,
+  // everything downstream inherits it.
+  auto walk = [](const flutter::DlPath& path) {
+    std::vector<PathEdge> live;
+    PathEdgeVisitor::PathCallback cb = [&live](const PathEdge& edge, bool,
+                                               bool) { live.push_back(edge); };
+    PathEdgeVisitor visitor(cb);
+    path.Dispatch(visitor);
+    visitor.Finish();
+    return live;
+  };
+
+  SkPathBuilder bubble;
+  bubble.moveTo({14.4141f, 8.33333f});
+  bubble.cubicTo({14.4141f, 11.555f}, {11.8024f, 14.1667f},
+                 {8.58073f, 14.1667f});
+  bubble.lineTo({2.65625f, 14.4661f});
+  bubble.lineTo({3.70864f, 11.5424f});
+  bubble.cubicTo({2.7474f, 5.11167f}, {5.35907f, 2.5f}, {8.58073f, 2.5f});
+  bubble.setFillType(SkPathFillType::kEvenOdd);
+
+  SkPathBuilder ring;
+  ring.moveTo({0, 0});
+  ring.lineTo({20, 0});
+  ring.lineTo({20, 20});
+  ring.lineTo({0, 20});
+  ring.moveTo({5, 5});
+  ring.conicTo({15, 5}, {15, 15}, 0.707f);
+  ring.lineTo({5, 15});
+
+  const std::vector<flutter::DlPath> paths = {
+      flutter::DlPath(bubble.detach()),
+      flutter::DlPath(ring.detach()),
+      flutter::DlPath::MakeCircle(Point(10, 10), 10),
+      flutter::DlPath::MakeRoundRectXY(Rect::MakeLTRB(0, 0, 20, 10), 3, 3),
+  };
+
+  for (size_t i = 0; i < paths.size(); i++) {
+    const auto* cached = paths[i].GetEdges();
+    ASSERT_NE(cached, nullptr) << "path " << i;
+    const std::vector<PathEdge> live = walk(paths[i]);
+    ASSERT_EQ(cached->size(), live.size()) << "path " << i;
+    for (size_t e = 0; e < live.size(); e++) {
+      EXPECT_EQ((*cached)[e].p0, live[e].p0) << "path " << i << " edge " << e;
+      EXPECT_EQ((*cached)[e].p1, live[e].p1) << "path " << i << " edge " << e;
+      EXPECT_EQ((*cached)[e].control, live[e].control)
+          << "path " << i << " edge " << e;
+      EXPECT_EQ((*cached)[e].is_curve, live[e].is_curve)
+          << "path " << i << " edge " << e;
+      EXPECT_EQ((*cached)[e].starts_contour, live[e].starts_contour)
+          << "path " << i << " edge " << e;
+    }
+  }
+}
+
+TEST(GeometryGeneratorTest, AConcaveIconPathIsNotRecordedAsConvex) {
+  // The conversation icon from the path tessellation benchmark: one
+  // contour, a bubble with a tail, and the benchmark's SVG reader has
+  // no case for Z so it arrives unclosed. A tail makes it concave, and
+  // the convex generator fans every edge from one centre -- which would
+  // draw it as its own hull, tail smoothed away.
+  SkPathBuilder sk;
+  sk.moveTo({14.4141f, 8.33333f});
+  sk.cubicTo({14.4141f, 11.555f}, {11.8024f, 14.1667f}, {8.58073f, 14.1667f});
+  sk.cubicTo({7.64487f, 14.1667f}, {6.76047f, 13.9463f}, {5.97663f, 13.5546f});
+  sk.lineTo({2.65625f, 14.4661f});
+  sk.lineTo({3.70864f, 11.5424f});
+  sk.cubicTo({3.10106f, 10.6218f}, {2.7474f, 9.51887f}, {2.7474f, 8.33333f});
+  sk.cubicTo({2.7474f, 5.11167f}, {5.35907f, 2.5f}, {8.58073f, 2.5f});
+  sk.cubicTo({11.8024f, 2.5f}, {14.4141f, 5.11167f}, {14.4141f, 8.33333f});
+  sk.setFillType(SkPathFillType::kEvenOdd);
+  const flutter::DlPath path(sk.detach());
+
+  EXPECT_FALSE(path.IsConvex()) << "a bubble with a tail is not convex";
+
+  PrPictureBuilder builder;
+  builder.DrawPath(path, Fill(flutter::DlColor::kRed()));
+  std::shared_ptr<PrPicture> picture = builder.Build();
+
+  ASSERT_FALSE(picture->GetDraws().empty());
+  EXPECT_NE(picture->GetDraws()[0].type, Draw::DrawType::kConvexFillPath)
+      << "drawn by the convex generator, which would fan it into its hull";
+  EXPECT_EQ(picture->GetDraws()[0].type,
+            Draw::DrawType::kConcaveWindingAccumulate);
+
+  // Every edge the cache holds, and the contour it belongs to.
+  const auto* edges = path.GetEdges();
+  ASSERT_NE(edges, nullptr);
+  int contours = 0;
+  for (const auto& edge : *edges) {
+    contours += edge.starts_contour ? 1 : 0;
+  }
+  EXPECT_EQ(contours, 1) << "one contour, " << edges->size() << " edges";
+  EXPECT_EQ((*edges).back().p1, (*edges).front().p0) << "closed for filling";
+}
+
+TEST(GeometryGeneratorTest, ADiffRoundRectLeavesItsHoleAlone) {
+  PrPictureBuilder builder;
+  builder.DrawDiffRoundRect(
+      RoundRect::MakeRectRadius(Rect::MakeLTRB(0, 0, 100, 100), 12),
+      RoundRect::MakeRectRadius(Rect::MakeLTRB(25, 25, 75, 75), 6),
+      Fill(flutter::DlColor::kRed()));
+  std::shared_ptr<PrPicture> picture = builder.Build();
+  ASSERT_EQ(picture->GetDraws()[0].type,
+            Draw::DrawType::kConcaveWindingAccumulate);
+
+  ConcavePathGeometryGenerator generator;
+  Written out;
+  auto [vertices, indices] =
+      generator.GetAllocationCount(*picture, picture->GetDraws()[0], Matrix());
+  ASSERT_LT(indices, 512u) << "the test buffer is too small";
+  generator.Generate(*picture, picture->GetDraws()[0], Matrix(),
+                     out.positions.data(), out.attributes.data(),
+                     out.indices.data(), &out.paint, 0, 0, NoFrame());
+
+  // Between the two shapes is one crossing and fills; inside the inner
+  // shape is two, which even-odd cancels. That cancelling is the whole
+  // point of the draw.
+  EXPECT_EQ(std::abs(WindingAt(out, indices, Point(6, 50))) % 2, 1);
+  EXPECT_EQ(std::abs(WindingAt(out, indices, Point(50, 50))) % 2, 0);
+}
+
+TEST(GeometryGeneratorTest, AnUnclosedEvenOddRingLeavesItsHoleAlone) {
+  PrPictureBuilder builder;
+  builder.DrawPath(UnclosedEvenOddRing(), Fill(flutter::DlColor::kRed()));
+  std::shared_ptr<PrPicture> picture = builder.Build();
+
+  ASSERT_EQ(picture->GetDraws().size(), 2u) << "accumulate, then resolve";
+  EXPECT_EQ(picture->GetDraws()[0].type,
+            Draw::DrawType::kConcaveWindingAccumulate);
+  EXPECT_EQ(picture->GetDraws()[1].type,
+            Draw::DrawType::kConcaveWindingResolveEvenOdd)
+      << "the path asked for even-odd";
+
+  ConcavePathGeometryGenerator generator;
+  Written out;
+  auto [vertices, indices] =
+      generator.GetAllocationCount(*picture, picture->GetDraws()[0], Matrix());
+  ASSERT_LE(indices, 512u);
+  generator.Generate(*picture, picture->GetDraws()[0], Matrix(),
+                     out.positions.data(), out.attributes.data(),
+                     out.indices.data(), &out.paint, 0, 0, NoFrame());
+
+  // Between the two squares is one crossing deep, so it fills under
+  // either rule. Inside the inner square is two, which even-odd leaves
+  // empty -- that is the hole the ring is drawn for.
+  const int ring = WindingAt(out, indices, Point(2.5, 10));
+  const int hole = WindingAt(out, indices, Point(10, 10));
+  EXPECT_EQ(std::abs(ring) % 2, 1) << "ring winding " << ring;
+  EXPECT_EQ(std::abs(hole) % 2, 0) << "hole winding " << hole;
+}
 
 TEST(GeometryGeneratorTest, ColoursAreCarriedAsPremultipliedRgba8) {
   // Red in the low byte, alpha in the high one: what the vertex stage
@@ -767,15 +962,19 @@ TEST(GeometryGeneratorTest, RoundRectIsTheMeshWalkingTheContourGives) {
   std::shared_ptr<PrPicture> picture = RecordRoundRect(
       Rect::MakeLTRB(10, 20, 110, 80), 20, flutter::DlColor::kRed());
 
+  // Turned, so the straight runs are no longer square to the pixel grid
+  // and the table keeps the ramp along them. A rotation leaves the basis
+  // a unit long, so the fringe is the same width either mesh builds it.
+  const Matrix turned = Matrix::MakeRotationZ(Radians(0.3f));
   RRectGeometryGenerator table;
   ConvexPathGeometryGenerator walk;
   const std::vector<Triangle> from_table =
-      CoveringTriangles(table, *picture, Matrix());
+      CoveringTriangles(table, *picture, turned);
   const std::vector<Triangle> from_walk =
       CoveringTriangles(walk,
                         *RecordConvexPath(Rect::MakeLTRB(10, 20, 110, 80), 20,
                                           flutter::DlColor::kRed()),
-                        Matrix());
+                        turned);
 
   // The table is the same mesh, so what it draws has to be triangle for
   // triangle what walking the contour draws.
@@ -792,6 +991,52 @@ TEST(GeometryGeneratorTest, RoundRectIsTheMeshWalkingTheContourGives) {
   }
 }
 
+TEST(GeometryGeneratorTest, SquareRoundRectEdgesCarryNoFringe) {
+  std::shared_ptr<PrPicture> picture = RecordRoundRect(
+      Rect::MakeLTRB(10, 20, 110, 80), 20, flutter::DlColor::kRed());
+  RRectGeometryGenerator generator;
+
+  // Scale and translate leave the four straight runs axis aligned, so
+  // they are drawn without a ramp of their own -- the trade a plain rect
+  // already makes. Anything else turns them off the grid and the ramp
+  // comes back.
+  const Matrix square = Matrix::MakeScale({2, 3, 1}).Translate({7, 11, 0});
+  ASSERT_TRUE(square.IsTranslationScaleOnly());
+  const Matrix turned = Matrix::MakeRotationZ(Radians(0.3f));
+  ASSERT_FALSE(turned.IsTranslationScaleOnly());
+
+  auto [square_vertices, square_indices] =
+      generator.GetAllocationCount(*picture, picture->GetDraws()[0], square);
+  auto [turned_vertices, turned_indices] =
+      generator.GetAllocationCount(*picture, picture->GetDraws()[0], turned);
+
+  // Four straight runs, each dropping the two triangles of its strip.
+  EXPECT_EQ(turned_vertices - square_vertices, 4u * 6u);
+  EXPECT_EQ(square_vertices, square_indices);
+
+  Written out;
+  ASSERT_LT(square_vertices, 512u);
+  generator.Generate(*picture, picture->GetDraws()[0], square,
+                     out.positions.data(), out.attributes.data(),
+                     out.indices.data(), &out.paint, 0, 0, NoFrame());
+
+  // Every fringe vertex left belongs to a corner arc, so none of them sit
+  // on the straight runs -- the spans between the corner boxes.
+  const Rect bounds = Rect::MakeLTRB(10, 20, 110, 80);
+  for (uint32_t i = 0; i < square_vertices; i++) {
+    if (ImplicitClass(out.attributes[i]) != kPathImplicitFringeOuter) {
+      continue;
+    }
+    const Point at = out.positions[i];
+    const bool in_corner_column =
+        at.x < bounds.GetLeft() + 20 || at.x > bounds.GetRight() - 20;
+    const bool in_corner_row =
+        at.y < bounds.GetTop() + 20 || at.y > bounds.GetBottom() - 20;
+    EXPECT_TRUE(in_corner_column || in_corner_row)
+        << "fringe at (" << at.x << ", " << at.y << ") is on a straight run";
+  }
+}
+
 TEST(GeometryGeneratorTest, ACornerWithNoRadiusLosesItsWedgeOfFringe) {
   const Rect bounds = Rect::MakeLTRB(10, 20, 110, 80);
   const RoundRect rrect =
@@ -805,12 +1050,13 @@ TEST(GeometryGeneratorTest, ACornerWithNoRadiusLosesItsWedgeOfFringe) {
   builder.DrawRoundRect(rrect, Fill(flutter::DlColor::kRed()));
   std::shared_ptr<PrPicture> picture = builder.Build();
 
+  const Matrix turned = Matrix::MakeRotationZ(Radians(0.3f));
   RRectGeometryGenerator table;
   ConvexPathGeometryGenerator walk;
   const std::vector<Triangle> from_table =
-      CoveringTriangles(table, *picture, Matrix());
+      CoveringTriangles(table, *picture, turned);
   const std::vector<Triangle> from_walk = CoveringTriangles(
-      walk, *RecordConvexPath(rrect, flutter::DlColor::kRed()), Matrix());
+      walk, *RecordConvexPath(rrect, flutter::DlColor::kRed()), turned);
 
   // A sharp corner turns its whole 90 degrees at a point, and what
   // covers that turn is the wedge between the two edges' normals. The

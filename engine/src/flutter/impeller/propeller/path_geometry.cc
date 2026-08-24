@@ -133,13 +133,38 @@ void BuildShadowRing(const Point* silhouette,
   // compositing its own penumbra twice. Stopping at the centroid's own
   // depth is as far as the rim can go and still be inside.
   ring.inset = std::min(blur_radius, inradius);
+  /// Whether the blur reaches the middle from every side at once, which
+  /// is what a shape smaller than its own blur does.
+  const bool collapsed = blur_radius >= inradius;
 
   ring.inner.resize(count);
   ring.outer.resize(count);
   for (size_t i = 0; i < count; i++) {
     const Point normal = MiteredNormal(silhouette, count, i, facing);
     ring.outer[i] = silhouette[i] + normal * blur_radius;
-    ring.inner[i] = silhouette[i] - normal * ring.inset;
+
+    // Never past the middle. A rim that crosses the centroid puts itself
+    // on the far side of where it started, and the fan over it turns
+    // inside out: neighbouring triangles disagree about which way they
+    // face and overlap in a pinwheel, compositing the penumbra twice
+    // along every spoke.
+    //
+    // A shape narrower than its blur collapses to the centroid outright
+    // rather than vertex by vertex. Each vertex would otherwise land
+    // within rounding of the middle and the sign of each sliver would be
+    // noise, which is the pinwheel by another route. Pinned to the same
+    // point, every triangle between them is exactly degenerate.
+    if (collapsed) {
+      ring.inner[i] = ring.centroid;
+      continue;
+    }
+    // Wider than the blur overall, but a corner tight enough for the
+    // mitre to carry it past the middle on its own still stops there.
+    const Point candidate = silhouette[i] - normal * ring.inset;
+    ring.inner[i] =
+        (candidate - ring.centroid).Dot(silhouette[i] - ring.centroid) < 0
+            ? ring.centroid
+            : candidate;
   }
 }
 

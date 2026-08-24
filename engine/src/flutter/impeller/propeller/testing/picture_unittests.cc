@@ -4,6 +4,7 @@
 
 #include <functional>
 
+#include "display_list/effects/dl_mask_filter.h"
 #include "flutter/display_list/dl_paint.h"
 #include "flutter/display_list/dl_vertices.h"
 #include "flutter/display_list/effects/dl_color_filter.h"
@@ -1961,11 +1962,230 @@ TEST(PrPictureTest, RestoreToCountDropsTheClipsTheSavesHeld) {
   EXPECT_MATRIX_NEAR(builder.GetMatrix(), Matrix());
 }
 
+namespace {
+
+flutter::DlPaint Blurred(
+    flutter::DlColor color,
+    Scalar sigma,
+    flutter::DlBlurStyle style = flutter::DlBlurStyle::kNormal) {
+  flutter::DlPaint paint = Fill(color);
+  paint.setMaskFilter(flutter::DlBlurMaskFilter::Make(style, sigma));
+  return paint;
+}
+
+}  // namespace
+
+TEST(PrPictureTest, AConvexPathWithANormalBlurBecomesABand) {
+  PrPictureBuilder builder;
+  builder.DrawPath(flutter::DlPath::MakeOval(Rect::MakeLTRB(0, 0, 40, 40)),
+                   Blurred(flutter::DlColor::kRed(), 4));
+  std::shared_ptr<PrPicture> picture = builder.Build();
+
+  const std::vector<Draw>& draws = picture->GetDraws();
+  ASSERT_EQ(draws.size(), 1u);
+  EXPECT_EQ(draws[0].type, Draw::DrawType::kBlurredFillPath);
+  EXPECT_EQ(draws[0].blur_data.sigma, 4);
+  EXPECT_TRUE(draws[0].blur_data.respect_ctm);
+  // The silhouette went into the picture's point storage.
+  EXPECT_EQ(draws[0].blur_data.length, picture->GetPositions().size());
+  EXPECT_GE(draws[0].blur_data.length, 3u);
+
+  // The band reaches two sigma out, and the draw has to cover it.
+  EXPECT_TRUE(draws[0].rect.Contains(Rect::MakeLTRB(-8, -8, 48, 48)));
+}
+
+TEST(PrPictureTest, ABlurredShapeTakesTheBandToo) {
+  // A rect has no contour of its own, so it grows one rather than
+  // silently dropping the filter.
+  for (int shape = 0; shape < 4; shape++) {
+    PrPictureBuilder builder;
+    const flutter::DlPaint paint = Blurred(flutter::DlColor::kRed(), 3);
+    const Rect bounds = Rect::MakeLTRB(0, 0, 40, 40);
+    switch (shape) {
+      case 0:
+        builder.DrawRect(bounds, paint);
+        break;
+      case 1:
+        builder.DrawOval(bounds, paint);
+        break;
+      case 2:
+        builder.DrawCircle(Point(20, 20), 20, paint);
+        break;
+      default:
+        builder.DrawRoundRect(RoundRect::MakeRectRadius(bounds, 8), paint);
+        break;
+    }
+    std::shared_ptr<PrPicture> picture = builder.Build();
+    ASSERT_EQ(picture->GetDraws().size(), 1u) << "shape " << shape;
+    EXPECT_EQ(picture->GetDraws()[0].type, Draw::DrawType::kBlurredFillPath)
+        << "shape " << shape;
+  }
+}
+
+TEST(PrPictureTest, AnUnblurredShapeKeepsItsOwnMesh) {
+  // The fast paths are only stepped around when there is a blur to draw.
+  PrPictureBuilder builder;
+  builder.DrawRect(Rect::MakeLTRB(0, 0, 40, 40),
+                   Fill(flutter::DlColor::kRed()));
+  builder.DrawRoundRect(
+      RoundRect::MakeRectRadius(Rect::MakeLTRB(0, 60, 40, 90), 8),
+      Fill(flutter::DlColor::kRed()));
+  std::shared_ptr<PrPicture> picture = builder.Build();
+
+  const std::vector<Draw>& draws = picture->GetDraws();
+  ASSERT_EQ(draws.size(), 2u);
+  EXPECT_EQ(draws[0].type, Draw::DrawType::kRect);
+  EXPECT_EQ(draws[1].type, Draw::DrawType::kRRect);
+}
+
+TEST(PrPictureTest, AStyleThisCannotDrawFallsThroughToAPlainFill) {
+  // Solid, outer and inner ramp across the band differently, and a
+  // concave shape has no one silhouette. Both fill unblurred rather than
+  // drawing nothing.
+  for (flutter::DlBlurStyle style :
+       {flutter::DlBlurStyle::kSolid, flutter::DlBlurStyle::kOuter,
+        flutter::DlBlurStyle::kInner}) {
+    PrPictureBuilder builder;
+    builder.DrawPath(flutter::DlPath::MakeOval(Rect::MakeLTRB(0, 0, 40, 40)),
+                     Blurred(flutter::DlColor::kRed(), 4, style));
+    std::shared_ptr<PrPicture> picture = builder.Build();
+    ASSERT_FALSE(picture->GetDraws().empty());
+    EXPECT_EQ(picture->GetDraws()[0].type, Draw::DrawType::kConvexFillPath);
+  }
+
+  const Point points[4] = {Point(10, 10), Point(50, 40), Point(90, 10),
+                           Point(50, 90)};
+  PrPictureBuilder concave;
+  concave.DrawPath(flutter::DlPath::MakePoly(points, 4, /*close=*/true),
+                   Blurred(flutter::DlColor::kRed(), 4));
+  std::shared_ptr<PrPicture> picture = concave.Build();
+  ASSERT_FALSE(picture->GetDraws().empty());
+  EXPECT_EQ(picture->GetDraws()[0].type,
+            Draw::DrawType::kConcaveWindingAccumulate);
+}
+
+TEST(PrPictureTest, ADiffRoundRectIsAnEvenOddRing) {
+  PrPictureBuilder builder;
+  builder.DrawDiffRoundRect(
+      RoundRect::MakeRectRadius(Rect::MakeLTRB(0, 0, 100, 60), 12),
+      RoundRect::MakeRectRadius(Rect::MakeLTRB(10, 10, 90, 50), 6),
+      Fill(flutter::DlColor::kRed()));
+  std::shared_ptr<PrPicture> picture = builder.Build();
+
+  // Two contours, so never convex, and the fill rule has to be the one
+  // that cancels the inner shape rather than filling it.
+  const std::vector<Draw>& draws = picture->GetDraws();
+  ASSERT_EQ(draws.size(), 2u);
+  EXPECT_EQ(draws[0].type, Draw::DrawType::kConcaveWindingAccumulate);
+  EXPECT_EQ(draws[1].type, Draw::DrawType::kConcaveWindingResolveEvenOdd);
+  // A concave fill carries the outset its resolve reads back over, so
+  // the draw covers the shape rather than matching it exactly.
+  EXPECT_TRUE(draws[0].rect.Contains(Rect::MakeLTRB(0, 0, 100, 60)));
+}
+
+TEST(PrPictureTest, ADiffRoundRectWithNothingTakenOutIsJustTheOuter) {
+  PrPictureBuilder builder;
+  builder.DrawDiffRoundRect(
+      RoundRect::MakeRectRadius(Rect::MakeLTRB(0, 0, 100, 60), 12), RoundRect(),
+      Fill(flutter::DlColor::kRed()));
+  std::shared_ptr<PrPicture> picture = builder.Build();
+
+  // Falls back to the shape's own mesh rather than a two contour path.
+  const std::vector<Draw>& draws = picture->GetDraws();
+  ASSERT_EQ(draws.size(), 1u);
+  EXPECT_EQ(draws[0].type, Draw::DrawType::kRRect);
+}
+
+TEST(PrPictureTest, ADiffRoundRectWithNoOuterDrawsNothing) {
+  PrPictureBuilder builder;
+  builder.DrawDiffRoundRect(
+      RoundRect(), RoundRect::MakeRectRadius(Rect::MakeLTRB(10, 10, 90, 50), 6),
+      Fill(flutter::DlColor::kRed()));
+  EXPECT_TRUE(builder.Build()->GetDraws().empty());
+}
+
+TEST(PrPictureTest, APieArcIsOneConvexFill) {
+  // Under half a turn with a centre, so the wedge is convex and the
+  // whole thing is one draw.
+  PrPictureBuilder builder;
+  builder.DrawArc(Rect::MakeLTRB(0, 0, 100, 100), 0, 90, /*use_center=*/true,
+                  Fill(flutter::DlColor::kRed()));
+  std::shared_ptr<PrPicture> picture = builder.Build();
+
+  const std::vector<Draw>& draws = picture->GetDraws();
+  ASSERT_EQ(draws.size(), 1u);
+  EXPECT_EQ(draws[0].type, Draw::DrawType::kConvexFillPath);
+  // The wedge reaches the centre and the rim, not the far corners.
+  EXPECT_TRUE(Rect::MakeLTRB(0, 0, 100, 100).Contains(draws[0].rect));
+}
+
+TEST(PrPictureTest, AnArcPastHalfATurnIsConcave) {
+  // A wedge of more than 180 degrees folds past its own centre, so it
+  // has to go through the winding accumulator.
+  PrPictureBuilder builder;
+  builder.DrawArc(Rect::MakeLTRB(0, 0, 100, 100), 0, 270, /*use_center=*/true,
+                  Fill(flutter::DlColor::kRed()));
+  std::shared_ptr<PrPicture> picture = builder.Build();
+
+  const std::vector<Draw>& draws = picture->GetDraws();
+  ASSERT_EQ(draws.size(), 2u);
+  EXPECT_EQ(draws[0].type, Draw::DrawType::kConcaveWindingAccumulate);
+  EXPECT_EQ(draws[1].type, Draw::DrawType::kConcaveWindingResolveNonZero);
+}
+
+TEST(PrPictureTest, AnArcWithNoCentreIsClosedByItsChord) {
+  // Without a centre the contour is the rim alone, and filling it seals
+  // the ends with a chord rather than reaching the middle of the oval.
+  const Rect bounds = Rect::MakeLTRB(0, 0, 100, 100);
+  PrPictureBuilder builder;
+  builder.DrawArc(bounds, 0, 90, /*use_center=*/false,
+                  Fill(flutter::DlColor::kRed()));
+  std::shared_ptr<PrPicture> picture = builder.Build();
+
+  const std::vector<Draw>& draws = picture->GetDraws();
+  ASSERT_EQ(draws.size(), 1u);
+  EXPECT_EQ(draws[0].type, Draw::DrawType::kConvexFillPath);
+  // The quarter from 0 to 90 degrees sweeps the lower right, so the
+  // segment stays out of the upper left where the centre sits.
+  EXPECT_GE(draws[0].rect.GetLeft(), bounds.GetCenter().x - 1);
+  EXPECT_GE(draws[0].rect.GetTop(), bounds.GetCenter().y - 1);
+}
+
+TEST(PrPictureTest, AStrokedArcTakesItsOutline) {
+  flutter::DlPaint paint = Fill(flutter::DlColor::kRed());
+  paint.setDrawStyle(flutter::DlDrawStyle::kStroke);
+  paint.setStrokeWidth(4);
+
+  PrPictureBuilder builder;
+  builder.DrawArc(Rect::MakeLTRB(0, 0, 100, 100), 0, 90, /*use_center=*/false,
+                  paint);
+  std::shared_ptr<PrPicture> picture = builder.Build();
+
+  // An open contour stroked is a closed ring around it, which fills.
+  ASSERT_FALSE(picture->GetDraws().empty());
+  ASSERT_FALSE(picture->GetPaths().empty());
+}
+
+TEST(PrPictureTest, AnArcThatSweepsNothingDrawsNothing) {
+  PrPictureBuilder builder;
+  builder.DrawArc(Rect::MakeLTRB(0, 0, 100, 100), 0, 0, /*use_center=*/false,
+                  Fill(flutter::DlColor::kRed()));
+  builder.DrawArc(Rect(), 0, 90, /*use_center=*/true,
+                  Fill(flutter::DlColor::kRed()));
+  std::shared_ptr<PrPicture> picture = builder.Build();
+
+  EXPECT_TRUE(picture->GetDraws().empty());
+}
+
 TEST(PrPictureTest, DrawReorderingBatchesNonOverlappingDraws) {
   PrPictureBuilder builder;
-  builder.DrawRect(Rect::MakeLTRB(0, 0, 10, 10), Fill(flutter::DlColor::kRed()));
-  builder.DrawRoundRect(RoundRect::MakeRectRadius(Rect::MakeLTRB(20, 20, 30, 30), 5.0f), Fill(flutter::DlColor::kRed()));
-  builder.DrawRect(Rect::MakeLTRB(40, 40, 50, 50), Fill(flutter::DlColor::kRed()));
+  builder.DrawRect(Rect::MakeLTRB(0, 0, 10, 10),
+                   Fill(flutter::DlColor::kRed()));
+  builder.DrawRoundRect(
+      RoundRect::MakeRectRadius(Rect::MakeLTRB(20, 20, 30, 30), 5.0f),
+      Fill(flutter::DlColor::kRed()));
+  builder.DrawRect(Rect::MakeLTRB(40, 40, 50, 50),
+                   Fill(flutter::DlColor::kRed()));
 
   std::shared_ptr<PrPicture> picture = builder.Build();
   const std::vector<Draw>& draws = picture->GetDraws();
@@ -1978,9 +2198,13 @@ TEST(PrPictureTest, DrawReorderingBatchesNonOverlappingDraws) {
 
 TEST(PrPictureTest, DrawReorderingDoesNotBatchOverlappingDraws) {
   PrPictureBuilder builder;
-  builder.DrawRect(Rect::MakeLTRB(0, 0, 25, 25), Fill(flutter::DlColor::kRed()));
-  builder.DrawRoundRect(RoundRect::MakeRectRadius(Rect::MakeLTRB(20, 20, 40, 40), 5.0f), Fill(flutter::DlColor::kRed()));
-  builder.DrawRect(Rect::MakeLTRB(30, 30, 50, 50), Fill(flutter::DlColor::kRed()));
+  builder.DrawRect(Rect::MakeLTRB(0, 0, 25, 25),
+                   Fill(flutter::DlColor::kRed()));
+  builder.DrawRoundRect(
+      RoundRect::MakeRectRadius(Rect::MakeLTRB(20, 20, 40, 40), 5.0f),
+      Fill(flutter::DlColor::kRed()));
+  builder.DrawRect(Rect::MakeLTRB(30, 30, 50, 50),
+                   Fill(flutter::DlColor::kRed()));
 
   std::shared_ptr<PrPicture> picture = builder.Build();
   const std::vector<Draw>& draws = picture->GetDraws();
@@ -1993,14 +2217,18 @@ TEST(PrPictureTest, DrawReorderingDoesNotBatchOverlappingDraws) {
 
 TEST(PrPictureTest, DrawReorderingStopsAtClips) {
   PrPictureBuilder builder;
-  builder.DrawRect(Rect::MakeLTRB(0, 0, 10, 10), Fill(flutter::DlColor::kRed()));
+  builder.DrawRect(Rect::MakeLTRB(0, 0, 10, 10),
+                   Fill(flutter::DlColor::kRed()));
   builder.Save();
   // Clip is 100, 100, 200, 200
   builder.ClipRect(Rect::MakeLTRB(100, 100, 200, 200));
   // RRect inside clip
-  builder.DrawRoundRect(RoundRect::MakeRectRadius(Rect::MakeLTRB(100, 100, 110, 110), 5.0f), Fill(flutter::DlColor::kRed()));
+  builder.DrawRoundRect(
+      RoundRect::MakeRectRadius(Rect::MakeLTRB(100, 100, 110, 110), 5.0f),
+      Fill(flutter::DlColor::kRed()));
   // Rect inside clip, but disjoint from RRect (doesn't overlap RRect)
-  builder.DrawRect(Rect::MakeLTRB(150, 150, 160, 160), Fill(flutter::DlColor::kRed()));
+  builder.DrawRect(Rect::MakeLTRB(150, 150, 160, 160),
+                   Fill(flutter::DlColor::kRed()));
   builder.Restore();
 
   std::shared_ptr<PrPicture> picture = builder.Build();
@@ -2015,7 +2243,7 @@ TEST(PrPictureTest, DrawReorderingStopsAtClips) {
   // 5: kRect (150, 150, 160, 160)
   // 6: kClipReset
   // 7: kScissor
-  
+
   ASSERT_EQ(draws.size(), 9u);
   EXPECT_EQ(draws[0].type, Draw::DrawType::kRect);
   EXPECT_EQ(draws[1].type, Draw::DrawType::kScissor);
@@ -2027,11 +2255,11 @@ TEST(PrPictureTest, DrawReorderingStopsAtClips) {
 
 TEST(PrPictureTest, DrawReorderingMergesThroughAccumulate) {
   PrPictureBuilder builder;
-  flutter::DlPoint points1[4] = {{0,0}, {10,10}, {0,10}, {10,0}};
+  flutter::DlPoint points1[4] = {{0, 0}, {10, 10}, {0, 10}, {10, 0}};
   flutter::DlPath path1 = flutter::DlPath::MakePoly(points1, 4, true);
-  
+
   // Make path2 disjoint from path1
-  flutter::DlPoint points2[4] = {{20,20}, {30,30}, {20,30}, {30,20}};
+  flutter::DlPoint points2[4] = {{20, 20}, {30, 30}, {20, 30}, {30, 20}};
   flutter::DlPath path2 = flutter::DlPath::MakePoly(points2, 4, true);
 
   builder.DrawPath(path1, Fill(flutter::DlColor::kRed()));

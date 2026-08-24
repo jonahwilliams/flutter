@@ -14,6 +14,8 @@
 #include "display_list/dl_types.h"
 #include "display_list/effects/color_filters/dl_blend_color_filter.h"
 #include "display_list/effects/dl_color_source.h"
+#include "display_list/effects/dl_mask_filter.h"
+#include "flutter/display_list/geometry/dl_path_builder.h"
 #include "flutter/display_list/skia/dl_sk_conversions.h"
 #include "flutter/fml/logging.h"
 #include "impeller/geometry/color.h"
@@ -69,6 +71,7 @@ bool IsStateful(Draw::DrawType type) {
       false,  // kDrawVertices
       false,  // kDrawAtlas
       false,  // kShadow
+      false,  // kBlurredFillPath
       true,   // kClipReset
       true,   // kScissor
   };
@@ -96,6 +99,7 @@ uint32_t GetMergeType(Draw::DrawType type) {
       1,   // kDrawVertices
       1,   // kDrawAtlas
       1,   // kShadow
+      1,   // kBlurredFillPath
       9,   // kClipReset
       10,  // kScissor
   };
@@ -121,13 +125,20 @@ uint32_t GetDrawLayerMask(Draw::DrawType type) {
       kCoverageMaskType,  // kClipResolveNonZero (Stencil)
       kCoverageMaskType,  // kClipResolveEvenOdd (Stencil)
       kCoverageMaskType,  // kConcaveWindingAccumulate (Stencil)
-      kColorMaskType,     // kConcaveWindingResolveNonZero (Color)
-      kColorMaskType,     // kConcaveWindingResolveEvenOdd (Color)
-      kColorMaskType,     // kDrawVertices (Color)
-      kColorMaskType,     // kDrawAtlas (Color)
-      kColorMaskType,     // kShadow (Color)
-      kCoverageMaskType,  // kClipReset (Stencil)
-      kCoverageMaskType,  // kScissor (Stencil)
+      // A winding resolve reads the accumulator and zeroes it on the way
+      // out, so it owns the coverage layer as well as the colour one.
+      // Tagged colour alone it looks reorderable against an accumulate,
+      // and the accumulate that follows it gets hoisted back to join the
+      // one before -- leaving both shapes summed into the accumulator
+      // and each resolved with the other's winding.
+      kColorMaskType | kCoverageMaskType,  // kConcaveWindingResolveNonZero
+      kColorMaskType | kCoverageMaskType,  // kConcaveWindingResolveEvenOdd
+      kColorMaskType,                      // kDrawVertices (Color)
+      kColorMaskType,                      // kDrawAtlas (Color)
+      kColorMaskType,                      // kShadow (Color)
+      kColorMaskType,                      // kBlurredFillPath (Color)
+      kCoverageMaskType,                   // kClipReset (Stencil)
+      kCoverageMaskType,                   // kScissor (Stencil)
   };
   return kLayerTable[static_cast<size_t>(type)];
 }
@@ -656,8 +667,32 @@ void PrPictureBuilder::DrawDashedLine(const Point& p0,
   // mesh of rectangles as a variant of drawPoints.
 }
 
+namespace {
+
+/// Whether the paint carries a blur this draws as a band. A shape with
+/// one has to become a contour first: the band rings a silhouette, and
+/// only a contour has one.
+bool WantsBlurBand(const flutter::DlPaint& paint) {
+  if (paint.getDrawStyle() != flutter::DlDrawStyle::kFill) {
+    return false;
+  }
+  const flutter::DlMaskFilter* filter = paint.getMaskFilterPtr();
+  if (filter == nullptr) {
+    return false;
+  }
+  const flutter::DlBlurMaskFilter* blur = filter->asBlur();
+  return blur != nullptr && blur->style() == flutter::DlBlurStyle::kNormal &&
+         blur->sigma() > 0;
+}
+
+}  // namespace
+
 void PrPictureBuilder::DrawRect(const Rect& rect,
                                 const flutter::DlPaint& paint) {
+  if (WantsBlurBand(paint)) {
+    DrawPath(flutter::DlPath::MakeRect(rect), paint);
+    return;
+  }
   if (paint.getDrawStyle() != flutter::DlDrawStyle::kFill) {
     StrokePath(flutter::DlPath::MakeRect(rect), paint);
     return;
@@ -682,6 +717,10 @@ void PrPictureBuilder::DrawRect(const Rect& rect,
 
 void PrPictureBuilder::DrawOval(const Rect& bounds,
                                 const flutter::DlPaint& paint) {
+  if (WantsBlurBand(paint)) {
+    DrawPath(flutter::DlPath::MakeOval(bounds), paint);
+    return;
+  }
   if (paint.getDrawStyle() != flutter::DlDrawStyle::kFill) {
     StrokePath(flutter::DlPath::MakeOval(bounds), paint);
     return;
@@ -707,6 +746,10 @@ void PrPictureBuilder::DrawOval(const Rect& bounds,
 void PrPictureBuilder::DrawCircle(const Point& center,
                                   Scalar radius,
                                   const flutter::DlPaint& paint) {
+  if (WantsBlurBand(paint)) {
+    DrawPath(flutter::DlPath::MakeCircle(center, radius), paint);
+    return;
+  }
   if (paint.getDrawStyle() != flutter::DlDrawStyle::kFill) {
     StrokePath(flutter::DlPath::MakeCircle(center, radius), paint);
     return;
@@ -731,6 +774,10 @@ void PrPictureBuilder::DrawCircle(const Point& center,
 
 void PrPictureBuilder::DrawRoundRect(const RoundRect& rrect,
                                      const flutter::DlPaint& paint) {
+  if (WantsBlurBand(paint)) {
+    DrawPath(flutter::DlPath::MakeRoundRect(rrect), paint);
+    return;
+  }
   if (paint.getDrawStyle() != flutter::DlDrawStyle::kFill) {
     StrokePath(flutter::DlPath::MakeRoundRect(rrect), paint);
     return;
@@ -761,7 +808,27 @@ void PrPictureBuilder::DrawRoundRect(const RoundRect& rrect,
 
 void PrPictureBuilder::DrawDiffRoundRect(const RoundRect& outer,
                                          const RoundRect& inner,
-                                         const flutter::DlPaint& paint) {}
+                                         const flutter::DlPaint& paint) {
+  if (outer.IsEmpty()) {
+    return;
+  }
+  if (inner.IsEmpty()) {
+    // Nothing is taken out of it, so it is the outer shape and can have
+    // the mesh that shape already has.
+    DrawRoundRect(outer, paint);
+    return;
+  }
+  // Both contours wound the same way and resolved even-odd, so the two
+  // crossings over the inner shape cancel and leave the ring. Winding
+  // them against each other would do as well, but which way a contour
+  // turns is not something the builder exposes, and the fill rule is.
+  DrawPath(flutter::DlPathBuilder{}
+               .SetFillType(flutter::DlPathFillType::kOdd)
+               .AddRoundRect(outer)
+               .AddRoundRect(inner)
+               .TakePath(),
+           paint);
+}
 
 void PrPictureBuilder::DrawRoundSuperellipse(const RoundSuperellipse& rse,
                                              const flutter::DlPaint& paint) {}
@@ -775,8 +842,90 @@ void PrPictureBuilder::DrawPath(const flutter::DlPath& path,
   FillPath(path, paint);
 }
 
+std::optional<Rect> PrPictureBuilder::FlattenSilhouette(
+    const flutter::DlPath& path) {
+  shadow_contour_.edges.clear();
+  if (const auto* edges = path.GetEdges()) {
+    shadow_contour_.edges.assign(edges->begin(), edges->end());
+  }
+  FlattenContourInto(shadow_contour_, shadow_silhouette_);
+  if (shadow_silhouette_.size() < 3) {
+    return std::nullopt;
+  }
+  return Rect::MakePointBounds(shadow_silhouette_.begin(),
+                               shadow_silhouette_.end());
+}
+
+bool PrPictureBuilder::FillBlurredPath(const flutter::DlPath& path,
+                                       const flutter::DlPaint& paint) {
+  const flutter::DlMaskFilter* filter = paint.getMaskFilterPtr();
+  if (filter == nullptr) {
+    return false;
+  }
+  const flutter::DlBlurMaskFilter* blur = filter->asBlur();
+  // TODO: the solid, outer and inner styles, each of which ramps across
+  // the band differently, and concave shapes, which have no one
+  // silhouette to ring.
+  if (blur == nullptr || blur->style() != flutter::DlBlurStyle::kNormal ||
+      !path.IsConvex()) {
+    return false;
+  }
+  const Scalar sigma = blur->sigma();
+  if (!(sigma > 0)) {
+    return false;
+  }
+
+  const std::optional<Rect> silhouette = FlattenSilhouette(path);
+  if (!silhouette.has_value()) {
+    return false;
+  }
+
+  // A sigma given in the device's space covers less of the shape's own
+  // space the more the transform magnifies it.
+  const Scalar scale = save_stack_.back().transform.GetMaxBasisLengthXY();
+  const Scalar local_sigma =
+      blur->respectCTM() || scale <= 0 ? sigma : sigma / scale;
+
+  // The band reaches two sigma out, and half again past that is where
+  // the Gaussian has nothing left to show.
+  const Rect bounds =
+      silhouette->Expand(2.0f * local_sigma * kShadowCoverageOfBlur);
+  const Rect coverage = ComputeCoverage(bounds);
+  if (coverage.IsEmpty()) {
+    return true;  // Handled: there is simply nothing of it to see.
+  }
+
+  FlushTransform();
+  const std::shared_ptr<PrPicture>& picture = pictures_.back();
+  const auto offset = static_cast<uint32_t>(picture->positions_.size());
+  picture->positions_.insert(picture->positions_.end(),
+                             shadow_silhouette_.begin(),
+                             shadow_silhouette_.end());
+  AppendDraw(
+      Draw{
+          .type = Draw::DrawType::kBlurredFillPath,
+          .blend_mode = paint.getBlendMode(),
+          .rect = bounds,
+          .color = ComputeDrawPaintColor(&paint),
+          .gradient = GetGradientIndex(paint.getColorSource()),
+          .blur_data =
+              Draw::BlurData{
+                  .offset = offset,
+                  .length = static_cast<uint32_t>(shadow_silhouette_.size()),
+                  .sigma = sigma,
+                  .respect_ctm = blur->respectCTM(),  //
+              },
+      },
+      coverage  //
+  );
+  return true;
+}
+
 void PrPictureBuilder::FillPath(const flutter::DlPath& path,
                                 const flutter::DlPaint& paint) {
+  if (FillBlurredPath(path, paint)) {
+    return;
+  }
   Rect coverage = ComputeCoverage(path.GetBounds());
   if (coverage.IsEmpty()) {
     return;
@@ -876,7 +1025,17 @@ void PrPictureBuilder::DrawArc(const Rect& bounds,
                                Scalar sweep,
                                bool use_center,
                                const flutter::DlPaint& paint) {
-  // TODO: generate arc path and draw that.
+  // The angles arrive in degrees: dart:ui converts from radians before
+  // the op is recorded.
+  //
+  // Materialized rather than given a mesh of its own. What an arc turns
+  // into depends on all of use_center, the sweep and the fill: a wedge
+  // for a pie, a segment cut by its chord without one, either of which
+  // is concave past half a turn, and an open contour that takes caps
+  // when it is stroked. The path already carries all of that.
+  DrawPath(flutter::DlPath::MakeArc(bounds, Degrees(start), Degrees(sweep),
+                                    use_center),
+           paint);
 }
 
 void PrPictureBuilder::DrawPoints(flutter::DlPointMode mode,
@@ -1240,17 +1399,7 @@ void PrPictureBuilder::DrawShadow(const flutter::DlPath& path,
     return;
   }
 
-  shadow_contour_.edges.clear();
-  if (const auto* edges = path.GetEdges()) {
-    shadow_contour_.edges.assign(edges->begin(), edges->end());
-  }
-
-  FlattenContourInto(shadow_contour_, shadow_silhouette_);
-  if (shadow_silhouette_.size() < 3) {
-    return;
-  }
-  const std::optional<Rect> silhouette = Rect::MakePointBounds(
-      shadow_silhouette_.begin(), shadow_silhouette_.end());
+  const std::optional<Rect> silhouette = FlattenSilhouette(path);
   if (!silhouette.has_value()) {
     return;
   }
@@ -1517,6 +1666,9 @@ void PrPictureBuilder::AppendPicture(const PrPicture& source) {
         break;
       case Draw::DrawType::kShadow:
         draw.shadow_data.offset += position_base;
+        break;
+      case Draw::DrawType::kBlurredFillPath:
+        draw.blur_data.offset += position_base;
         break;
       case Draw::DrawType::kText:
         draw.text_data.text_index += text_base;

@@ -6,6 +6,7 @@
 
 #include <iterator>
 #include <limits>
+#include <sstream>
 
 #include "flutter/fml/logging.h"
 
@@ -117,12 +118,31 @@ BufferArena::Result BufferArena::ReserveAllocation(uint32_t vertex_count,
 
   std::vector<BufferSet>& slot = sets_[current_frame_];
   bool new_buffer = false;
+  int overflowed = BufferType::kLength;
   const BufferSet& open = slot[current_offset_];
   for (int i = 0; i < BufferType::kLength; i++) {
     if (open[i].offset + wanted[i] > CapacityFor(static_cast<BufferType>(i))) {
       new_buffer = true;
+      overflowed = i;
       break;
     }
+  }
+  if (new_buffer) {
+    // One stream ran out and the whole set rolls over with it, so what
+    // the other five had left is wasted until the ring comes back
+    // round. Naming the stream that overflowed alongside what the rest
+    // gave up is what says whether the capacities are in proportion.
+    std::ostringstream leftovers;
+    for (int i = 0; i < BufferType::kLength; i++) {
+      const uint32_t capacity = CapacityFor(static_cast<BufferType>(i));
+      leftovers << (i == 0 ? "" : ", ") << kStreams[i].label << " "
+                << (capacity - open[i].offset) << "/" << capacity << " B free"
+                << (i == overflowed ? " (full)" : "");
+    }
+    FML_LOG(IMPORTANT) << "propeller: buffer set " << current_offset_
+                       << " rolled over, wanted " << wanted[overflowed]
+                       << " B of " << kStreams[overflowed].label << ": "
+                       << leftovers.str();
   }
   if (new_buffer && !OpenSet()) {
     return Result{};

@@ -35,8 +35,8 @@ PropellerEngine::PropellerEngine() {
     FML_LOG(ERROR) << "Propeller: no Metal device; staying disabled.";
     return;
   }
-  atlas_ = std::make_shared<PagedAtlas>(context_.get(), TextureFormat::kR8UNorm, 4096,
-                                        4096, 4);
+  atlas_ = std::make_shared<PagedAtlas>(context_.get(), TextureFormat::kR8UNorm, 2048,
+                                        2048, 4);
   glyph_rasterizer_ = FreeTypeGlyphRasterizer::Make();
   if (!glyph_rasterizer_) {
     return;

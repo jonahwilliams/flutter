@@ -36,7 +36,15 @@ template("metal_library") {
                              "args",
                            ])
 
-    inputs = invoker.sources + [ "//flutter/impeller/tools/metal_library.py" ]
+    # Headers reached by #include are not compiled, so they are not sources;
+    # they still have to be inputs or a header-only edit rebuilds nothing.
+    extra_inputs = []
+    if (defined(invoker.inputs)) {
+      extra_inputs = invoker.inputs
+    }
+
+    inputs = invoker.sources + extra_inputs +
+             [ "//flutter/impeller/tools/metal_library.py" ]
 
     metal_library_path = "$root_out_dir/shaders/$metal_library_name.metallib"
 

@@ -525,6 +525,10 @@ class PrPictureBuilder final : public flutter::DlCanvas {
 
   Rect ComputeCoverage(const Rect& local_bounds) const;
 
+  /// The same in root space but without the clips, which is how far the
+  /// draw reaches before any of them takes its share.
+  Rect ComputeReach(const Rect& local_bounds) const;
+
   /// Record a filled path, as one draw if it is convex and as an
   /// accumulate and a resolve if it is not.
   void FillPath(const flutter::DlPath& path, const flutter::DlPaint& paint);
@@ -547,7 +551,12 @@ class PrPictureBuilder final : public flutter::DlCanvas {
 
   void IntersectCullRect(const Rect& local_bounds);
 
-  void AppendDraw(Draw draw, Rect bounds);
+  /// Record a draw. `bounds` is what it covers once the clips have
+  /// taken their share; `local_bounds` is the rect it was measured from,
+  /// which is what the standing clips are asked about. Not `bounds`:
+  /// that has already been narrowed by the very clips in question, so it
+  /// always fits inside them and could never show that one of them cuts.
+  void AppendDraw(Draw draw, Rect bounds, const Rect& local_bounds);
 
   /// Record a clip: the shape, which accumulates its winding, and the
   /// resolve that turns it into coverage.
@@ -556,11 +565,12 @@ class PrPictureBuilder final : public flutter::DlCanvas {
                   Rect clip,
                   Rect interior = Rect());
 
-  /// Record any clip that has not been recorded yet, unless `coverage`
+  /// Record any clip that has not been recorded yet, unless `reach`
   /// fits inside every one of them. What fits inside a clip is not
   /// masked by it, so a clip is only worth drawing once something
-  /// reaches past it.
-  void MaterializePendingClips(const Rect& coverage);
+  /// reaches past it. Each goes down under the scissor it pushed rather
+  /// than the one standing now, which may belong to a clip inside it.
+  void MaterializePendingClips(const Rect& reach);
 
   /// Rebuild the clip coverage without the clips pushed since `depth`.
   void PopClips(size_t depth);
@@ -574,10 +584,20 @@ class PrPictureBuilder final : public flutter::DlCanvas {
   /// to the region it just put back.
   void RecordScissor(Rect local_bounds);
 
+  /// The same again, against a transform that was current at some
+  /// earlier point. A clip's scissor is recorded when the clip is, which
+  /// may be long after the transform it was measured against.
+  void RecordScissor(Rect local_bounds, uint32_t transform);
+
   struct ClipEntry {
     Draw shape;
     Draw resolve;
     Rect coverage;
+    /// The cull rect this clip left, in the local space of the transform
+    /// `shape` carries. Recorded with the shape rather than when the
+    /// clip was pushed, so the shape is masked by its own scissor and
+    /// not by whichever narrower one an inner clip has since pushed.
+    Rect scissor_bounds;
     /// A rect wholly inside the clip shape, in root space, or empty when
     /// nothing can be said about it. A draw that fits in here is not cut
     /// by this clip.

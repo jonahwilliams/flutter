@@ -20,6 +20,29 @@ def make_directories(path):
       raise
 
 
+# Metal 3.0 unified the language standards: there is no longer a per-platform
+# spelling, and each standard carries its own minimum deployment target.
+def is_metal3(version):
+  return tuple(int(part) for part in version.split('.')) >= (3, 0)
+
+
+def language_standard(platform, version):
+  if is_metal3(version):
+    return '--std=metal%s' % version
+  if platform == 'mac':
+    return '--std=macos-metal%s' % version
+  return '--std=ios-metal%s' % version
+
+
+def deployment_target(platform, version):
+  metal3 = is_metal3(version)
+  if platform == 'mac':
+    return '-mmacos-version-min=%s' % ('13.0' if metal3 else '10.14')
+  if platform == 'ios':
+    return '-mios-version-min=%s' % ('16.0' if metal3 else '11.0')
+  return '-miphonesimulator-version-min=%s' % ('16.0' if metal3 else '11.0')
+
+
 def main():
   parser = argparse.ArgumentParser()
   parser.add_argument(
@@ -99,23 +122,10 @@ def main():
 
   # Select the Metal standard and the minimum supported OS versions.
   # The Metal standard must match the specification in impellerc.
-  if args.platform == 'mac':
-    command += [
-        '--std=macos-metal%s' % args.metal_version,
-        '-mmacos-version-min=10.14',
-    ]
-  elif args.platform == 'ios':
-    command += [
-        '--std=ios-metal%s' % args.metal_version,
-        '-mios-version-min=11.0',
-    ]
-  elif args.platform == 'ios-simulator':
-    command += [
-        '--std=ios-metal%s' % args.metal_version,
-        '-miphonesimulator-version-min=11.0',
-    ]
-  else:
-    raise 'Unknown target platform'
+  command += [
+      language_standard(args.platform, args.metal_version),
+      deployment_target(args.platform, args.metal_version),
+  ]
 
   command += args.source
 

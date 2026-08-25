@@ -259,9 +259,6 @@ MTLPixelFormat ToMTLPixelFormat(TextureFormat format) {
   return kPixelFormats[static_cast<size_t>(format)];
 }
 
-/// A wrapped texture's format as the renderer names it. Nothing for a
-/// format it cannot: an offscreen has to be made in the same format as
-/// the drawable, and one that cannot be named cannot be made.
 std::optional<TextureFormat> FromMTLPixelFormat(MTLPixelFormat format) {
   for (size_t i = 0; i < std::size(kPixelFormats); i++) {
     if (kPixelFormats[i] == format) {
@@ -295,6 +292,7 @@ std::unique_ptr<GPUTexture> GPUContextMTL::CreateTexture(
                                   height:desc.height
                                mipmapped:NO];
   if (desc.transient) {
+    descriptor.resourceOptions = MTLResourceStorageModeMemoryless;
     descriptor.storageMode = MTLStorageModeMemoryless;
     descriptor.usage = MTLTextureUsageRenderTarget;
   } else {
@@ -309,6 +307,7 @@ std::unique_ptr<GPUTexture> GPUContextMTL::CreateTexture(
   if (!zeroed) {
     return result;
   }
+
   const size_t row_bytes = desc.width * BytesPerPixel(desc.format);
   id<MTLBuffer> zeros =
       [device_ newBufferWithLength:row_bytes * desc.height

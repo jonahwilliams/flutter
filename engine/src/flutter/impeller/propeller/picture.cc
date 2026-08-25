@@ -367,7 +367,7 @@ void PrPictureBuilder::Restore() {
                     .color_filter_index = color_filter_index,  //
                 },
         },
-        coverage);
+        coverage, local_bounds);
     return;
   }
 
@@ -535,8 +535,6 @@ void PrPictureBuilder::ClipRect(const Rect& rect,
     return;
   }
   IntersectCullRect(rect);
-  RecordScissor();
-
   FlushTransform();
   AppendClip(
       Draw{
@@ -557,8 +555,6 @@ void PrPictureBuilder::ClipOval(const Rect& bounds,
     return;
   }
   IntersectCullRect(bounds);
-  RecordScissor();
-
   FlushTransform();
   AppendClip(
       Draw{
@@ -582,8 +578,6 @@ void PrPictureBuilder::ClipRoundRect(const RoundRect& rrect,
     return;
   }
   IntersectCullRect(rrect.GetBounds());
-  RecordScissor();
-
   FlushTransform();
   AppendClip(
       Draw{
@@ -633,7 +627,6 @@ void PrPictureBuilder::ClipPath(const flutter::DlPath& path,
   }
 
   IntersectCullRect(path.GetBounds());
-  RecordScissor();
 
   FlushTransform();
   const std::shared_ptr<PrPicture>& picture = pictures_.back();
@@ -686,8 +679,7 @@ void PrPictureBuilder::DrawPaint(const flutter::DlPaint& paint) {
           .color = ComputeDrawPaintColor(&paint),
           .gradient = GetGradientIndex(paint.getColorSource()),  //
       },
-      coverage  //
-  );
+      coverage, GetLocalClipCoverage());
 }
 
 void PrPictureBuilder::DrawColor(flutter::DlColor color,
@@ -705,8 +697,7 @@ void PrPictureBuilder::DrawColor(flutter::DlColor color,
           .rect = GetLocalClipCoverage(),
           .color = color,  //
       },
-      coverage  //
-  );
+      coverage, GetLocalClipCoverage());
 }
 
 void PrPictureBuilder::DrawLine(const Point& p0,
@@ -787,8 +778,7 @@ void PrPictureBuilder::DrawRect(const Rect& rect,
           .color = ComputeDrawPaintColor(&paint),               //
           .gradient = GetGradientIndex(paint.getColorSource())  //
       },
-      coverage  //
-  );
+      coverage, rect);
 }
 
 void PrPictureBuilder::DrawOval(const Rect& bounds,
@@ -815,8 +805,7 @@ void PrPictureBuilder::DrawOval(const Rect& bounds,
           .gradient = GetGradientIndex(paint.getColorSource()),
           .radii = RoundingRadii::MakeRadii(bounds.GetSize() / 2)  //
       },
-      coverage  //
-  );
+      coverage, bounds);
 }
 
 void PrPictureBuilder::DrawCircle(const Point& center,
@@ -845,7 +834,7 @@ void PrPictureBuilder::DrawCircle(const Point& center,
           .gradient = GetGradientIndex(paint.getColorSource()),
           .radii = RoundingRadii::MakeRadii(bounds.GetSize() / 2)  //
       },
-      coverage);
+      coverage, bounds);
 }
 
 void PrPictureBuilder::DrawRoundRect(const RoundRect& rrect,
@@ -878,8 +867,7 @@ void PrPictureBuilder::DrawRoundRect(const RoundRect& rrect,
           .gradient = GetGradientIndex(paint.getColorSource()),
           .radii = rrect.GetRadii()  //
       },
-      coverage  //
-  );
+      coverage, rrect.GetBounds());
 }
 
 void PrPictureBuilder::DrawDiffRoundRect(const RoundRect& outer,
@@ -992,8 +980,7 @@ bool PrPictureBuilder::FillBlurredPath(const flutter::DlPath& path,
                   .respect_ctm = blur->respectCTM(),  //
               },
       },
-      coverage  //
-  );
+      coverage, bounds);
   return true;
 }
 
@@ -1022,8 +1009,7 @@ void PrPictureBuilder::FillPath(const flutter::DlPath& path,
             .gradient = GetGradientIndex(paint.getColorSource()),
             .path_data = {.path_index = index}  //
         },
-        coverage  //
-    );
+        coverage, path.GetBounds());
     return;
   }
 
@@ -1047,8 +1033,7 @@ void PrPictureBuilder::FillPath(const flutter::DlPath& path,
           .color = paint.getColor(),
           .path_data = {.path_index = index}  //
       },
-      coverage  //
-  );
+      coverage, bounds);
   AppendDraw(
       Draw{
           .type = path.GetFillType() == flutter::DlPathFillType::kOdd
@@ -1060,8 +1045,7 @@ void PrPictureBuilder::FillPath(const flutter::DlPath& path,
           .gradient = GetGradientIndex(paint.getColorSource()),
           .path_data = {.path_index = index}  //
       },
-      coverage  //
-  );
+      coverage, bounds);
 }
 
 void PrPictureBuilder::StrokePath(const flutter::DlPath& path,
@@ -1124,9 +1108,9 @@ void PrPictureBuilder::DrawPoints(flutter::DlPointMode mode,
 
   if (mode == flutter::DlPointMode::kPoints) {
     Scalar radius = paint.getStrokeWidth() / 2;
-    Rect coverage = ComputeCoverage(Rect::MakePointBounds(pts, pts + count)
-                                        .value_or(Rect())
-                                        .Expand(radius));
+    const Rect point_bounds =
+        Rect::MakePointBounds(pts, pts + count).value_or(Rect()).Expand(radius);
+    Rect coverage = ComputeCoverage(point_bounds);
     if (coverage.IsEmpty()) {
       return;
     }
@@ -1149,7 +1133,7 @@ void PrPictureBuilder::DrawPoints(flutter::DlPointMode mode,
             .gradient = GetGradientIndex(paint.getColorSource()),
             .point_data = data,
         },
-        coverage);
+        coverage, point_bounds);
     return;
   }
 }
@@ -1180,8 +1164,7 @@ void PrPictureBuilder::DrawVertices(
           .color = paint.getColor(),
           .vertices_data = Draw::VerticesData{.vertices_index = index},
       },
-      coverage  //
-  );
+      coverage, vertices->GetBounds());
 }
 
 void PrPictureBuilder::DrawImage(const sk_sp<flutter::DlImage>& image,
@@ -1250,8 +1233,7 @@ void PrPictureBuilder::DrawImageRect(const sk_sp<flutter::DlImage>& image,
           .uv_data = MakeUVData(src, Rect::Make(image->GetBounds()), sampling,
                                 AddImage(image))  //
       },
-      coverage  //
-  );
+      coverage, dst);
 }
 
 void PrPictureBuilder::DrawImageNine(const sk_sp<flutter::DlImage>& image,
@@ -1361,8 +1343,7 @@ void PrPictureBuilder::DrawAtlas(const sk_sp<flutter::DlImage>& atlas,
           .color = ComputeImagePaintColor(paint),
           .atlas_data = Draw::AtlasData{.atlas_index = index},
       },
-      coverage  //
-  );
+      coverage, bounds);
 }
 
 void PrPictureBuilder::DrawDisplayList(
@@ -1404,8 +1385,7 @@ void PrPictureBuilder::DrawPicture(const std::shared_ptr<PrPicture>& picture,
                   .color_filter_index = Draw::kNoIndex,  //
               },
       },
-      coverage  //
-  );
+      coverage, picture->bounds_union_.value());
 }
 
 void PrPictureBuilder::DrawOpaquePicture(const std::shared_ptr<void>& picture,
@@ -1442,8 +1422,14 @@ void PrPictureBuilder::DrawText(const std::shared_ptr<flutter::DlText>& text,
                   .text_index = index, .position = Point(x, y)  //
               },
       },
-      coverage  //
-  );
+      coverage, text->GetBounds().Shift(x, y));
+}
+
+Rect PrPictureBuilder::ComputeReach(const Rect& local_bounds) const {
+  if (local_bounds.IsMaximum()) {
+    return Rect::MakeMaximum();
+  }
+  return local_bounds.TransformBounds(save_stack_.back().transform);
 }
 
 Rect PrPictureBuilder::ComputeCoverage(const Rect& local_bounds) const {
@@ -1512,8 +1498,7 @@ void PrPictureBuilder::DrawShadow(const flutter::DlPath& path,
                   .transparent_occluder = transparent_occluder,  //
               },
       },
-      coverage  //
-  );
+      coverage, bounds);
 }
 
 uint32_t PrPictureBuilder::AddImage(const sk_sp<flutter::DlImage>& image) {
@@ -1603,13 +1588,17 @@ void PrPictureBuilder::RecordScissor() {
 
 void PrPictureBuilder::RecordScissor(Rect local_bounds) {
   FlushTransform();
+  RecordScissor(local_bounds, pictures_.back()->GetCurrentTransform());
+}
+
+void PrPictureBuilder::RecordScissor(Rect local_bounds, uint32_t transform) {
   Draw scissor{
       .type = Draw::DrawType::kScissor,
       .blend_mode = BlendMode::kSrcOver,
       .rect = local_bounds,
       .color = flutter::DlColor(),  //
   };
-  scissor.transform = pictures_.back()->GetCurrentTransform();
+  scissor.transform = transform;
   // Maximum coverage: a scissor is state, and skipping it because the
   // pass missed its rect would leave the last one in force.
   RecordClip(scissor, Rect::MakeMaximum());
@@ -1631,6 +1620,7 @@ void PrPictureBuilder::AppendClip(Draw shape,
               .color = flutter::DlColor(),  //
           },
       .coverage = coverage,
+      .scissor_bounds = GetLocalClipCoverage(),
       // Only where the shape stays square to the axes: a turned rect's
       // bounds reach outside it, and a rect that reaches outside the
       // clip is no use for saying what the clip cannot cut.
@@ -1640,16 +1630,13 @@ void PrPictureBuilder::AppendClip(Draw shape,
               : interior.TransformBounds(save_stack_.back().transform),
   };
   entry.resolve.transform = shape.transform;
-  // Not recorded here. Nothing has been drawn under it yet, so nothing
-  // is known to reach past it, and a clip that nothing reaches past
-  // masks nothing.
   clip_stack_.push_back(entry);
 }
 
-void PrPictureBuilder::MaterializePendingClips(const Rect& coverage) {
+void PrPictureBuilder::MaterializePendingClips(const Rect& reach) {
   bool reaches_past = false;
   for (const ClipEntry& clip : clip_stack_) {
-    if (!clip.live && !clip.interior.Contains(coverage)) {
+    if (!clip.live && !clip.interior.Contains(reach)) {
       reaches_past = true;
       break;
     }
@@ -1661,14 +1648,17 @@ void PrPictureBuilder::MaterializePendingClips(const Rect& coverage) {
     if (clip.live) {
       continue;
     }
+    RecordScissor(clip.scissor_bounds, clip.shape.transform);
     RecordClip(clip.shape, clip.coverage);
     RecordClip(clip.resolve, clip.coverage);
     clip.live = true;
   }
 }
 
-void PrPictureBuilder::AppendDraw(Draw draw, Rect coverage) {
-  MaterializePendingClips(coverage);
+void PrPictureBuilder::AppendDraw(Draw draw,
+                                  Rect coverage,
+                                  const Rect& local_bounds) {
+  MaterializePendingClips(ComputeReach(local_bounds));
   draw.transform = pictures_.back()->GetCurrentTransform();
   RecordDraw(draw, coverage);
 }

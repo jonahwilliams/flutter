@@ -35,11 +35,17 @@ void FlattenContourInto(const ConvexContour& contour,
 //------------------------------------------------------------------------------
 /// Where a shadow's penumbra band runs for one silhouette.
 ///
-/// The rims are mitered per vertex, so the band is a blur radius wide
-/// measured perpendicular to each edge rather than to each corner. The
-/// inner rim is clamped: a shape smaller than the blur, or a corner
-/// tighter than it, would otherwise fold through itself and composite
-/// its own penumbra twice.
+/// Both rims are mitered per vertex, so the band is a blur radius wide
+/// measured perpendicular to each edge rather than to each corner.
+///
+/// The inner rim cannot always have the blur radius it asks for. A
+/// corner turns through the same angle however tight it is, so a mitre
+/// carries every vertex of it the full inset inward, and once the inset
+/// passes what the corner can give those vertices cross each other: the
+/// rim turns inside out and the band composites its own penumbra twice,
+/// which reads as a dark speckle at every corner. The inset backs off
+/// to what the tightest corner allows instead, and the coverage the rim
+/// is read at follows it down.
 struct ShadowRing {
   std::vector<Point> inner;
   std::vector<Point> outer;

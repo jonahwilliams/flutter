@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <optional>
 
 namespace impeller {
 
@@ -46,6 +47,18 @@ Point MiteredNormal(const Point* silhouette,
   const Point n_previous = EdgeNormal(previous, vertex, facing);
   const Point n_next = EdgeNormal(vertex, next, facing);
 
+  // An edge with no length has no normal, and there is no corner
+  // between a direction and nothing to reach around: the mitre is the
+  // one normal there is. Falling through with a zero here would take
+  // the cosine below to zero and send the mitre out to its limit, which
+  // is a spike where the contour merely stalled.
+  if (n_previous.IsZero()) {
+    return n_next;
+  }
+  if (n_next.IsZero()) {
+    return n_previous;
+  }
+
   Point bisector = n_previous + n_next;
   const Scalar length = bisector.GetLength();
   if (length < kDegenerate) {
@@ -63,6 +76,52 @@ Point MiteredNormal(const Point* silhouette,
   const Scalar scale =
       cos_half > 1.0f / kShadowMiterLimit ? 1.0f / cos_half : kShadowMiterLimit;
   return bisector * scale;
+}
+
+/// The tangent of half the angle the contour turns through at vertex
+/// `i`, which is how far along each of the edges meeting there a mitre
+/// of unit depth slides.
+Scalar TanHalfTurn(const Point* silhouette,
+                   size_t count,
+                   size_t i,
+                   Scalar facing) {
+  const Point n_previous =
+      EdgeNormal(silhouette[(i + count - 1) % count], silhouette[i], facing);
+  const Point n_next =
+      EdgeNormal(silhouette[i], silhouette[(i + 1) % count], facing);
+  if (n_previous.IsZero() || n_next.IsZero()) {
+    return 0;  // No turn, because there is no edge to turn from.
+  }
+  const Scalar cosine = n_previous.Dot(n_next);
+  if (cosine <= -1.0f + kDegenerate) {
+    return std::numeric_limits<Scalar>::max();  // A cusp, which closes at once.
+  }
+  return std::abs(n_previous.Cross(n_next)) / (1 + cosine);
+}
+
+/// How far a convex contour can be pulled in before its own corners
+/// close up.
+///
+/// Insetting slides each end of an edge along it by the inset times the
+/// tangent of half the turn there, and the edge has only its own length
+/// to give. Once it has given all of it the edge has vanished and its
+/// neighbours have crossed: the rim turns inside out. The contour can
+/// go as far as its tightest edge and no further.
+Scalar MaxInset(const Point* silhouette, size_t count, Scalar facing) {
+  Scalar limit = std::numeric_limits<Scalar>::max();
+  for (size_t i = 0; i < count; i++) {
+    const size_t j = (i + 1) % count;
+    const Scalar length = (silhouette[j] - silhouette[i]).GetLength();
+    if (length < kDegenerate) {
+      continue;
+    }
+    const Scalar slide = TanHalfTurn(silhouette, count, i, facing) +
+                         TanHalfTurn(silhouette, count, j, facing);
+    if (slide > kDegenerate) {
+      limit = std::min(limit, length / slide);
+    }
+  }
+  return limit;
 }
 
 }  // namespace
@@ -128,29 +187,30 @@ void BuildShadowRing(const Point* silhouette,
   }
   ring.inradius = inradius;
 
-  // Clamp the blur radius if we cannot fully inset the shadow due to
-  // dimensions.
-  ring.inset = std::min(blur_radius, inradius);
+  // As far in as the rim can go: no further than the blur asked for, no
+  // further than the middle, and no further than the tightest corner
+  // can be pulled before it closes up. Backing off here rather than
+  // folding is what keeps the band from compositing over itself, and
+  // the coverage the rim is read at follows the inset it actually got.
+  ring.inset =
+      std::min({blur_radius, inradius, MaxInset(silhouette, count, facing)});
   const bool collapsed = blur_radius >= inradius;
 
   ring.inner.resize(count);
   ring.outer.resize(count);
   for (size_t i = 0; i < count; i++) {
-    const Point normal = MiteredNormal(silhouette, count, i, facing);
-    ring.outer[i] = silhouette[i] + normal * blur_radius;
+    ring.outer[i] = silhouette[i] +
+                    MiteredNormal(silhouette, count, i, facing) * blur_radius;
+  }
 
-    // A shape narrower than its blur collapses to the centroid.
-    if (collapsed) {
-      ring.inner[i] = ring.centroid;
-      continue;
-    }
-    // Wider than the blur overall, but a corner tight enough for the
-    // mitre to carry it past the middle on its own still stops there.
-    const Point candidate = silhouette[i] - normal * ring.inset;
-    ring.inner[i] =
-        (candidate - ring.centroid).Dot(silhouette[i] - ring.centroid) < 0
-            ? ring.centroid
-            : candidate;
+  if (collapsed) {
+    // A shape narrower than its blur has no interior left to inset.
+    std::fill(ring.inner.begin(), ring.inner.end(), ring.centroid);
+    return;
+  }
+  for (size_t i = 0; i < count; i++) {
+    ring.inner[i] = silhouette[i] -
+                    MiteredNormal(silhouette, count, i, facing) * ring.inset;
   }
 }
 

@@ -1066,6 +1066,7 @@ void SceneFlattener::FlattenPicture(const PrPicture& picture,
   }
 
   uint32_t layer = 0;
+  uint32_t last_transform_index = std::numeric_limits<uint32_t>::max();
   for (auto i = start_index; i < draws.size(); i++) {
     const Draw& draw = draws[i];
     const size_t type = static_cast<size_t>(draw.type);
@@ -1148,13 +1149,13 @@ void SceneFlattener::FlattenPicture(const PrPicture& picture,
       continue;
     }
 
-    // uint32_t gradient_count = draw.gradient == Draw::kNoIndex ? 0 : 1;
     BufferArena::Result result =
         arena.ReserveAllocation(vertex_count, index_count);
     if (!result.IsValid()) {
       continue;
     }
     *result.transform_out = transform;
+    last_transform_index = draw.transform;
     *result.paint_out = PrPaint{
         .transform_index = static_cast<int32_t>(result.transform_start),
     };

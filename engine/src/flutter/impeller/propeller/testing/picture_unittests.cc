@@ -371,14 +371,11 @@ TEST(PrPictureTest, ClipDoesNotContributeBounds) {
   builder.ClipRect(Rect::MakeLTRB(0, 0, 100, 100));
   std::shared_ptr<PrPicture> picture = builder.Build();
 
-  // The clip's scissor, the shape and its resolve, then the pop: the
-  // scissor back to where it was and the coverage with it.
-  ASSERT_EQ(picture->GetDraws().size(), 6u);
+  // Nothing was drawn under it, so nothing ever reached past it and it
+  // masked nothing: no scissor, no shape, no resolve, and so nothing
+  // for the pop to put back either. Only the pop's own scissor is left.
+  ASSERT_EQ(picture->GetDraws().size(), 1u);
   EXPECT_EQ(picture->GetDraws()[0].type, Draw::DrawType::kScissor);
-  EXPECT_EQ(picture->GetDraws()[1].type, Draw::DrawType::kRectClip);
-  EXPECT_EQ(picture->GetDraws()[2].type, Draw::DrawType::kClipResolveNonZero);
-  EXPECT_EQ(picture->GetDraws()[3].type, Draw::DrawType::kScissor);
-  EXPECT_EQ(picture->GetDraws()[4].type, Draw::DrawType::kClipReset);
   // A clip bounds content, it never contributes any.
   EXPECT_FALSE(picture->GetBoundsUnion().has_value());
   // bounds_ stays parallel to draws_.
@@ -414,8 +411,12 @@ TEST(PrPictureTest, ARestoreRebuildsTheClipsThatOutliveIt) {
   builder.ClipRect(Rect::MakeLTRB(0, 0, 100, 100));
   builder.Save();
   builder.ClipRect(Rect::MakeLTRB(0, 0, 50, 50));
+  // Each draw reaches past both clips standing over it, so both are
+  // recorded and the restore has one of them to put back.
+  builder.DrawRect(Rect::MakeLTRB(0, 0, 200, 200),
+                   Fill(flutter::DlColor::kRed()));
   builder.Restore();
-  builder.DrawRect(Rect::MakeLTRB(0, 0, 10, 10),
+  builder.DrawRect(Rect::MakeLTRB(0, 0, 200, 200),
                    Fill(flutter::DlColor::kRed()));
   std::shared_ptr<PrPicture> picture = builder.Build();
 
@@ -423,27 +424,33 @@ TEST(PrPictureTest, ARestoreRebuildsTheClipsThatOutliveIt) {
   // the coverage back to what the outer clip alone leaves, and that
   // clip applied again, so the draw that follows is under it alone.
   const std::vector<Draw>& draws = picture->GetDraws();
-  ASSERT_EQ(draws.size(), 15u);
+  ASSERT_EQ(draws.size(), 16u);
+  // Each clip goes down under its own scissor, which is the one it
+  // narrowed the cull rect to and not whichever narrower one an inner
+  // clip has pushed since.
   EXPECT_EQ(draws[0].type, Draw::DrawType::kScissor);
+  EXPECT_RECT_NEAR(draws[0].rect, Rect::MakeLTRB(0, 0, 100, 100));
   EXPECT_EQ(draws[1].type, Draw::DrawType::kRectClip);
   EXPECT_EQ(draws[2].type, Draw::DrawType::kClipResolveNonZero);
   EXPECT_EQ(draws[3].type, Draw::DrawType::kScissor);
+  EXPECT_RECT_NEAR(draws[3].rect, Rect::MakeLTRB(0, 0, 50, 50));
   EXPECT_EQ(draws[4].type, Draw::DrawType::kRectClip);
   EXPECT_EQ(draws[5].type, Draw::DrawType::kClipResolveNonZero);
+  EXPECT_EQ(draws[6].type, Draw::DrawType::kRect);
   // The pop holds itself to the region the inner clip masked, puts
   // that back, replays the outer clip into it, and widens again.
-  EXPECT_EQ(draws[6].type, Draw::DrawType::kScissor);
-  EXPECT_RECT_NEAR(draws[6].rect, Rect::MakeLTRB(0, 0, 50, 50));
-  EXPECT_EQ(draws[7].type, Draw::DrawType::kClipReset);
-  EXPECT_EQ(draws[8].type, Draw::DrawType::kRectClip);
-  EXPECT_RECT_NEAR(draws[8].rect, Rect::MakeLTRB(0, 0, 100, 100));
-  EXPECT_EQ(draws[9].type, Draw::DrawType::kClipResolveNonZero);
-  EXPECT_EQ(draws[10].type, Draw::DrawType::kScissor);
-  EXPECT_RECT_NEAR(draws[10].rect, Rect::MakeLTRB(0, 0, 100, 100));
-  EXPECT_EQ(draws[11].type, Draw::DrawType::kRect);
-  EXPECT_EQ(draws[12].type, Draw::DrawType::kScissor) << "the picture's own";
-  EXPECT_EQ(draws[13].type, Draw::DrawType::kClipReset);
-  EXPECT_EQ(draws[14].type, Draw::DrawType::kScissor);
+  EXPECT_EQ(draws[7].type, Draw::DrawType::kScissor);
+  EXPECT_RECT_NEAR(draws[7].rect, Rect::MakeLTRB(0, 0, 50, 50));
+  EXPECT_EQ(draws[8].type, Draw::DrawType::kClipReset);
+  EXPECT_EQ(draws[9].type, Draw::DrawType::kRectClip);
+  EXPECT_RECT_NEAR(draws[9].rect, Rect::MakeLTRB(0, 0, 100, 100));
+  EXPECT_EQ(draws[10].type, Draw::DrawType::kClipResolveNonZero);
+  EXPECT_EQ(draws[11].type, Draw::DrawType::kScissor);
+  EXPECT_RECT_NEAR(draws[11].rect, Rect::MakeLTRB(0, 0, 100, 100));
+  EXPECT_EQ(draws[12].type, Draw::DrawType::kRect);
+  EXPECT_EQ(draws[13].type, Draw::DrawType::kScissor) << "the picture's own";
+  EXPECT_EQ(draws[14].type, Draw::DrawType::kClipReset);
+  EXPECT_EQ(draws[15].type, Draw::DrawType::kScissor);
 }
 
 // -----------------------------------------------------------------------
@@ -459,8 +466,9 @@ TEST(PrPictureTest, DrawOutsideClipIsDropped) {
   std::shared_ptr<PrPicture> picture = builder.Build();
 
   // Only the clip was recorded, with its scissor and its resolve.
-  ASSERT_EQ(picture->GetDraws().size(), 6u);
-  EXPECT_EQ(picture->GetDraws()[1].type, Draw::DrawType::kRectClip);
+  // The draw was dropped, and the clip that would have bounded it
+  // masked nothing that survived, so neither of them was recorded.
+  ASSERT_EQ(picture->GetDraws().size(), 1u);
   EXPECT_FALSE(picture->GetBoundsUnion().has_value());
 }
 
@@ -495,8 +503,9 @@ TEST(PrPictureTest, ClippedDrawIsCulledInRootSpace) {
   std::shared_ptr<PrPicture> picture = builder.Build();
 
   // The translate pushes the draw past the clip: clip only, no draw.
-  ASSERT_EQ(picture->GetDraws().size(), 6u);
-  EXPECT_EQ(picture->GetDraws()[1].type, Draw::DrawType::kRectClip);
+  // The draw was dropped, and the clip that would have bounded it
+  // masked nothing that survived, so neither of them was recorded.
+  ASSERT_EQ(picture->GetDraws().size(), 1u);
 }
 
 TEST(PrPictureTest, ShapeDrawsAreCulled) {
@@ -513,8 +522,9 @@ TEST(PrPictureTest, ShapeDrawsAreCulled) {
 
   std::shared_ptr<PrPicture> picture = builder.Build();
 
-  ASSERT_EQ(picture->GetDraws().size(), 6u);
-  EXPECT_EQ(picture->GetDraws()[1].type, Draw::DrawType::kRectClip);
+  // The draw was dropped, and the clip that would have bounded it
+  // masked nothing that survived, so neither of them was recorded.
+  ASSERT_EQ(picture->GetDraws().size(), 1u);
 }
 
 TEST(PrPictureTest, CulledPointsNeverReachPositionStorage) {
@@ -531,8 +541,9 @@ TEST(PrPictureTest, CulledPointsNeverReachPositionStorage) {
   // The reject has to happen before the points are copied: appending to
   // the picture is not something a later reject could take back.
   EXPECT_TRUE(picture->GetPositions().empty());
-  ASSERT_EQ(picture->GetDraws().size(), 6u);
-  EXPECT_EQ(picture->GetDraws()[1].type, Draw::DrawType::kRectClip);
+  // The draw was dropped, and the clip that would have bounded it
+  // masked nothing that survived, so neither of them was recorded.
+  ASSERT_EQ(picture->GetDraws().size(), 1u);
 }
 
 TEST(PrPictureTest, VisiblePointsAreBoundedByTheirRadius) {
@@ -546,9 +557,11 @@ TEST(PrPictureTest, VisiblePointsAreBoundedByTheirRadius) {
 
   std::shared_ptr<PrPicture> picture = builder.Build();
 
-  ASSERT_EQ(picture->GetDraws().size(), 7u);
+  // Both points and their radius fit well inside the clip, so the clip
+  // masked nothing and the draw stands alone.
+  ASSERT_EQ(picture->GetDraws().size(), 2u);
   EXPECT_EQ(picture->GetPositions().size(), 2u);
-  EXPECT_RECT_NEAR(picture->GetBounds()[3], Rect::MakeLTRB(15, 15, 45, 45));
+  EXPECT_RECT_NEAR(picture->GetBounds()[0], Rect::MakeLTRB(15, 15, 45, 45));
 }
 
 TEST(PrPictureTest, UnboundedDrawCoversTheClip) {
@@ -559,7 +572,9 @@ TEST(PrPictureTest, UnboundedDrawCoversTheClip) {
 
   std::shared_ptr<PrPicture> picture = builder.Build();
 
-  ASSERT_EQ(picture->GetDraws().size(), 7u);
+  // The draw takes the clip's rect as its own geometry, which is all
+  // the clip would have left it: the clip itself masks nothing.
+  ASSERT_EQ(picture->GetDraws().size(), 2u);
   EXPECT_RECT_NEAR(picture->GetBoundsUnion().value(),
                    Rect::MakeLTRB(10, 10, 100, 100));
 }
@@ -633,8 +648,9 @@ TEST(PrPictureTest, FullyClippedLayerIsDropped) {
   std::shared_ptr<PrPicture> picture = builder.Build();
 
   // No composite, and no orphaned picture left behind by the layer.
-  ASSERT_EQ(picture->GetDraws().size(), 6u);
-  EXPECT_EQ(picture->GetDraws()[1].type, Draw::DrawType::kRectClip);
+  // The draw was dropped, and the clip that would have bounded it
+  // masked nothing that survived, so neither of them was recorded.
+  ASSERT_EQ(picture->GetDraws().size(), 1u);
   EXPECT_TRUE(picture->GetPictures().empty());
 }
 
@@ -786,8 +802,9 @@ TEST(PrPictureTest, CulledImageNeverReachesImageStorage) {
   // Holding a reference to an image the picture never draws would keep it
   // alive for nothing.
   EXPECT_TRUE(picture->GetImages().empty());
-  ASSERT_EQ(picture->GetDraws().size(), 6u);
-  EXPECT_EQ(picture->GetDraws()[1].type, Draw::DrawType::kRectClip);
+  // The draw was dropped, and the clip that would have bounded it
+  // masked nothing that survived, so neither of them was recorded.
+  ASSERT_EQ(picture->GetDraws().size(), 1u);
 }
 
 TEST(PrPictureTest, DistinctImagesTakeDistinctSlots) {
@@ -916,9 +933,9 @@ TEST(PrPictureTest, NinePatchesAreCulledIndividually) {
 
   std::shared_ptr<PrPicture> picture = builder.Build();
 
-  ASSERT_EQ(picture->GetDraws().size(), 7u);
-  EXPECT_EQ(picture->GetDraws()[3].type, Draw::DrawType::kImageRect);
-  EXPECT_RECT_NEAR(picture->GetDraws()[3].rect, Rect::MakeLTRB(0, 0, 10, 10));
+  ASSERT_EQ(picture->GetDraws().size(), 2u);
+  EXPECT_EQ(picture->GetDraws()[0].type, Draw::DrawType::kImageRect);
+  EXPECT_RECT_NEAR(picture->GetDraws()[0].rect, Rect::MakeLTRB(0, 0, 10, 10));
   EXPECT_EQ(picture->GetImages().size(), 1u);
 }
 
@@ -1088,8 +1105,9 @@ TEST(PrPictureTest, DroppedLayerRecordsNoFilter) {
   std::shared_ptr<PrPicture> picture = builder.Build();
 
   // Nothing composited, so nothing holds the filters alive either.
-  ASSERT_EQ(picture->GetDraws().size(), 6u);
-  EXPECT_EQ(picture->GetDraws()[1].type, Draw::DrawType::kRectClip);
+  // The draw was dropped, and the clip that would have bounded it
+  // masked nothing that survived, so neither of them was recorded.
+  ASSERT_EQ(picture->GetDraws().size(), 1u);
   EXPECT_TRUE(picture->GetImageFilters().empty());
   EXPECT_TRUE(picture->GetColorFilters().empty());
 }
@@ -1291,8 +1309,9 @@ TEST(PrPictureTest, ADrawnPictureIsCulledByTheClip) {
   std::shared_ptr<PrPicture> picture = builder.Build();
 
   // Only the clip: a reference the clip rejects holds nothing alive.
-  ASSERT_EQ(picture->GetDraws().size(), 6u);
-  EXPECT_EQ(picture->GetDraws()[1].type, Draw::DrawType::kRectClip);
+  // The draw was dropped, and the clip that would have bounded it
+  // masked nothing that survived, so neither of them was recorded.
+  ASSERT_EQ(picture->GetDraws().size(), 1u);
   EXPECT_TRUE(picture->GetPictures().empty());
 }
 
@@ -1541,7 +1560,9 @@ TEST(PrPictureTest, AVertexBufferOutsideTheClipIsDropped) {
       flutter::DlBlendMode::kSrcOver, Fill(flutter::DlColor::kRed()));
 
   std::shared_ptr<PrPicture> picture = builder.Build();
-  ASSERT_EQ(picture->GetDraws().size(), 6u) << "only the clip";
+  // The draw was dropped, and the clip that would have bounded it
+  // masked nothing that survived, so neither of them was recorded.
+  ASSERT_EQ(picture->GetDraws().size(), 1u);
   EXPECT_TRUE(picture->GetVertices().empty());
 }
 
@@ -1784,7 +1805,9 @@ TEST(PrPictureTest, APathOutsideTheClipIsDropped) {
                    Fill(flutter::DlColor::kRed()));
 
   std::shared_ptr<PrPicture> picture = builder.Build();
-  ASSERT_EQ(picture->GetDraws().size(), 6u) << "only the clip";
+  // The draw was dropped, and the clip that would have bounded it
+  // masked nothing that survived, so neither of them was recorded.
+  ASSERT_EQ(picture->GetDraws().size(), 1u);
   EXPECT_TRUE(picture->GetPaths().empty());
 }
 
@@ -1797,9 +1820,12 @@ TEST(PrPictureTest, APathClipThatIsAShapeIsThatShapesClip) {
   builder.ClipPath(flutter::DlPath::MakeRoundRectXY(bounds, 10, 10));
   // Each of them narrows what follows, as its own clip method does.
   EXPECT_RECT_NEAR(builder.GetDestinationClipCoverage(), bounds);
+  // Reaches into the corners none of them keep, so all three are worth
+  // recording rather than elided as clips nothing overflows.
+  builder.DrawPaint(Fill(flutter::DlColor::kRed()));
   std::shared_ptr<PrPicture> picture = builder.Build();
 
-  ASSERT_EQ(picture->GetDraws().size(), 12u);
+  ASSERT_EQ(picture->GetDraws().size(), 13u);
   EXPECT_EQ(picture->GetDraws()[1].type, Draw::DrawType::kRectClip);
   EXPECT_EQ(picture->GetDraws()[4].type, Draw::DrawType::kRRectClip);
   EXPECT_EQ(picture->GetDraws()[7].type, Draw::DrawType::kRRectClip);
@@ -1817,9 +1843,12 @@ TEST(PrPictureTest, AConvexPathClipIsRecordedAndNarrowsTheCullRect) {
   // The path itself is enforced by the recorded clip; the cull rect
   // narrows to its bounds, which is also what the scissor gets.
   EXPECT_RECT_NEAR(builder.GetDestinationClipCoverage(), path.GetBounds());
+  // The corners the triangle cuts off are outside it, so the clip has
+  // something to take away and is recorded rather than elided.
+  builder.DrawPaint(Fill(flutter::DlColor::kRed()));
   std::shared_ptr<PrPicture> picture = builder.Build();
 
-  ASSERT_EQ(picture->GetDraws().size(), 6u);
+  ASSERT_EQ(picture->GetDraws().size(), 7u);
   EXPECT_EQ(picture->GetDraws()[0].type, Draw::DrawType::kScissor);
   EXPECT_RECT_NEAR(picture->GetDraws()[0].rect, path.GetBounds());
   const Draw& draw = picture->GetDraws()[1];
@@ -1827,8 +1856,9 @@ TEST(PrPictureTest, AConvexPathClipIsRecordedAndNarrowsTheCullRect) {
   ASSERT_EQ(picture->GetPaths().size(), 1u);
   EXPECT_EQ(picture->GetPaths()[draw.path_data.path_index].GetBounds(),
             path.GetBounds());
-  // A clip bounds content, it never contributes any.
-  EXPECT_FALSE(picture->GetBoundsUnion().has_value());
+  // A clip bounds content and never contributes any, so what is here
+  // is the paint's alone, held to what the clip admits.
+  EXPECT_RECT_NEAR(picture->GetBoundsUnion().value(), path.GetBounds());
 }
 
 TEST(PrPictureTest, AnInlinedPicturesPathsComeWithIt) {
@@ -1867,7 +1897,9 @@ TEST(PrPictureTest, AGradientDrawNamesItsSource) {
   builder.DrawRect(Rect::MakeLTRB(0, 0, 64, 64), paint);
   // A clip carries no colour, so it names no gradient.
   builder.ClipRect(Rect::MakeLTRB(0, 0, 32, 32));
-  builder.DrawCircle(Point(16, 16), 8, paint);
+  // Wider than the clip, so the clip is recorded and can be asked what
+  // colour it carries.
+  builder.DrawCircle(Point(16, 16), 24, paint);
   std::shared_ptr<PrPicture> picture = builder.Build();
 
   // The two draws share a source, and a clip between them does not
@@ -2243,9 +2275,11 @@ TEST(PrPictureTest, DrawReorderingStopsAtClips) {
   builder.DrawRect(Rect::MakeLTRB(0, 0, 10, 10),
                    Fill(flutter::DlColor::kRed()));
   builder.Save();
-  // Clip is 100, 100, 200, 200
-  builder.ClipRect(Rect::MakeLTRB(100, 100, 200, 200));
-  // RRect inside clip
+  // Clip is 105, 105, 200, 200
+  builder.ClipRect(Rect::MakeLTRB(105, 105, 200, 200));
+  // RRect over the corner of the clip, so it reaches past it and the
+  // clip is worth recording. A clip nothing overflows masks nothing and
+  // is never recorded, which would leave no clip here to stop at.
   builder.DrawRoundRect(
       RoundRect::MakeRectRadius(Rect::MakeLTRB(100, 100, 110, 110), 5.0f),
       Fill(flutter::DlColor::kRed()));
@@ -2296,6 +2330,69 @@ TEST(PrPictureTest, DrawReorderingMergesThroughAccumulate) {
   EXPECT_EQ(draws[1].type, Draw::DrawType::kConcaveWindingAccumulate);
   EXPECT_EQ(draws[2].type, Draw::DrawType::kConcaveWindingResolveNonZero);
   EXPECT_EQ(draws[3].type, Draw::DrawType::kConcaveWindingResolveNonZero);
+}
+
+TEST(PrPictureTest, AClipIsRecordedForWhatAPointCloudReachesNotItsRect) {
+  PrPictureBuilder builder;
+  // Straddles the clip's right edge once the radius is counted.
+  std::array<Point, 2> points = {Point(20, 20), Point(98, 20)};
+
+  builder.ClipRect(Rect::MakeLTRB(0, 0, 100, 100));
+  builder.DrawPoints(flutter::DlPointMode::kPoints, points.size(),
+                     points.data(),
+                     Fill(flutter::DlColor::kRed()).setStrokeWidth(10));
+
+  std::shared_ptr<PrPicture> picture = builder.Build();
+
+  // A point cloud carries its points in the position storage and leaves
+  // its own rect empty, so the rect is no measure of what it covers. Ask
+  // it and the clip looks like one nothing reaches past, and the points
+  // hanging over the edge would go down unmasked.
+  const std::vector<Draw>& draws = picture->GetDraws();
+  ASSERT_EQ(draws.size(), 7u);
+  EXPECT_EQ(draws[1].type, Draw::DrawType::kRectClip);
+  EXPECT_EQ(draws[3].type, Draw::DrawType::kPoints);
+}
+
+TEST(PrPictureTest, ADrawThatFitsPrecedesTheClipALaterDrawBringsDown) {
+  PrPictureBuilder builder;
+
+  builder.ClipRect(Rect::MakeLTRB(0, 0, 100, 100));
+  // Well inside, so at this point the clip is still worth nothing.
+  builder.DrawRect(Rect::MakeLTRB(10, 10, 20, 20),
+                   Fill(flutter::DlColor::kRed()));
+  // Reaches past it, so the clip goes down here -- after a draw that was
+  // already recorded without it. That draw fits inside the clip, so the
+  // mask it never got would not have taken anything from it.
+  builder.DrawRect(Rect::MakeLTRB(50, 50, 300, 300),
+                   Fill(flutter::DlColor::kRed()));
+
+  std::shared_ptr<PrPicture> picture = builder.Build();
+  const std::vector<Draw>& draws = picture->GetDraws();
+
+  ASSERT_EQ(draws.size(), 8u);
+  EXPECT_EQ(draws[0].type, Draw::DrawType::kRect);
+  EXPECT_RECT_NEAR(draws[0].rect, Rect::MakeLTRB(10, 10, 20, 20));
+  EXPECT_EQ(draws[1].type, Draw::DrawType::kScissor);
+  EXPECT_EQ(draws[2].type, Draw::DrawType::kRectClip);
+  EXPECT_EQ(draws[3].type, Draw::DrawType::kClipResolveNonZero);
+  EXPECT_EQ(draws[4].type, Draw::DrawType::kRect);
+  EXPECT_RECT_NEAR(picture->GetBounds()[4], Rect::MakeLTRB(50, 50, 100, 100));
+}
+
+TEST(PrPictureTest, ARoundedClipIsRecordedForADrawFillingItsBounds) {
+  PrPictureBuilder builder;
+
+  builder.ClipOval(Rect::MakeLTRB(0, 0, 100, 100));
+  // Fits the clip's bounds exactly, but the clip is an oval and the
+  // corners of the rect are outside it: only a rect clip would have
+  // nothing to take here.
+  builder.DrawRect(Rect::MakeLTRB(0, 0, 100, 100),
+                   Fill(flutter::DlColor::kRed()));
+
+  std::shared_ptr<PrPicture> picture = builder.Build();
+  ASSERT_EQ(picture->GetDraws().size(), 7u);
+  EXPECT_EQ(picture->GetDraws()[1].type, Draw::DrawType::kRRectClip);
 }
 
 }  // namespace testing

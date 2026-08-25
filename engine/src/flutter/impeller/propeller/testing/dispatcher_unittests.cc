@@ -2778,18 +2778,15 @@ TEST(DispatcherTest, APicturesClipDoesNotReachTheLeafAfterIt) {
   scene_builder.DrawPicture(second.Build(), 1.0f);
   RenderPlan plan = FlattenTheScene(scene_builder.Build(), arena);
 
-  // The first leaf's clip, its draw, then the pop, then the second leaf.
-  // The clip was axis aligned so it never masked anything, which leaves
-  // the pop nothing to put back either.
-  ASSERT_EQ(plan.draws.size(), 5u);
-  EXPECT_EQ(plan.draws[0].scissor, IRect32::MakeLTRB(0, 0, 20, 20));
-  EXPECT_EQ(plan.draws[1].program, ProgramType::kColor);
-  EXPECT_EQ(plan.draws[2].program, ProgramType::kInvalid);
-  EXPECT_EQ(plan.draws[2].scissor, IRect32::MakeLTRB(0, 0, 20, 20));
-  EXPECT_EQ(plan.draws[3].program, ProgramType::kInvalid);
-  EXPECT_EQ(plan.draws[3].scissor, IRect32::MakeLTRB(0, 0, 100, 100))
+  // The first leaf's draw, then the pop, then the second leaf. The draw
+  // reached no further than the clip admitted, so the clip masked
+  // nothing, was never recorded, and left the pop nothing to put back.
+  ASSERT_EQ(plan.draws.size(), 3u);
+  EXPECT_EQ(plan.draws[0].program, ProgramType::kColor);
+  EXPECT_EQ(plan.draws[1].program, ProgramType::kInvalid);
+  EXPECT_EQ(plan.draws[1].scissor, IRect32::MakeLTRB(0, 0, 100, 100))
       << "the pop goes back to the pass, not to what the picture covered";
-  EXPECT_EQ(plan.draws[4].program, ProgramType::kColor);
+  EXPECT_EQ(plan.draws[2].program, ProgramType::kColor);
 }
 
 TEST(DispatcherTest, AClipGroupComesBackReadyWhenNothingChanged) {
